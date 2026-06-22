@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · Vosk 離線評測</title>
+    <title>普通話拼音教學 · Vosk 離線評測 (動態圖適配)</title>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -169,9 +169,8 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== 智能路徑檢測的 Vosk 加載 ===== */
+    /* ===== Vosk 語音評測 (根據模型實際結構自動選擇靜態/動態圖) ===== */
     async function detectModelPath() {
-        // 嘗試多個可能的路徑
         const paths = [
             '/model/',
             './model/',
@@ -186,7 +185,7 @@ function startApp() {
                 }
             } catch(e) {}
         }
-        return '/model/'; // 默認路徑
+        return '/model/';
     }
 
     async function initRecognizer(){
@@ -194,7 +193,38 @@ function startApp() {
         try{
             const modelPath = await detectModelPath();
             console.log('使用模型路徑:', modelPath);
-            const model = await Vosk.createModel(modelPath);
+
+            // 檢查模型採用哪種圖架構
+            let hasHCLG = false;
+            let hasHCLr = false;
+            let hasWords = false;
+            try {
+                const respHCLG = await fetch(modelPath + 'graph/HCLG.fst', { method: 'HEAD' });
+                hasHCLG = respHCLG.ok;
+            } catch(e) {}
+            try {
+                const respHCLr = await fetch(modelPath + 'graph/HCLr.fst', { method: 'HEAD' });
+                hasHCLr = respHCLr.ok;
+            } catch(e) {}
+            try {
+                const respWords = await fetch(modelPath + 'graph/words.txt', { method: 'HEAD' });
+                hasWords = respWords.ok;
+            } catch(e) {}
+
+            let options = {};
+            if (!hasHCLG && hasHCLr && hasWords) {
+                // 使用動態圖
+                console.log('檢測到動態圖模型，啟用 HCLr.fst + words.txt');
+                options = {
+                    graph: 'HCLr.fst',
+                    words: 'words.txt'
+                };
+            } else if (!hasHCLG) {
+                showToast('❌ 模型缺少有效的圖文件 (HCLG.fst 或 HCLr.fst+words.txt)，無法初始化語音引擎。');
+                return false;
+            }
+
+            const model = await Vosk.createModel(modelPath, options);
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
