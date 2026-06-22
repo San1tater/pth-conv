@@ -92,38 +92,37 @@
 <div id="toastContainer"></div>
 
 <script>
-// 动态加载库脚本
+// 动态加载库
 function loadScript(src) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
         script.src = src;
         script.onload = resolve;
-        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        script.onerror = () => reject(new Error(`Failed to load: ${src}`));
         document.head.appendChild(script);
     });
 }
 
 async function bootstrap() {
-    // 显示加载指示器
-    const loadingOverlay = document.createElement('div');
-    loadingOverlay.id = 'loadingOverlay';
-    loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    loadingOverlay.innerHTML = '<div style="text-align:center;font-size:1.2rem;color:#333;">正在加載語音引擎庫...</div>';
-    document.body.appendChild(loadingOverlay);
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loadingOverlay';
+    loadingDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    loadingDiv.innerHTML = '<div style="text-align:center;font-size:1.2rem;color:#333;">正在加載語音引擎庫...</div>';
+    document.body.appendChild(loadingDiv);
 
     try {
-        // 使用最新 CDN 链接加载两个必需库
-        await loadScript('https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/pinyin-pro.min.js');
+        // 使用无版本号路径（或 @latest）确保链接有效
+        await loadScript('https://cdn.jsdelivr.net/npm/pinyin-pro/dist/pinyin-pro.min.js');
         await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
-        document.body.removeChild(loadingOverlay);
-        // 验证全局变量是否存在
+        document.body.removeChild(loadingDiv);
+
         if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') {
-            throw new Error('库已下载但全局变量未定义，可能是版本问题。');
+            throw new Error('库已加载但全局变量未定义');
         }
         startApp();
     } catch (error) {
-        document.body.removeChild(loadingOverlay);
-        alert('語音引擎庫加載失敗，請檢查網絡或稍後重試。\n錯誤信息：' + error.message);
+        document.body.removeChild(loadingDiv);
+        alert('語音引擎庫加載失敗。請檢查網絡或稍後重試。\n' + error.message);
     }
 }
 
