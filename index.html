@@ -176,13 +176,14 @@ function startApp() {
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            const model = await Vosk.createModel('/model/');
+            // 使用绝对路径指向 GitHub Pages 上的模型文件夹
+            const model = await Vosk.createModel('https://san1tater.github.io/pth-conv/model/');
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
             showToast('✅ 離線語音引擎就緒');
             return true;
-        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾');return false;}
+        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾完整');return false;}
     }
     async function requestMic(){
         try{
