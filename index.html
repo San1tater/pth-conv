@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · Vosk 離線語音評測</title>
+    <title>普通話拼音教學 · Vosk 離線評測</title>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -91,11 +91,18 @@
 </div>
 <div id="toastContainer"></div>
 
-<script type="module">
-    // 使用 ES 模塊導入 Vosk 與 pinyin-pro
-    import Vosk from 'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.7/dist/vosk-browser.esm.js';
-    import { pinyin } from 'https://cdn.jsdelivr.net/npm/pinyin-pro@3.25.0/dist/index.esm.js';
+<!-- 使用传统脚本标签加载 Vosk 浏览器库 (UMD) -->
+<script src="https://cdn.jsdelivr.net/npm/vosk-browser@0.0.7/dist/vosk-browser.js"></script>
+<!-- 加载 pinyin-pro 库 (UMD) -->
+<script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.25.0/dist/index.js"></script>
 
+<script>
+(function(){
+    // 确认全局对象存在
+    if (typeof Vosk === 'undefined') {
+        alert('Vosk 庫加載失敗，請檢查網絡或 CDN。');
+        return;
+    }
     const AppState={currentView:'menu',currentThemeId:null,editThemeId:null};
     const STORAGE_KEY='pinyin_teaching_vosk';
     function getDefaultThemes(){return [{id:'1',title:'日常問候',characterName:'小明',dialogues:[{teacherMessage:'你好！歡迎來到普通話課堂。請用拼音回覆「你好」。',targetPinyin:'ni3 hao3',targetChinese:'你好',hint:'',openQuestion:'你還能用其他方式打招呼嗎？',openKeywords:'您好,嗨,早上好'},{teacherMessage:'很好！你叫什麼名字？請用拼音回覆「我叫小明」。',targetPinyin:'wo3 jiao4 xiao3 ming2',targetChinese:'我叫小明',hint:'',openQuestion:'你的名字是？',openKeywords:'我係,我叫'},{teacherMessage:'認識你很高興！你是哪裡人？',targetPinyin:'wo3 shi4 zhong1 guo2 ren2',targetChinese:'我是中國人',hint:''},{teacherMessage:'太棒了！你喜歡吃什麼？',targetPinyin:'wo3 xi3 huan1 chi1 jiao3 zi5',targetChinese:'我喜歡吃餃子',hint:'',openQuestion:'你還喜歡吃什麼？',openKeywords:'麵,飯,水果,蔬菜'},{teacherMessage:'餃子確實很好吃！今天的練習就到這裡。',targetPinyin:'xie4 xie5 lao3 shi1',targetChinese:'謝謝老師',hint:''}]},{id:'2',title:'自我介紹',characterName:'小華',dialogues:[{teacherMessage:'你好！請用拼音介紹你的名字。',targetPinyin:'wo3 jiao4 xiao3 hua2',targetChinese:'我叫小華',hint:'',openQuestion:'告訴我你的全名。',openKeywords:'我係,全名'},{teacherMessage:'你今年幾歲？',targetPinyin:'wo3 jin1 nian2 shi2 sui4',targetChinese:'我今年十歲',hint:''}]}]}
@@ -219,7 +226,7 @@
     }
     function evaluatePinyin(text){
         if(!currentEvalTarget)return;
-        const recognizedPinyin = pinyin(text,{toneType:'num',type:'array'}).join(' ');
+        const recognizedPinyin = pinyinPro.pinyin(text,{toneType:'num',type:'array'}).join(' ');
         const target = currentEvalTarget.pinyin.trim();
         let stars=0,msg='',detail='';
         if(currentMode==='standard'){
@@ -245,6 +252,7 @@
     function renderTeacherEdit(){const themeId=AppState.editThemeId;const theme=themeId?loadThemes().find(t=>t.id===themeId):null;headerName.textContent=theme?'編輯主題':'新建主題';const title=theme?theme.title:'',charName=theme?theme.characterName:'';const dialogues=theme?theme.dialogues:[{teacherMessage:'',targetPinyin:'',targetChinese:'',hint:'',openQuestion:'',openKeywords:''}];let h=`<div class="page-container"><div class="plain-list"><label>主題名稱：<input type="text" id="editTitle" value="${esc(title)}" style="width:100%;padding:6px;"></label><label>角色名稱：<input type="text" id="editCharName" value="${esc(charName)}" style="width:100%;padding:6px;"></label><h3>對話輪次</h3><div id="dialoguesContainer">`;dialogues.forEach((d,i)=>{h+=`<div class="dialogue-item" style="background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;"><strong>第${i+1}輪</strong><label>老師訊息：<input type="text" class="teacherMsg" value="${esc(d.teacherMessage)}" style="width:100%;"></label><label>目標拼音：<input type="text" class="targetPinyin" value="${esc(d.targetPinyin)}" style="width:100%;"></label><label>目標漢字：<input type="text" class="targetChinese" value="${esc(d.targetChinese)}" style="width:100%;"></label><label>提示：<input type="text" class="hintText" value="${esc(d.hint||'')}" style="width:100%;" readonly></label><label>開放問題(可選)：<input type="text" class="openQuestion" value="${esc(d.openQuestion||'')}" style="width:100%;"></label><label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" value="${esc(d.openKeywords||'')}" style="width:100%;"></label><button class="btn-danger remove-dialogue">刪除此輪</button></div>`});h+=`</div><button class="btn-primary" id="btnAddDialogue">＋ 添加一輪</button><div style="margin-top:16px;"><button class="btn-primary" id="btnSaveTheme">💾 儲存主題</button></div></div></div>`;dynamicContent.innerHTML=h;function autoHint(div){const p=div.querySelector('.targetPinyin'),c=div.querySelector('.targetChinese'),hint=div.querySelector('.hintText');function up(){if(p.value.trim()&&c.value.trim())hint.value=`請拼寫：${buildDisplayFromNum(p.value.trim())}（${c.value.trim()}）`;else hint.value=''}p.addEventListener('input',up);c.addEventListener('input',up);up()}function autoKeywords(div){const qInput=div.querySelector('.openQuestion');const kwInput=div.querySelector('.openKeywords');function gen(){const q=qInput.value.trim();if(!q){kwInput.value='';return}const words=q.replace(/[?？，,。！!]/g,'').split(/\s+/).filter(w=>w.length>0);const stop=new Set(['的','了','嗎','呢','吧','啊','呀','哪','什麼','怎麼','可以','還有','其他','方式','用','是','我','你','他','她','它','們','這','那','請','告訴','說','一下']);let kw=words.filter(w=>!stop.has(w)&&w.length>1);kw=[...new Set(kw)].slice(0,5);kwInput.value=kw.join(',')}qInput.addEventListener('input',gen);gen()}document.querySelectorAll('.dialogue-item').forEach(d=>{autoHint(d);autoKeywords(d)});document.getElementById('btnAddDialogue').addEventListener('click',()=>{const cont=document.getElementById('dialoguesContainer');const idx=cont.children.length+1;const div=document.createElement('div');div.className='dialogue-item';div.style='background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;';div.innerHTML=`<strong>第${idx}輪</strong><label>老師訊息：<input type="text" class="teacherMsg" style="width:100%;"></label><label>目標拼音：<input type="text" class="targetPinyin" style="width:100%;"></label><label>目標漢字：<input type="text" class="targetChinese" style="width:100%;"></label><label>提示：<input type="text" class="hintText" style="width:100%;" readonly></label><label>開放問題(可選)：<input type="text" class="openQuestion" style="width:100%;"></label><label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" style="width:100%;"></label><button class="btn-danger remove-dialogue">刪除此輪</button>`;cont.appendChild(div);autoHint(div);autoKeywords(div);div.querySelector('.remove-dialogue').addEventListener('click',()=>div.remove())});document.querySelectorAll('.remove-dialogue').forEach(b=>b.addEventListener('click',function(){this.parentElement.remove()}));document.getElementById('btnSaveTheme').addEventListener('click',()=>{const ttl=document.getElementById('editTitle').value.trim(),chn=document.getElementById('editCharName').value.trim();if(!ttl||!chn){showToast('請填寫主題名稱和角色');return}const items=document.querySelectorAll('.dialogue-item');const dialogues=[];items.forEach(it=>{const tm=it.querySelector('.teacherMsg').value.trim(),tp=it.querySelector('.targetPinyin').value.trim(),tc=it.querySelector('.targetChinese').value.trim(),th=it.querySelector('.hintText').value.trim(),oq=it.querySelector('.openQuestion').value.trim(),ok=it.querySelector('.openKeywords').value.trim();if(tm&&tp&&tc)dialogues.push({teacherMessage:tm,targetPinyin:tp,targetChinese:tc,hint:th,openQuestion:oq,openKeywords:ok})});if(!dialogues.length){showToast('至少需要一輪對話');return}let themes=loadThemes();if(themeId){const idx=themes.findIndex(t=>t.id===themeId);if(idx>=0)themes[idx]={id:themeId,title:ttl,characterName:chn,dialogues}}else themes.push({id:Date.now().toString(),title:ttl,characterName:chn,dialogues});saveThemes(themes);showToast('✅ 主題已儲存');goTo('teacher-dashboard')})}
 
     renderView();
+})();
 </script>
 </body>
 </html>
