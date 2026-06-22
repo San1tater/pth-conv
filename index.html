@@ -111,8 +111,9 @@ async function bootstrap() {
     document.body.appendChild(loadingDiv);
 
     try {
-        // 使用无版本号路径（或 @latest）确保链接有效
-        await loadScript('https://cdn.jsdelivr.net/npm/pinyin-pro/dist/pinyin-pro.min.js');
+        // 先加载 pinyin-pro（使用 unpkg 稳定链接）
+        await loadScript('https://unpkg.com/pinyin-pro');
+        // 再加载 vosk-browser
         await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
         document.body.removeChild(loadingDiv);
 
