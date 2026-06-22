@@ -111,9 +111,7 @@ async function bootstrap() {
     document.body.appendChild(loadingDiv);
 
     try {
-        // 先加载 pinyin-pro（使用 unpkg 稳定链接）
         await loadScript('https://unpkg.com/pinyin-pro');
-        // 再加载 vosk-browser
         await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
         document.body.removeChild(loadingDiv);
 
@@ -172,18 +170,40 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== Vosk 語音評測 ===== */
+    /* ===== Vosk 語音評測 (自動適配 HCLr.fst) ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            // 使用绝对路径指向 GitHub Pages 上的模型文件夹
-            const model = await Vosk.createModel('https://san1tater.github.io/pth-conv/model/');
+            // 確保模型圖文件存在：優先檢查 HCLG.fst，若無則使用 HCLr.fst 並寫入虛擬 FS
+            const graphBase = '/model/graph/';
+            const hclgPath = graphBase + 'HCLG.fst';
+            const hclrPath = graphBase + 'HCLr.fst';
+            let hclgExists = false;
+            try {
+                const resp = await fetch(hclgPath, { method: 'HEAD' });
+                hclgExists = resp.ok;
+            } catch(e) {}
+
+            if (!hclgExists && typeof FS !== 'undefined') {
+                try {
+                    const resp = await fetch(hclrPath);
+                    if (resp.ok) {
+                        const buffer = await resp.arrayBuffer();
+                        FS.writeFile(hclgPath, new Uint8Array(buffer));
+                        console.log('已自動將 HCLr.fst 複製為 HCLG.fst (虛擬文件系統)');
+                    }
+                } catch(e) {
+                    console.warn('無法載入 HCLr.fst', e);
+                }
+            }
+
+            const model = await Vosk.createModel('/model/');
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
             showToast('✅ 離線語音引擎就緒');
             return true;
-        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾完整');return false;}
+        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾');return false;}
     }
     async function requestMic(){
         try{
