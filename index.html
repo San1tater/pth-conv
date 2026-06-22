@@ -92,7 +92,6 @@
 <div id="toastContainer"></div>
 
 <script>
-// 动态加载库
 function loadScript(src) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -170,18 +169,42 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== Vosk 語音評測 (已修正，無多餘請求) ===== */
+    /* ===== 智能路徑檢測的 Vosk 加載 ===== */
+    async function detectModelPath() {
+        // 嘗試多個可能的路徑
+        const paths = [
+            '/model/',
+            './model/',
+            window.location.pathname.replace(/\/[^/]*$/, '/model/')
+        ];
+        for (const path of paths) {
+            try {
+                const resp = await fetch(path + 'am/final.mdl', { method: 'HEAD' });
+                if (resp.ok) {
+                    console.log('找到模型路徑:', path);
+                    return path;
+                }
+            } catch(e) {}
+        }
+        return '/model/'; // 默認路徑
+    }
+
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            // 直接加載模型，Vosk 會自動讀取 model 目錄下正確的檔案 (am/final.mdl, conf/mfcc.conf, graph/HCLr.fst, graph/Gr.fst)
-            const model = await Vosk.createModel('/model/');
+            const modelPath = await detectModelPath();
+            console.log('使用模型路徑:', modelPath);
+            const model = await Vosk.createModel(modelPath);
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
             showToast('✅ 離線語音引擎就緒');
             return true;
-        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾');return false;}
+        }catch(e){
+            console.error('模型載入錯誤:', e);
+            showToast('⚠️ 模型載入失敗，請確認 model/ 資料夾已正確上傳。錯誤: ' + e.message);
+            return false;
+        }
     }
     async function requestMic(){
         try{
