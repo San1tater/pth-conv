@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · Vosk 離線評測 (動態圖適配)</title>
+    <title>普通話拼音教學 · Vosk 離線評測</title>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -169,62 +169,34 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== Vosk 語音評測 (根據模型實際結構自動選擇靜態/動態圖) ===== */
-    async function detectModelPath() {
-        const paths = [
-            '/model/',
-            './model/',
-            window.location.pathname.replace(/\/[^/]*$/, '/model/')
-        ];
-        for (const path of paths) {
-            try {
-                const resp = await fetch(path + 'am/final.mdl', { method: 'HEAD' });
-                if (resp.ok) {
-                    console.log('找到模型路徑:', path);
-                    return path;
-                }
-            } catch(e) {}
-        }
-        return '/model/';
-    }
-
+    /* ===== Vosk 語音評測 (精簡版：適配動態圖模型) ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            const modelPath = await detectModelPath();
+            const modelPath = './model/'; // 相對於當前頁面的路徑
             console.log('使用模型路徑:', modelPath);
 
-            // 檢查模型採用哪種圖架構
-            let hasHCLG = false;
-            let hasHCLr = false;
-            let hasWords = false;
-            try {
-                const respHCLG = await fetch(modelPath + 'graph/HCLG.fst', { method: 'HEAD' });
-                hasHCLG = respHCLG.ok;
-            } catch(e) {}
-            try {
-                const respHCLr = await fetch(modelPath + 'graph/HCLr.fst', { method: 'HEAD' });
-                hasHCLr = respHCLr.ok;
-            } catch(e) {}
-            try {
-                const respWords = await fetch(modelPath + 'graph/words.txt', { method: 'HEAD' });
-                hasWords = respWords.ok;
-            } catch(e) {}
-
-            let options = {};
-            if (!hasHCLG && hasHCLr && hasWords) {
-                // 使用動態圖
-                console.log('檢測到動態圖模型，啟用 HCLr.fst + words.txt');
-                options = {
-                    graph: 'HCLr.fst',
-                    words: 'words.txt'
-                };
-            } else if (!hasHCLG) {
-                showToast('❌ 模型缺少有效的圖文件 (HCLG.fst 或 HCLr.fst+words.txt)，無法初始化語音引擎。');
+            // 檢查 am/final.mdl (必須)
+            let resp = await fetch(modelPath + 'am/final.mdl', { method: 'HEAD' });
+            if (!resp.ok) {
+                showToast('❌ 找不到模型文件 am/final.mdl，請確認 model/ 文件夾已上傳至倉庫根目錄。');
                 return false;
             }
 
-            const model = await Vosk.createModel(modelPath, options);
+            // 檢查動態圖所需文件：HCLr.fst 和 Gr.fst
+            let hasHCLr = false, hasGr = false;
+            try { const r = await fetch(modelPath + 'graph/HCLr.fst', { method: 'HEAD' }); hasHCLr = r.ok; } catch(e) {}
+            try { const r = await fetch(modelPath + 'graph/Gr.fst', { method: 'HEAD' }); hasGr = r.ok; } catch(e) {}
+
+            if (!hasHCLr || !hasGr) {
+                showToast('❌ 模型文件不完整，需要 graph/HCLr.fst 和 graph/Gr.fst');
+                return false;
+            }
+
+            // 使用動態圖配置
+            const model = await Vosk.createModel(modelPath, {
+                graph: 'HCLr.fst'   // 指定使用 HCLr.fst，Vosk 會自動加載 Gr.fst
+            });
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
@@ -232,7 +204,7 @@ function startApp() {
             return true;
         }catch(e){
             console.error('模型載入錯誤:', e);
-            showToast('⚠️ 模型載入失敗，請確認 model/ 資料夾已正確上傳。錯誤: ' + e.message);
+            showToast('⚠️ 模型載入失敗：' + e.message);
             return false;
         }
     }
