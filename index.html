@@ -111,9 +111,8 @@ async function bootstrap() {
     document.body.appendChild(loadingDiv);
 
     try {
-        // 使用最新的 vosk-browser (0.0.10 支持动态图模型)
-        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.10/dist/vosk.min.js');
         await loadScript('https://unpkg.com/pinyin-pro');
+        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
         document.body.removeChild(loadingDiv);
 
         if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') {
@@ -171,10 +170,11 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== Vosk 語音評測 (直接加載模型，無需修補) ===== */
+    /* ===== Vosk 語音評測 (已修正，無多餘請求) ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
+            // 直接加載模型，Vosk 會自動讀取 model 目錄下正確的檔案 (am/final.mdl, conf/mfcc.conf, graph/HCLr.fst, graph/Gr.fst)
             const model = await Vosk.createModel('/model/');
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
