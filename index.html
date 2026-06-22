@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · Vosk 離線評測</title>
+    <title>普通話拼音教學 · 直接拼音識別</title>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -91,46 +91,18 @@
 </div>
 <div id="toastContainer"></div>
 
-<script>
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = () => reject(new Error(`Failed to load: ${src}`));
-        document.head.appendChild(script);
-    });
-}
+<script type="module">
+    import { OnlineRecognizer } from 'https://cdn.jsdelivr.net/npm/sherpa-onnx@1.10.30/wasm/sherpa-onnx-wasm-main-asr.js';
 
-async function bootstrap() {
-    const loadingDiv = document.createElement('div');
-    loadingDiv.id = 'loadingOverlay';
-    loadingDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    loadingDiv.innerHTML = '<div style="text-align:center;font-size:1.2rem;color:#333;">正在加載語音引擎庫...</div>';
-    document.body.appendChild(loadingDiv);
-
-    try {
-        await loadScript('https://unpkg.com/pinyin-pro');
-        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
-        document.body.removeChild(loadingDiv);
-
-        if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') {
-            throw new Error('库已加载但全局变量未定义');
-        }
-        startApp();
-    } catch (error) {
-        document.body.removeChild(loadingDiv);
-        alert('語音引擎庫加載失敗。請檢查網絡或稍後重試。\n' + error.message);
-    }
-}
-
-function startApp() {
     const AppState={currentView:'menu',currentThemeId:null,editThemeId:null};
-    const STORAGE_KEY='pinyin_teaching_vosk';
+    const STORAGE_KEY='pinyin_teaching_final';
     function getDefaultThemes(){return [{id:'1',title:'日常問候',characterName:'小明',dialogues:[{teacherMessage:'你好！歡迎來到普通話課堂。請用拼音回覆「你好」。',targetPinyin:'ni3 hao3',targetChinese:'你好',hint:'',openQuestion:'你還能用其他方式打招呼嗎？',openKeywords:'您好,嗨,早上好'},{teacherMessage:'很好！你叫什麼名字？請用拼音回覆「我叫小明」。',targetPinyin:'wo3 jiao4 xiao3 ming2',targetChinese:'我叫小明',hint:'',openQuestion:'你的名字是？',openKeywords:'我係,我叫'},{teacherMessage:'認識你很高興！你是哪裡人？',targetPinyin:'wo3 shi4 zhong1 guo2 ren2',targetChinese:'我是中國人',hint:''},{teacherMessage:'太棒了！你喜歡吃什麼？',targetPinyin:'wo3 xi3 huan1 chi1 jiao3 zi5',targetChinese:'我喜歡吃餃子',hint:'',openQuestion:'你還喜歡吃什麼？',openKeywords:'麵,飯,水果,蔬菜'},{teacherMessage:'餃子確實很好吃！今天的練習就到這裡。',targetPinyin:'xie4 xie5 lao3 shi1',targetChinese:'謝謝老師',hint:''}]},{id:'2',title:'自我介紹',characterName:'小華',dialogues:[{teacherMessage:'你好！請用拼音介紹你的名字。',targetPinyin:'wo3 jiao4 xiao3 hua2',targetChinese:'我叫小華',hint:'',openQuestion:'告訴我你的全名。',openKeywords:'我係,全名'},{teacherMessage:'你今年幾歲？',targetPinyin:'wo3 jin1 nian2 shi2 sui4',targetChinese:'我今年十歲',hint:''}]}]}
     function loadThemes(){const s=localStorage.getItem(STORAGE_KEY);if(s)try{return JSON.parse(s)}catch(e){}return getDefaultThemes()}
     function saveThemes(t){localStorage.setItem(STORAGE_KEY,JSON.stringify(t))}
-    let themes=loadThemes(),currentDialogueIndex=0,confirmedSyllables=[],selectedInitial=null,selectedFinal=null,selectedTone=null,inputOrder=0,isCourseComplete=false,recognizer=null,audioContext=null,mediaStream=null,isRecording=false,currentEvalTarget=null,micPermissionGranted=false,currentMode='standard';
+
+    let themes=loadThemes(),currentDialogueIndex=0,confirmedSyllables=[],selectedInitial=null,selectedFinal=null,selectedTone=null,inputOrder=0,isCourseComplete=false;
+    let recognizer=null,audioContext=null,mediaStream=null,isRecording=false,currentEvalTarget=null,micPermissionGranted=false,currentMode='standard';
+
     const dynamicContent=document.getElementById('dynamicContent'),headerName=document.getElementById('headerName'),headerSub=document.getElementById('headerSub'),btnBack=document.getElementById('btnBack'),btnReset=document.getElementById('btnReset'),toastContainer=document.getElementById('toastContainer');
     function showToast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;toastContainer.appendChild(t);setTimeout(()=>{if(t.parentNode)t.remove()},2200)}
     function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
@@ -169,50 +141,33 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== 適配「僅含 phones/ 文件夾」的 Vosk 模型 ===== */
+    /* ===== sherpa-onnx 拼音直接識別 ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
             const modelPath = './model/';
-            console.log('使用模型路徑:', modelPath);
-
-            // 檢查基本文件
-            let resp = await fetch(modelPath + 'am/final.mdl', { method: 'HEAD' });
-            if (!resp.ok) {
-                showToast('❌ 找不到 am/final.mdl');
-                return false;
-            }
-            // 檢查 graph/HCLr.fst
-            resp = await fetch(modelPath + 'graph/HCLr.fst', { method: 'HEAD' });
-            if (!resp.ok) {
-                showToast('❌ 找不到 graph/HCLr.fst');
-                return false;
-            }
-
-            // 嘗試加載模型 (不傳遞任何特殊選項，讓 Vosk 自動適應)
-            let model;
-            try {
-                model = await Vosk.createModel(modelPath);
-            } catch (firstError) {
-                console.warn('默認加載失敗，嘗試禁用 words/phones 檔案:', firstError);
-                // 若失敗，則手動指定不使用 words.txt 和 phones.txt
-                model = await Vosk.createModel(modelPath, {
-                    words: false,
-                    phones: false
-                });
-            }
-
-            recognizer = new Vosk.Recognizer(model, 16000.0);
-            recognizer.setWords(true);
-            recognizer.setPartialResults(false);
-            showToast('✅ 離線語音引擎就緒');
+            recognizer = new OnlineRecognizer({
+                encoder: modelPath + 'encoder.onnx',
+                decoder: modelPath + 'decoder.onnx',
+                joiner: modelPath + 'joiner.onnx',
+                tokens: modelPath + 'tokens.txt',
+                lexicon: modelPath + 'lexicon.txt', // 該詞典會將 token 序列轉換為拼音字符串
+                modelType: 'conformer',
+                decodingMethod: 'greedy_search',
+                enableEndpoint: 1,
+                rule1MinTrailingSilence: 2.4,
+                rule2MinTrailingSilence: 1.2,
+                rule3MinUtteranceLength: 20.0,
+            });
+            showToast('✅ 拼音識別引擎就緒');
             return true;
         }catch(e){
-            console.error('模型載入錯誤:', e);
-            showToast('⚠️ 模型載入失敗。' + e.message);
+            console.error(e);
+            showToast('⚠️ 模型載入失敗，請確認 model/ 中的五個文件均已正確放置。');
             return false;
         }
     }
+
     async function requestMic(){
         try{
             mediaStream = await navigator.mediaDevices.getUserMedia({audio:{sampleRate:16000}});
@@ -220,34 +175,37 @@ function startApp() {
         }catch(e){micPermissionGranted=false;}
         return micPermissionGranted;
     }
+
     function openEvalModal(pinyinNum,chinese,openQ,openKw){
         currentEvalTarget={pinyin:pinyinNum,chinese,openQ,openKw};
         const modal=document.createElement('div');modal.className='modal-overlay';modal.id='evalModal';
-        modal.innerHTML=`<div class="modal-dialog"><h3>🎤 朗讀評測</h3><div style="font-size:1.2rem;margin-bottom:8px;">${esc(chinese)} (${buildDisplayFromNum(pinyinNum)})</div><div style="display:flex;gap:12px;justify-content:center;margin-bottom:12px;"><button class="btn-outline" id="btnStandard">朗讀指定回覆</button>${openQ?`<button class="btn-outline" id="btnOpen">自由回答</button>`:''}</div><div id="evalQuestion" style="display:none;margin-bottom:10px;color:#555;">${openQ?esc(openQ):''}</div><button class="btn-mic" id="btnMic" style="display:none;">🎙️</button><div id="evalResult" style="margin:12px 0;">請選擇模式後點擊麥克風</div><div id="evalStars" style="font-size:2rem;"></div><div id="evalDetail" style="font-size:0.8rem;color:#666;"></div><button class="btn-close" id="btnCloseEval">關閉</button></div>`;
+        modal.innerHTML=`<div class="modal-dialog"><h3>🎤 拼音朗讀評測</h3><div style="font-size:1.2rem;margin-bottom:8px;">${esc(chinese)} (${buildDisplayFromNum(pinyinNum)})</div><div style="display:flex;gap:12px;justify-content:center;margin-bottom:12px;"><button class="btn-outline" id="btnStandard">朗讀指定拼音</button>${openQ?`<button class="btn-outline" id="btnOpen">自由回答 (拼音)</button>`:''}</div><div id="evalQuestion" style="display:none;margin-bottom:10px;color:#555;">${openQ?esc(openQ):''}</div><button class="btn-mic" id="btnMic" style="display:none;">🎙️</button><div id="evalResult" style="margin:12px 0;">請選擇模式後點擊麥克風</div><div id="evalStars" style="font-size:2rem;"></div><div id="evalDetail" style="font-size:0.8rem;color:#666;"></div><button class="btn-close" id="btnCloseEval">關閉</button></div>`;
         document.body.appendChild(modal);
         document.getElementById('btnStandard').addEventListener('click', async ()=>{
             document.getElementById('evalQuestion').style.display='none';
             document.getElementById('btnMic').style.display='flex';
             const ready=await initRecognizer();
-            if(!ready)document.getElementById('evalResult').textContent='語音引擎未就緒';
-            else{currentMode='standard';document.getElementById('evalResult').textContent='請朗讀指定回覆';}
+            if(!ready)document.getElementById('evalResult').textContent='引擎未就緒';
+            else{currentMode='standard';document.getElementById('evalResult').textContent='請朗讀指定拼音';}
         });
         if(openQ)document.getElementById('btnOpen').addEventListener('click', async ()=>{
             document.getElementById('evalQuestion').style.display='block';
             document.getElementById('btnMic').style.display='flex';
             const ready=await initRecognizer();
-            if(!ready)document.getElementById('evalResult').textContent='語音引擎未就緒';
-            else{currentMode='open';document.getElementById('evalResult').textContent='請自由回答';}
+            if(!ready)document.getElementById('evalResult').textContent='引擎未就緒';
+            else{currentMode='open';document.getElementById('evalResult').textContent='請自由回答（普通話）';}
         });
         document.getElementById('btnMic').addEventListener('click',()=>{if(isRecording)stopRecording();else startRecording();});
         document.getElementById('btnCloseEval').addEventListener('click',closeEvalModal);
         modal.addEventListener('click',e=>{if(e.target===modal)closeEvalModal()});
     }
+
     function closeEvalModal(){
         if(isRecording)stopRecording();
         document.getElementById('evalModal')?.remove();
         currentEvalTarget=null;
     }
+
     async function startRecording(){
         if(!recognizer){const ok=await initRecognizer();if(!ok)return;}
         if(!mediaStream){const g=await requestMic();if(!g)return;}
@@ -258,11 +216,12 @@ function startApp() {
             processor.onaudioprocess = (e) => {
                 if(!isRecording||!recognizer)return;
                 const input = e.inputBuffer.getChannelData(0);
-                recognizer.acceptWaveform(input);
-                const res = recognizer.result();
-                if(res&&res.text){
-                    clearTimeout(window._vtimer);
-                    window._vtimer = setTimeout(()=>evaluatePinyin(res.text),400);
+                recognizer.acceptWaveform(16000, input);
+                while(recognizer.isReady()) recognizer.decode();
+                const result = recognizer.getResult();
+                if(result && result.text){
+                    clearTimeout(window._pinyinTimer);
+                    window._pinyinTimer = setTimeout(() => evaluatePinyin(result.text), 300);
                 }
             };
             source.connect(processor);processor.connect(audioContext.destination);
@@ -272,43 +231,48 @@ function startApp() {
             document.getElementById('evalResult').textContent='🎤 正在聆聽...';
         }catch(e){console.error(e);}
     }
+
     function stopRecording(){
         if(audioContext){audioContext.close();audioContext=null;}
         isRecording=false;
         const mic=document.getElementById('btnMic');if(mic){mic.textContent='🎙️';mic.classList.remove('recording');}
         if(recognizer)recognizer.reset();
     }
-    function evaluatePinyin(text){
+
+    function evaluatePinyin(recognizedPinyin){
         if(!currentEvalTarget)return;
-        const recognizedPinyin = pinyinPro.pinyin(text,{toneType:'num',type:'array'}).join(' ');
         const target = currentEvalTarget.pinyin.trim();
         let stars=0,msg='',detail='';
         if(currentMode==='standard'){
-            const sim=similarity(recognizedPinyin,target);
-            if(sim>=0.9){stars=5;msg='🏆 拼音完美！';}else if(sim>=0.7){stars=4;msg='👍 拼音大致正確';}else if(sim>=0.5){stars=3;msg='📝 部分音節有誤';}else{stars=1;msg='📢 請再試一次';}
+            const sim=similarity(recognizedPinyin.trim(), target);
+            if(sim>=0.9){stars=5;msg='🏆 拼音完全正確！';}
+            else if(sim>=0.7){stars=4;msg='👍 拼音大致正確';}
+            else if(sim>=0.5){stars=3;msg='📝 部分音節有誤';}
+            else{stars=1;msg='📢 請再試一次';}
             detail=`目標：${target}  你的發音：${recognizedPinyin}`;
         }else{
             const kw=currentEvalTarget.openKw.split(',').map(s=>s.trim());
-            const matched=kw.filter(k=>text.includes(k));
+            const matched=kw.filter(k=>recognizedPinyin.includes(k));
             const rate=kw.length?matched.length/kw.length:0;
-            if(rate>=0.8){stars=5;msg='🏆 內容完全符合！';}else if(rate>=0.5){stars=4;msg='👍 大部分關鍵詞命中';}else if(rate>=0.3){stars=3;msg='📝 部分關鍵詞命中';}else{stars=1;msg='📢 未命中關鍵詞';}
+            if(rate>=0.8){stars=5;msg='🏆 關鍵詞全部命中！';}
+            else if(rate>=0.5){stars=4;msg='👍 大部分關鍵詞命中';}
+            else if(rate>=0.3){stars=3;msg='📝 部分關鍵詞命中';}
+            else{stars=1;msg='📢 未命中關鍵詞';}
             detail=`關鍵詞：${kw.join('、')}  命中：${matched.join('、')||'無'}`;
         }
         document.getElementById('evalResult').textContent=msg;
         document.getElementById('evalStars').textContent=['','⭐','⭐⭐','⭐⭐⭐','⭐⭐⭐⭐','🌟🌟🌟🌟🌟'][stars];
         document.getElementById('evalDetail').textContent=detail;
     }
+
     function similarity(s1,s2){let l=s1,sh=s2;if(s1.length<s2.length){l=s2;sh=s1}if(l.length===0)return 1;return (l.length-editDistance(l,sh))/parseFloat(l.length);}
     function editDistance(s1,s2){s1=s1.toLowerCase();s2=s2.toLowerCase();const costs=[];for(let i=0;i<=s1.length;i++){let last=i;for(let j=0;j<=s2.length;j++){if(i===0)costs[j]=j;else if(j>0){let n=costs[j-1];if(s1.charAt(i-1)!==s2.charAt(j-1))n=Math.min(n,Math.min(last,costs[j]))+1;costs[j-1]=last;last=n}}if(i>0)costs[s2.length]=last}return costs[s2.length];}
 
-    /* ===== 老師管理 ===== */
+    /* ===== 老師管理（保持原樣） ===== */
     function renderTeacherDashboard(){headerName.textContent='老師管理';headerSub.textContent='編輯對話主題';const td=loadThemes();let h=`<div class="page-container"><div class="plain-list"><div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;"><h2>📋 對話主題</h2><button class="btn-primary" id="btnNewTheme">＋ 新建主題</button></div>`;td.forEach(t=>{h+=`<div class="plain-item"><div><strong>${esc(t.title)}</strong><br><small>角色：${esc(t.characterName)} | ${t.dialogues.length} 輪</small></div><div><button class="btn-outline edit-theme" data-id="${t.id}">編輯</button><button class="btn-danger delete-theme" data-id="${t.id}">刪除</button></div></div>`});h+=`</div></div>`;dynamicContent.innerHTML=h;document.getElementById('btnNewTheme').addEventListener('click',()=>goTo('teacher-edit',{themeId:null}));document.querySelectorAll('.edit-theme').forEach(b=>b.addEventListener('click',()=>goTo('teacher-edit',{themeId:b.dataset.id})));document.querySelectorAll('.delete-theme').forEach(b=>b.addEventListener('click',()=>{if(confirm('確定刪除？')){let t=loadThemes();t=t.filter(x=>x.id!==b.dataset.id);saveThemes(t);renderTeacherDashboard()}}))}
     function renderTeacherEdit(){const themeId=AppState.editThemeId;const theme=themeId?loadThemes().find(t=>t.id===themeId):null;headerName.textContent=theme?'編輯主題':'新建主題';const title=theme?theme.title:'',charName=theme?theme.characterName:'';const dialogues=theme?theme.dialogues:[{teacherMessage:'',targetPinyin:'',targetChinese:'',hint:'',openQuestion:'',openKeywords:''}];let h=`<div class="page-container"><div class="plain-list"><label>主題名稱：<input type="text" id="editTitle" value="${esc(title)}" style="width:100%;padding:6px;"></label><label>角色名稱：<input type="text" id="editCharName" value="${esc(charName)}" style="width:100%;padding:6px;"></label><h3>對話輪次</h3><div id="dialoguesContainer">`;dialogues.forEach((d,i)=>{h+=`<div class="dialogue-item" style="background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;"><strong>第${i+1}輪</strong><label>老師訊息：<input type="text" class="teacherMsg" value="${esc(d.teacherMessage)}" style="width:100%;"></label><label>目標拼音：<input type="text" class="targetPinyin" value="${esc(d.targetPinyin)}" style="width:100%;"></label><label>目標漢字：<input type="text" class="targetChinese" value="${esc(d.targetChinese)}" style="width:100%;"></label><label>提示：<input type="text" class="hintText" value="${esc(d.hint||'')}" style="width:100%;" readonly></label><label>開放問題(可選)：<input type="text" class="openQuestion" value="${esc(d.openQuestion||'')}" style="width:100%;"></label><label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" value="${esc(d.openKeywords||'')}" style="width:100%;"></label><button class="btn-danger remove-dialogue">刪除此輪</button></div>`});h+=`</div><button class="btn-primary" id="btnAddDialogue">＋ 添加一輪</button><div style="margin-top:16px;"><button class="btn-primary" id="btnSaveTheme">💾 儲存主題</button></div></div></div>`;dynamicContent.innerHTML=h;function autoHint(div){const p=div.querySelector('.targetPinyin'),c=div.querySelector('.targetChinese'),hint=div.querySelector('.hintText');function up(){if(p.value.trim()&&c.value.trim())hint.value=`請拼寫：${buildDisplayFromNum(p.value.trim())}（${c.value.trim()}）`;else hint.value=''}p.addEventListener('input',up);c.addEventListener('input',up);up()}function autoKeywords(div){const qInput=div.querySelector('.openQuestion');const kwInput=div.querySelector('.openKeywords');function gen(){const q=qInput.value.trim();if(!q){kwInput.value='';return}const words=q.replace(/[?？，,。！!]/g,'').split(/\s+/).filter(w=>w.length>0);const stop=new Set(['的','了','嗎','呢','吧','啊','呀','哪','什麼','怎麼','可以','還有','其他','方式','用','是','我','你','他','她','它','們','這','那','請','告訴','說','一下']);let kw=words.filter(w=>!stop.has(w)&&w.length>1);kw=[...new Set(kw)].slice(0,5);kwInput.value=kw.join(',')}qInput.addEventListener('input',gen);gen()}document.querySelectorAll('.dialogue-item').forEach(d=>{autoHint(d);autoKeywords(d)});document.getElementById('btnAddDialogue').addEventListener('click',()=>{const cont=document.getElementById('dialoguesContainer');const idx=cont.children.length+1;const div=document.createElement('div');div.className='dialogue-item';div.style='background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;';div.innerHTML=`<strong>第${idx}輪</strong><label>老師訊息：<input type="text" class="teacherMsg" style="width:100%;"></label><label>目標拼音：<input type="text" class="targetPinyin" style="width:100%;"></label><label>目標漢字：<input type="text" class="targetChinese" style="width:100%;"></label><label>提示：<input type="text" class="hintText" style="width:100%;" readonly></label><label>開放問題(可選)：<input type="text" class="openQuestion" style="width:100%;"></label><label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" style="width:100%;"></label><button class="btn-danger remove-dialogue">刪除此輪</button>`;cont.appendChild(div);autoHint(div);autoKeywords(div);div.querySelector('.remove-dialogue').addEventListener('click',()=>div.remove())});document.querySelectorAll('.remove-dialogue').forEach(b=>b.addEventListener('click',function(){this.parentElement.remove()}));document.getElementById('btnSaveTheme').addEventListener('click',()=>{const ttl=document.getElementById('editTitle').value.trim(),chn=document.getElementById('editCharName').value.trim();if(!ttl||!chn){showToast('請填寫主題名稱和角色');return}const items=document.querySelectorAll('.dialogue-item');const dialogues=[];items.forEach(it=>{const tm=it.querySelector('.teacherMsg').value.trim(),tp=it.querySelector('.targetPinyin').value.trim(),tc=it.querySelector('.targetChinese').value.trim(),th=it.querySelector('.hintText').value.trim(),oq=it.querySelector('.openQuestion').value.trim(),ok=it.querySelector('.openKeywords').value.trim();if(tm&&tp&&tc)dialogues.push({teacherMessage:tm,targetPinyin:tp,targetChinese:tc,hint:th,openQuestion:oq,openKeywords:ok})});if(!dialogues.length){showToast('至少需要一輪對話');return}let themes=loadThemes();if(themeId){const idx=themes.findIndex(t=>t.id===themeId);if(idx>=0)themes[idx]={id:themeId,title:ttl,characterName:chn,dialogues}}else themes.push({id:Date.now().toString(),title:ttl,characterName:chn,dialogues});saveThemes(themes);showToast('✅ 主題已儲存');goTo('teacher-dashboard')})}
 
     renderView();
-}
-
-window.addEventListener('load', bootstrap);
 </script>
 </body>
 </html>
