@@ -169,51 +169,39 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== 診斷模式：檢查模型文件是否存在 ===== */
-    async function diagnoseModel(basePath) {
-        const filesToCheck = [
-            'am/final.mdl',
-            'conf/mfcc.conf',
-            'conf/model.conf',
-            'graph/HCLr.fst',
-            'graph/Gr.fst',
-            'graph/phones.txt',
-            'graph/words.txt',
-            'ivector/final.ie'
-        ];
-        const results = {};
-        for (const file of filesToCheck) {
-            try {
-                const resp = await fetch(basePath + file, { method: 'HEAD' });
-                results[file] = resp.ok ? '✅' : '❌';
-            } catch (e) {
-                results[file] = '❌ (Error)';
-            }
-        }
-        console.table(results);
-        const missing = Object.keys(results).filter(f => results[f] !== '✅');
-        if (missing.length > 0) {
-            alert('模型文件缺失：\n' + missing.join('\n') + '\n請補充後重新嘗試。');
-            return false;
-        }
-        return true;
-    }
-
+    /* ===== 適配「僅含 phones/ 文件夾」的 Vosk 模型 ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
             const modelPath = './model/';
             console.log('使用模型路徑:', modelPath);
 
-            // 執行診斷
-            const ok = await diagnoseModel(modelPath);
-            if (!ok) {
-                showToast('模型文件不完整，請查看瀏覽器控制台或彈窗。');
+            // 檢查基本文件
+            let resp = await fetch(modelPath + 'am/final.mdl', { method: 'HEAD' });
+            if (!resp.ok) {
+                showToast('❌ 找不到 am/final.mdl');
+                return false;
+            }
+            // 檢查 graph/HCLr.fst
+            resp = await fetch(modelPath + 'graph/HCLr.fst', { method: 'HEAD' });
+            if (!resp.ok) {
+                showToast('❌ 找不到 graph/HCLr.fst');
                 return false;
             }
 
-            // 不加任何選項，讓 Vosk 自動檢測
-            const model = await Vosk.createModel(modelPath);
+            // 嘗試加載模型 (不傳遞任何特殊選項，讓 Vosk 自動適應)
+            let model;
+            try {
+                model = await Vosk.createModel(modelPath);
+            } catch (firstError) {
+                console.warn('默認加載失敗，嘗試禁用 words/phones 檔案:', firstError);
+                // 若失敗，則手動指定不使用 words.txt 和 phones.txt
+                model = await Vosk.createModel(modelPath, {
+                    words: false,
+                    phones: false
+                });
+            }
+
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
