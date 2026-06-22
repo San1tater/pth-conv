@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · 可靠加載 Vosk 離線評測</title>
+    <title>普通話拼音教學 · Vosk 離線評測</title>
     <style>
         :root {
             --bg: #f0f2f5;
@@ -92,74 +92,38 @@
 <div id="toastContainer"></div>
 
 <script>
-// 动态加载脚本的辅助函数
-function loadScript(url, fallbackUrl, globalCheck) {
+// 动态加载库脚本
+function loadScript(src) {
     return new Promise((resolve, reject) => {
-        function tryUrl(url) {
-            const script = document.createElement('script');
-            script.src = url;
-            script.onload = () => {
-                if (globalCheck && typeof window[globalCheck] !== 'undefined') {
-                    resolve();
-                } else {
-                    reject(new Error(`全局变量 ${globalCheck} 未定义`));
-                }
-            };
-            script.onerror = (err) => {
-                reject(err);
-            };
-            document.head.appendChild(script);
-        }
-        // 先尝试主 URL，失败后尝试备用 URL
-        tryUrl(url).catch(() => {
-            console.warn(`主 CDN 加载失败: ${url}，尝试备用 CDN: ${fallbackUrl}`);
-            tryUrl(fallbackUrl).catch(reject);
-        });
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(script);
     });
 }
 
-// 显示加载状态的函数
-function showLoading(message) {
-    const existing = document.getElementById('loadingOverlay');
-    if (existing) existing.remove();
-    const overlay = document.createElement('div');
-    overlay.id = 'loadingOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
-    overlay.innerHTML = `<div style="text-align:center;font-size:1.2rem;color:#333;">${message}</div>`;
-    document.body.appendChild(overlay);
-}
-function hideLoading() {
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.remove();
-}
-
-// 初始化应用（等待库加载完成后执行）
 async function bootstrap() {
-    showLoading('正在加載語音引擎庫...');
+    // 显示加载指示器
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'loadingOverlay';
+    loadingOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    loadingOverlay.innerHTML = '<div style="text-align:center;font-size:1.2rem;color:#333;">正在加載語音引擎庫...</div>';
+    document.body.appendChild(loadingOverlay);
+
     try {
-        // 加载 pinyin-pro (主CDN + 备用)
-        await loadScript(
-            'https://cdn.jsdelivr.net/npm/pinyin-pro@3.25.0/dist/index.js',
-            'https://unpkg.com/pinyin-pro@3.25.0/dist/index.js',
-            'pinyinPro'
-        );
-        // 加载 vosk-browser (主CDN + 备用)
-        await loadScript(
-            'https://cdn.jsdelivr.net/npm/vosk-browser@0.0.7/dist/vosk-browser.js',
-            'https://unpkg.com/vosk-browser@0.0.7/dist/vosk-browser.js',
-            'Vosk'
-        );
-        hideLoading();
-        // 两个库都已加载，运行主应用
+        // 使用最新 CDN 链接加载两个必需库
+        await loadScript('https://cdn.jsdelivr.net/npm/pinyin-pro@3.27.0/dist/pinyin-pro.min.js');
+        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
+        document.body.removeChild(loadingOverlay);
+        // 验证全局变量是否存在
+        if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') {
+            throw new Error('库已下载但全局变量未定义，可能是版本问题。');
+        }
         startApp();
     } catch (error) {
-        hideLoading();
-        console.error(error);
-        alert('語音引擎庫加載失敗，請檢查網絡連接或手動下載庫文件。\n\n' +
-              '需要的文件：\n' +
-              '1. pinyin-pro: https://cdn.jsdelivr.net/npm/pinyin-pro@3.25.0/dist/index.js\n' +
-              '2. vosk-browser: https://cdn.jsdelivr.net/npm/vosk-browser@0.0.7/dist/vosk-browser.js\n' +
-              '下載後放在與 index.html 同目錄，並修改代碼中的加載路徑。');
+        document.body.removeChild(loadingOverlay);
+        alert('語音引擎庫加載失敗，請檢查網絡或稍後重試。\n錯誤信息：' + error.message);
     }
 }
 
@@ -315,7 +279,6 @@ function startApp() {
     renderView();
 }
 
-// 页面加载完成后启动引导程序
 window.addEventListener('load', bootstrap);
 </script>
 </body>
