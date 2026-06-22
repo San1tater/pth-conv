@@ -92,6 +92,7 @@
 <div id="toastContainer"></div>
 
 <script>
+// 动态加载库
 function loadScript(src) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -108,15 +109,20 @@ async function bootstrap() {
     loadingDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;z-index:9999;';
     loadingDiv.innerHTML = '<div style="text-align:center;font-size:1.2rem;color:#333;">正在加載語音引擎庫...</div>';
     document.body.appendChild(loadingDiv);
+
     try {
+        // 使用最新的 vosk-browser (0.0.10 支持动态图模型)
+        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.10/dist/vosk.min.js');
         await loadScript('https://unpkg.com/pinyin-pro');
-        await loadScript('https://cdn.jsdelivr.net/npm/vosk-browser@0.0.8/dist/vosk.min.js');
         document.body.removeChild(loadingDiv);
-        if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') throw new Error('库已加载但全局变量未定义');
+
+        if (typeof Vosk === 'undefined' || typeof pinyinPro === 'undefined') {
+            throw new Error('库已加载但全局变量未定义');
+        }
         startApp();
     } catch (error) {
         document.body.removeChild(loadingDiv);
-        alert('語音引擎庫加載失敗。\n' + error.message);
+        alert('語音引擎庫加載失敗。請檢查網絡或稍後重試。\n' + error.message);
     }
 }
 
@@ -165,45 +171,17 @@ function startApp() {
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== Vosk 語音評測 (自動使用 HCLr.fst 作為 HCLG.fst) ===== */
+    /* ===== Vosk 語音評測 (直接加載模型，無需修補) ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            // 等待 FS 可用 (vosk-browser 初始化後 FS 會出現)
-            function waitForFS() {
-                return new Promise(resolve => {
-                    if (typeof FS !== 'undefined') return resolve();
-                    const interval = setInterval(() => {
-                        if (typeof FS !== 'undefined') {
-                            clearInterval(interval);
-                            resolve();
-                        }
-                    }, 50);
-                });
-            }
-            await waitForFS();
-
-            // 嘗試載入 HCLr.fst 並寫入 FS 為 HCLG.fst
-            const hclrUrl = '/model/graph/HCLr.fst';
-            const hclgPath = '/model/graph/HCLG.fst';
-            try {
-                const resp = await fetch(hclrUrl);
-                if (resp.ok) {
-                    const buffer = await resp.arrayBuffer();
-                    FS.writeFile(hclgPath, new Uint8Array(buffer));
-                    console.log('已將 HCLr.fst 複製為虛擬檔案 HCLG.fst');
-                }
-            } catch (e) {
-                console.warn('無法載入 HCLr.fst，將嘗試使用現有的 HCLG.fst', e);
-            }
-
             const model = await Vosk.createModel('/model/');
             recognizer = new Vosk.Recognizer(model, 16000.0);
             recognizer.setWords(true);
             recognizer.setPartialResults(false);
             showToast('✅ 離線語音引擎就緒');
             return true;
-        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾完整');return false;}
+        }catch(e){console.error(e);showToast('⚠️ 模型載入失敗，請確認model/資料夾');return false;}
     }
     async function requestMic(){
         try{
