@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>普通話拼音教學 · 拼音直接識別評測</title>
-    <!-- 引入 pinyin-pro 庫 (CDN) 用於中文轉拼音 -->
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.0/dist/index.js"></script>
     <style>
+        /* 與之前相同的樣式，此處省略以節省空間，但實際使用時需保留完整樣式 */
         :root {
             --bg: #f0f2f5;
             --teacher-bubble: #ffffff;
@@ -56,7 +56,7 @@
         .key-btn{border:1px solid rgba(0,0,0,0.12);border-radius:5px;padding:6px 8px;font-size:0.85rem;font-weight:600;cursor:pointer;min-width:32px;text-align:center;outline:none;background:#fff;color:#333;transition:all 0.1s;}
         .key-btn:active{transform:scale(0.92);}
         .key-btn.initial.bpmf{background:var(--init-bpmf);} .key-btn.initial.dtnl{background:var(--init-dtnl);} .key-btn.initial.gkh{background:var(--init-gkh);} .key-btn.initial.jqx{background:var(--init-jqx);} .key-btn.initial.zhchshr{background:var(--init-zhchshr);} .key-btn.initial.zcs{background:var(--init-zcs);} .key-btn.initial.yw{background:var(--init-yw);}
-        .key-btn.initial.zero{background:#e8e8e8; border-color:#aaa;} /* 零聲母專用樣式 */
+        .key-btn.initial.zero{background:#e8e8e8; border-color:#aaa;}
         .key-btn.initial.selected{filter:brightness(0.9);border-width:2px;}
         .key-btn.final.a-group{background:var(--final-a);} .key-btn.final.o-group{background:var(--final-o);} .key-btn.final.e-group{background:var(--final-e);} .key-btn.final.i-group{background:var(--final-i);} .key-btn.final.u-group{background:var(--final-u);} .key-btn.final.ü-group{background:var(--final-ü);}
         .key-btn.final.selected{filter:brightness(0.9);border-width:2px;}
@@ -79,6 +79,7 @@
         @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4);}50%{box-shadow:0 0 0 20px rgba(231,76,60,0);}}
         .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:18px;font-size:0.85rem;font-weight:600;z-index:200;pointer-events:none;animation:toastIn 0.3s ease-out,toastOut 0.3s 1.8s ease-in forwards;}
         @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}} @keyframes toastOut{to{opacity:0;}}
+        .error-box{background:#ffe6e6;color:#c0392b;padding:8px;border-radius:8px;margin:8px 0;font-size:0.85rem;border:1px solid #f5c6cb;}
         @media(max-width:800px){.main-layout{flex-direction:column;}.input-section{max-width:100%;min-width:auto;}}
     </style>
 </head>
@@ -94,7 +95,6 @@
 </div>
 <div id="toastContainer"></div>
 
-<!-- ===== 加載 WASM 膠水代碼前定義 Module ===== -->
 <script>
     window.Module = {
         ENVIRONMENT_IS_PTHREAD: false,
@@ -110,7 +110,6 @@
 <script src="./lib/sherpa-onnx-wasm-main-asr.js"></script>
 
 <script type="module">
-    // ===== 使用全局 Module =====
     const Module = window.Module;
     function waitForModule() {
         return new Promise((resolve, reject) => {
@@ -122,7 +121,6 @@
         });
     }
 
-    // ===== 封裝 createOnlineRecognizer =====
     function createOnlineRecognizer(config) {
         const { model, decoder, joiner, tokens, lexicon } = config;
         const allocStr = (str) => {
@@ -181,7 +179,6 @@
         };
     }
 
-    // ===== 應用程式狀態 =====
     const AppState = { currentView: 'menu', currentThemeId: null, editThemeId: null };
     const STORAGE_KEY = 'pinyin_teaching_final';
 
@@ -279,7 +276,6 @@
         goTo(map[AppState.currentView] || 'menu');
     });
 
-    // ===== 菜單 =====
     function renderMenu() {
         dynamicContent.innerHTML = `
             <div class="page-container" style="align-items:center;justify-content:center;">
@@ -297,7 +293,6 @@
         document.getElementById('btnTeacher').addEventListener('click', () => goTo('teacher-dashboard'));
     }
 
-    // ===== 學生主題列表 =====
     function renderStudentThemes() {
         headerName.textContent = '選擇對話主題';
         headerSub.textContent = '學生模式';
@@ -315,7 +310,6 @@
         document.querySelectorAll('.theme-item').forEach(i => i.addEventListener('click', () => goTo('chat', { themeId: i.dataset.id })));
     }
 
-    // ===== 聊天視圖 =====
     function renderChatView() {
         const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
         if (!theme) { showToast('主題不存在'); goTo('student-themes'); return; }
@@ -368,7 +362,6 @@
         updateSyllableDisplay();
     }
 
-    // ===== 鍵盤定義 =====
     const initialRows = [
         [{ group: 'bpmf', list: ['b', 'p', 'm', 'f'] }, { group: 'dtnl', list: ['d', 't', 'n', 'l'] }],
         [{ group: 'gkh', list: ['g', 'k', 'h'] }, { group: 'jqx', list: ['j', 'q', 'x'] }],
@@ -402,7 +395,6 @@
     function buildKeyboard() {
         const cont = document.getElementById('keyboardContainer');
         let h = '';
-        // 聲母區域
         h += `<div class="kb-section">`;
         initialRows.forEach((row, idx) => {
             h += `<div class="key-row">`;
@@ -412,11 +404,9 @@
             }));
             h += `</div>`;
         });
-        // 新增零聲母按鈕（獨立一行）
         h += `<div class="key-row"><span class="section-label" style="visibility:hidden;">聲母</span><button class="key-btn initial zero" data-value="zero">∅ 零聲母</button></div>`;
         h += `</div>`;
 
-        // 韻母區域
         h += `<div class="kb-section">`;
         finalGroups.forEach((g, idx) => {
             h += `<div class="key-row">`;
@@ -429,14 +419,12 @@
         });
         h += `</div>`;
 
-        // 聲調區域
         h += `<div class="kb-section"><div class="key-row"><span class="section-label">聲調</span>`;
         tonesList.forEach(t => {
             h += `<button class="key-btn tone" data-value="${t.value}"><span class="tone-symbol">${t.symbol}</span> ${t.label}</button>`;
         });
         h += `</div></div>`;
 
-        // 控制按鈕
         h += `<div class="key-row" style="gap:5px;margin-top:4px;border-top:1px solid #d0d0d0;padding-top:4px;">
                 <button class="key-btn action danger" id="btnBackspace">⌫</button>
                 <button class="key-btn action" id="btnClear">✕</button>
@@ -445,7 +433,6 @@
               </div>`;
         cont.innerHTML = h;
 
-        // 事件綁定
         document.querySelectorAll('.key-btn.initial').forEach(b => b.addEventListener('click', () => selectInitial(b.dataset.value, b)));
         document.querySelectorAll('.key-btn.final').forEach(b => b.addEventListener('click', () => selectFinal(b.dataset.value, b)));
         document.querySelectorAll('.key-btn.tone').forEach(b => b.addEventListener('click', () => selectTone(parseInt(b.dataset.value), b)));
@@ -457,13 +444,12 @@
         });
     }
 
-    // ===== 選擇邏輯（支援零聲母） =====
     function selectInitial(v, b) {
         if (isCourseComplete) return;
         if (inputOrder !== 0) { showToast('請先清除當前音節'); return; }
         document.querySelectorAll('.key-btn.initial').forEach(btn => btn.classList.remove('selected'));
         if (v === 'zero') {
-            selectedInitial = ''; // 零聲母
+            selectedInitial = '';
             b.classList.add('selected');
             inputOrder = 1;
             updateSyllableDisplay();
@@ -557,7 +543,6 @@
         return (theme && currentDialogueIndex < theme.dialogues.length) ? theme.dialogues[currentDialogueIndex] : null;
     }
 
-    // ===== 拼音處理 =====
     function parsePinyin(s) {
         const p = s.trim().split(/\s+/);
         const syls = [];
@@ -605,7 +590,6 @@
         return (si || '') === (ti || '') && sf === tf && st === tt;
     }
 
-    // ===== 確認音節 =====
     function confirmSyllable() {
         if (isCourseComplete) return;
         if (inputOrder !== 3) { showToast('請依照聲母→韻母→聲調順序完成選擇'); return; }
@@ -655,7 +639,6 @@
         else if (s) s.textContent = '課程完成';
     }
 
-    // ===== 發送訊息 =====
     function sendMessage() {
         if (isCourseComplete) return;
         const d = getCurrentDialogue();
@@ -685,7 +668,6 @@
         }
     }
 
-    // ===== 訊息顯示 =====
     function speakText(text) {
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
@@ -735,11 +717,11 @@
         if (c) requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
     }
 
-    // ===== 語音辨識引擎初始化 =====
+    // ===== 語音引擎初始化（含錯誤回饋） =====
     async function initRecognizer() {
         if (recognizer) return true;
-        await waitForModule();
         try {
+            await waitForModule();
             const base = './model/';
             recognizer = createOnlineRecognizer({
                 model: base + 'encoder.onnx',
@@ -752,20 +734,35 @@
             return true;
         } catch (e) {
             console.error(e);
-            showToast('⚠️ 模型載入失敗，請確認 model/ 中的五個文件均已正確放置。');
+            const msg = '⚠️ 模型載入失敗，請確認 model/ 中的五個文件均已正確放置。錯誤：' + e.message;
+            showToast(msg);
+            // 同時寫入 UI 中的 evalResult（如果存在）
+            const er = document.getElementById('evalResult');
+            if (er) er.innerHTML = `<div class="error-box">${msg}</div>`;
             return false;
         }
     }
 
     async function requestMic() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            const msg = '⚠️ 此瀏覽器不支援麥克風，請使用 Chrome/Firefox/Edge 等現代瀏覽器。';
+            showToast(msg);
+            const er = document.getElementById('evalResult');
+            if (er) er.innerHTML = `<div class="error-box">${msg}</div>`;
+            return false;
+        }
         try {
             mediaStream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000 } });
             micPermissionGranted = true;
+            return true;
         } catch (e) {
             micPermissionGranted = false;
-            showToast('⚠️ 無法取得麥克風權限，請允許後重試。');
+            const msg = '⚠️ 無法取得麥克風權限，請允許後重試。錯誤：' + e.message;
+            showToast(msg);
+            const er = document.getElementById('evalResult');
+            if (er) er.innerHTML = `<div class="error-box">${msg}</div>`;
+            return false;
         }
-        return micPermissionGranted;
     }
 
     // ===== 語音評測模態框 =====
@@ -795,16 +792,24 @@
             document.getElementById('evalQuestion').style.display = 'none';
             document.getElementById('btnMic').style.display = 'flex';
             const ready = await initRecognizer();
-            if (!ready) document.getElementById('evalResult').textContent = '引擎未就緒，請檢查模型文件。';
-            else { currentMode = 'standard'; document.getElementById('evalResult').textContent = '請朗讀指定拼音'; }
+            if (!ready) {
+                document.getElementById('evalResult').innerHTML = `<div class="error-box">引擎未就緒，請檢查模型文件。</div>`;
+            } else {
+                currentMode = 'standard';
+                document.getElementById('evalResult').textContent = '請朗讀指定拼音';
+            }
         });
         if (openQ) {
             document.getElementById('btnOpen').addEventListener('click', async () => {
                 document.getElementById('evalQuestion').style.display = 'block';
                 document.getElementById('btnMic').style.display = 'flex';
                 const ready = await initRecognizer();
-                if (!ready) document.getElementById('evalResult').textContent = '引擎未就緒，請檢查模型文件。';
-                else { currentMode = 'open'; document.getElementById('evalResult').textContent = '請自由回答（普通話）'; }
+                if (!ready) {
+                    document.getElementById('evalResult').innerHTML = `<div class="error-box">引擎未就緒，請檢查模型文件。</div>`;
+                } else {
+                    currentMode = 'open';
+                    document.getElementById('evalResult').textContent = '請自由回答（普通話）';
+                }
             });
         }
         document.getElementById('btnMic').addEventListener('click', () => {
@@ -821,18 +826,42 @@
         currentEvalTarget = null;
     }
 
-    // ===== 錄音控制 =====
+    // ===== 錄音控制（加強錯誤顯示） =====
     async function startRecording() {
+        const resultEl = document.getElementById('evalResult');
+        if (!resultEl) return;
+
+        // 先檢查瀏覽器支援
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            resultEl.innerHTML = `<div class="error-box">⚠️ 此瀏覽器不支援麥克風，請使用 Chrome/Firefox/Edge。</div>`;
+            return;
+        }
+
+        // 檢查是否已初始化引擎
         if (!recognizer) {
+            resultEl.textContent = '⏳ 正在載入語音引擎...';
             const ok = await initRecognizer();
-            if (!ok) return;
+            if (!ok) {
+                resultEl.innerHTML = `<div class="error-box">引擎載入失敗，請確認網路與模型檔案。</div>`;
+                return;
+            }
         }
+
+        // 取得麥克風權限
         if (!mediaStream) {
-            const g = await requestMic();
-            if (!g) return;
+            resultEl.textContent = '⏳ 請求麥克風權限...';
+            const granted = await requestMic();
+            if (!granted) {
+                // 錯誤訊息已在 requestMic 內設定
+                return;
+            }
         }
+
         try {
+            // 建立 AudioContext（手機需要 resume）
             audioContext = new AudioContext({ sampleRate: 16000 });
+            await audioContext.resume();
+
             const source = audioContext.createMediaStreamSource(mediaStream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
             processor.onaudioprocess = (e) => {
@@ -851,33 +880,38 @@
             isRecording = true;
             document.getElementById('btnMic').textContent = '🔴';
             document.getElementById('btnMic').classList.add('recording');
-            document.getElementById('evalResult').textContent = '🎤 正在聆聽...';
+            resultEl.textContent = '🎤 正在聆聽...';
         } catch (e) {
-            console.error(e);
-            showToast('錄音啟動失敗：' + e.message);
+            console.error('錄音啟動失敗', e);
+            resultEl.innerHTML = `<div class="error-box">錄音錯誤：${e.message}。請檢查麥克風權限或重新整理頁面。</div>`;
+            // 清理資源
+            if (audioContext) { audioContext.close(); audioContext = null; }
+            isRecording = false;
         }
     }
 
     function stopRecording() {
-        if (audioContext) { audioContext.close(); audioContext = null; }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
         isRecording = false;
         const mic = document.getElementById('btnMic');
         if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
         if (recognizer) recognizer.reset();
+        // 不釋放 mediaStream，保留權限
     }
 
-    // ===== 評測核心（使用 pinyin-pro 轉換） =====
+    // ===== 評測核心（使用 pinyin-pro） =====
     function evaluatePinyin(recognizedChinese) {
         if (!currentEvalTarget) return;
-        const targetPinyin = currentEvalTarget.pinyin.trim(); // e.g. "ni3 hao3"
+        const targetPinyin = currentEvalTarget.pinyin.trim();
         let recognizedPinyin = '';
         try {
-            // 使用 pinyin-pro 將中文轉為帶數字聲調的拼音
             if (window.pinyin) {
                 const result = window.pinyin(recognizedChinese, { toneType: 'num' });
                 recognizedPinyin = result.join(' ').toLowerCase();
             } else {
-                // 若庫未加載，直接使用識別出的中文（降級）
                 recognizedPinyin = recognizedChinese;
                 showToast('⚠️ 拼音轉換庫未加載，評測可能不準確');
             }
@@ -897,7 +931,6 @@
                 msg = '📢 請再試一次'; }
             detail = `目標：${targetPinyin}  你的發音（拼音）：${recognizedPinyin}`;
         } else {
-            // 開放式：匹配關鍵詞（關鍵詞已是中文，轉為拼音比較？保持中文關鍵詞匹配）
             const kw = currentEvalTarget.openKw.split(',').map(s => s.trim());
             const matched = kw.filter(k => recognizedChinese.includes(k));
             const rate = kw.length ? matched.length / kw.length : 0;
@@ -942,7 +975,7 @@
         return costs[s2.length];
     }
 
-    // ===== 老師管理 =====
+    // ===== 老師管理（與之前相同，略作微調） =====
     function renderTeacherDashboard() {
         headerName.textContent = '老師管理';
         headerSub.textContent = '編輯對話主題';
@@ -1005,7 +1038,6 @@
             </div></div>`;
         dynamicContent.innerHTML = h;
 
-        // 自動提示與關鍵詞（提示可編輯，不強制）
         function autoHint(div) {
             const p = div.querySelector('.targetPinyin'),
                 c = div.querySelector('.targetChinese'),
@@ -1013,7 +1045,7 @@
             function up() {
                 if (p.value.trim() && c.value.trim()) {
                     const auto = `請拼寫：${buildDisplayFromNum(p.value.trim())}（${c.value.trim()}）`;
-                    if (!hint.value) hint.value = auto; // 僅當為空時自動填入
+                    if (!hint.value) hint.value = auto;
                 }
             }
             p.addEventListener('input', up);
@@ -1093,7 +1125,6 @@
         });
     }
 
-    // ===== 啟動 =====
     renderView();
 </script>
 </body>
