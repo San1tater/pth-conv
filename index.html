@@ -102,16 +102,28 @@
 </div>
 <div id="toastContainer"></div>
 
-<!-- WASM 載入設定 -->
+<!-- ===== 修正 Module 設定，解決 .data 404 與 SharedArrayBuffer 問題 ===== -->
 <script>
     window.Module = {
-        ENVIRONMENT_IS_PTHREAD: false,
+        ENVIRONMENT_IS_PTHREAD: false,      // 強制單執行緒
+        PTHREAD_POOL_SIZE: 0,               // 不建立 Worker
         getPreloadedPackage: function(name, size) {
             console.warn('Ignoring preloaded package: ' + name);
             return null;
         },
         locateFile: function(path) {
+            // 所有資源都從 ./lib/ 載入
             return './lib/' + path;
+        },
+        // 預先標記 .data 檔案為已載入，避免網路請求
+        preRun: function() {
+            if (!Module['preloadedPackages']) Module['preloadedPackages'] = {};
+            Module['preloadedPackages']['sherpa-onnx-wasm-main-asr.data'] = true;
+        },
+        // 忽略 .data 檔案載入錯誤
+        onAbort: function(what) {
+            // 若載入過程中有 abort，我們可在此記錄，但不要中斷整體流程
+            console.warn('Module abort:', what);
         }
     };
 </script>
@@ -125,6 +137,8 @@
                 resolve(Module);
             } else {
                 Module.onRuntimeInitialized = () => resolve(Module);
+                // 設定逾時避免無限等待
+                setTimeout(() => reject(new Error('WASM 載入逾時')), 30000);
             }
         });
     }
@@ -376,7 +390,6 @@
         const inputSection = document.getElementById('inputSection');
         inputSection.prepend(progressContainer);
 
-        // 若引擎已就緒則直接隱藏
         if (engineReady && recognizer) {
             progressContainer.style.display = 'none';
         } else {
@@ -389,7 +402,6 @@
                     showToast('✅ 語音引擎已就緒');
                 } else {
                     // 錯誤訊息已由 initRecognizer 寫入 #engineError
-                    // 保持容器顯示，錯誤可見
                 }
             });
         }
@@ -773,13 +785,11 @@
 
         const progressContainer = document.getElementById('engineLoadingContainer');
         const errorDiv = document.getElementById('engineError');
-        // 顯示容器，隱藏錯誤
         if (progressContainer) progressContainer.style.display = 'block';
         if (errorDiv) { errorDiv.textContent = ''; errorDiv.style.display = 'none'; }
 
         try {
             await waitForModule();
-            // 可更新進度狀態（但 indeterminate 已足夠）
             const base = './model/';
             recognizer = createOnlineRecognizer({
                 model: base + 'encoder.onnx',
@@ -799,7 +809,6 @@
                 errorDiv.textContent = msg;
                 errorDiv.style.display = 'block';
             }
-            // 隱藏進度條（保持容器顯示錯誤）
             const progressBar = progressContainer?.querySelector('progress');
             if (progressBar) progressBar.style.display = 'none';
             const label = progressContainer?.querySelector('.label');
