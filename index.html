@@ -92,7 +92,7 @@
 <div id="toastContainer"></div>
 
 <script type="module">
-    // ===== 修正：使用 createOnlineRecognizer（官方導出名稱） =====
+    // ===== 修正點1：改用 createOnlineRecognizer（正確的導出名稱） =====
     import { createOnlineRecognizer } from './lib/sherpa-onnx-wasm-main-asr.js';
 
     const AppState={currentView:'menu',currentThemeId:null,editThemeId:null};
@@ -142,19 +142,19 @@
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== sherpa-onnx 拼音直接識別（已修正為 createOnlineRecognizer） ===== */
+    /* ===== sherpa-onnx 拼音直接識別（修正點2：使用 createOnlineRecognizer） ===== */
     async function initRecognizer(){
         if(recognizer)return true;
         try{
-            const modelPath = './model/';
-            // 使用 createOnlineRecognizer 工廠函數，參數參考官方範例
+            const base = './model/';
+            // 改用 createOnlineRecognizer，並將參數名稱調整為符合其 API
             recognizer = createOnlineRecognizer({
-                model: modelPath + 'encoder.onnx',
-                decoder: modelPath + 'decoder.onnx',
-                joiner: modelPath + 'joiner.onnx',
-                tokens: modelPath + 'tokens.txt',
-                lexicon: modelPath + 'lexicon.txt',
-                modelType: 'zipformer',   // 您的模型為 Zipformer 架構
+                model: base + 'encoder.onnx',
+                decoder: base + 'decoder.onnx',
+                joiner: base + 'joiner.onnx',
+                tokens: base + 'tokens.txt',
+                lexicon: base + 'lexicon.txt',
+                modelType: 'zipformer',        // 與您的 Zipformer 模型匹配
                 decodingMethod: 'greedy_search',
                 enableEndpoint: 1,
                 rule1MinTrailingSilence: 2.4,
