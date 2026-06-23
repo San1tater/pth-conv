@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>普通話拼音教學 · 拼音直接識別評測</title>
     <style>
-        /* 样式表保持原样，此处省略以节省篇幅，请复制之前版本的完整 style */
         :root {
             --bg: #f0f2f5;
             --teacher-bubble: #ffffff;
@@ -93,7 +92,7 @@
 <div id="toastContainer"></div>
 
 <script type="module">
-    // 修改：將 CDN 路徑改為本地 lib 資料夾
+    // 匯入本地的 sherpa-onnx WASM 模組（已將 CDN 路徑改為本地 lib 資料夾）
     import { OnlineRecognizer } from './lib/sherpa-onnx-wasm-main-asr.js';
 
     const AppState={currentView:'menu',currentThemeId:null,editThemeId:null};
