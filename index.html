@@ -102,34 +102,26 @@
 </div>
 <div id="toastContainer"></div>
 
-<!-- ===== 修正 Module 設定，解決 .data 404 與 SharedArrayBuffer 問題 ===== -->
+<!-- ===== Module 設定（修正 preRun 陣列，禁用多執行緒） ===== -->
 <script>
     window.Module = {
-        ENVIRONMENT_IS_PTHREAD: false,      // 強制單執行緒
-        PTHREAD_POOL_SIZE: 0,               // 不建立 Worker
-        getPreloadedPackage: function(name, size) {
-            console.warn('Ignoring preloaded package: ' + name);
-            return null;
-        },
-        locateFile: function(path) {
-            // 所有資源都從 ./lib/ 載入
-            return './lib/' + path;
-        },
-        // 預先標記 .data 檔案為已載入，避免網路請求
-        preRun: function() {
-            if (!Module['preloadedPackages']) Module['preloadedPackages'] = {};
-            Module['preloadedPackages']['sherpa-onnx-wasm-main-asr.data'] = true;
-        },
-        // 忽略 .data 檔案載入錯誤
-        onAbort: function(what) {
-            // 若載入過程中有 abort，我們可在此記錄，但不要中斷整體流程
-            console.warn('Module abort:', what);
-        }
+        ENVIRONMENT_IS_PTHREAD: false,
+        PTHREAD_POOL_SIZE: 0,
+        locateFile: function(path) { return './lib/' + path; },
+        preRun: [
+            function() {
+                // 標記 .data 已預載入，避免網路請求
+                if (!this['preloadedPackages']) this['preloadedPackages'] = {};
+                this['preloadedPackages']['sherpa-onnx-wasm-main-asr.data'] = true;
+            }
+        ],
+        onAbort: function(what) { console.warn('Module abort:', what); }
     };
 </script>
 <script src="./lib/sherpa-onnx-wasm-main-asr.js"></script>
 
 <script type="module">
+    // ===== 全域 Module =====
     const Module = window.Module;
     function waitForModule() {
         return new Promise((resolve, reject) => {
@@ -137,13 +129,12 @@
                 resolve(Module);
             } else {
                 Module.onRuntimeInitialized = () => resolve(Module);
-                // 設定逾時避免無限等待
                 setTimeout(() => reject(new Error('WASM 載入逾時')), 30000);
             }
         });
     }
 
-    // ===== 建立辨識器 =====
+    // ===== 建立 Sherpa 辨識器（單執行緒版本） =====
     function createOnlineRecognizer(config) {
         const { model, decoder, joiner, tokens, lexicon } = config;
         const allocStr = (str) => {
@@ -202,6 +193,76 @@
         };
     }
 
+    // ===== Web Speech API 備用辨識器（封裝相同介面） =====
+    function createWebSpeechRecognizer() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) throw new Error('Web Speech API not supported');
+
+        let recognition = null;
+        let finalText = '';
+        let isListening = false;
+        let onResultCallback = null;
+
+        function startListening() {
+            if (!recognition) {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'zh-CN';
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+                recognition.onresult = (event) => {
+                    let interim = '';
+                    let final = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            final += transcript;
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+                    if (final) {
+                        finalText = final;
+                        if (onResultCallback) onResultCallback(final);
+                    }
+                };
+                recognition.onerror = (e) => { console.warn('Web Speech error:', e.error); };
+                recognition.onend = () => { isListening = false; };
+            }
+            recognition.start();
+            isListening = true;
+        }
+
+        function stopListening() {
+            if (recognition && isListening) {
+                recognition.stop();
+                isListening = false;
+            }
+        }
+
+        return {
+            acceptWaveform: () => { /* 不需要 */ },
+            isReady: () => true,
+            decode: () => { /* 不需要 */ },
+            getResult: () => {
+                if (finalText) {
+                    const text = finalText;
+                    finalText = '';
+                    return { text };
+                }
+                return null;
+            },
+            reset: () => { finalText = ''; stopListening(); },
+            inputFinished: () => { /* 不需要 */ },
+            isEndpoint: () => false,
+            destroy: () => { stopListening(); recognition = null; },
+            // 額外方法
+            startListening,
+            stopListening,
+            setOnResult: (cb) => { onResultCallback = cb; }
+        };
+    }
+
     // ===== 應用狀態 =====
     const AppState = { currentView: 'menu', currentThemeId: null, editThemeId: null };
     const STORAGE_KEY = 'pinyin_teaching_final';
@@ -251,7 +312,8 @@
         currentEvalTarget = null,
         micPermissionGranted = false,
         currentMode = 'standard',
-        engineReady = false;
+        engineReady = false,
+        useWebSpeech = false;
 
     const dynamicContent = document.getElementById('dynamicContent'),
         headerName = document.getElementById('headerName'),
@@ -337,7 +399,7 @@
         document.querySelectorAll('.theme-item').forEach(i => i.addEventListener('click', () => goTo('chat', { themeId: i.dataset.id })));
     }
 
-    // ===== 聊天視圖（內建進度條） =====
+    // ===== 聊天視圖（內建進度條，自動偵測後端） =====
     function renderChatView() {
         const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
         if (!theme) { showToast('主題不存在'); goTo('student-themes'); return; }
@@ -375,7 +437,7 @@
             scrollChatToBottom();
         };
 
-        // ---- 建立進度條（若引擎未就緒） ----
+        // ---- 建立進度條 ----
         const oldProgress = document.getElementById('engineLoadingContainer');
         if (oldProgress) oldProgress.remove();
 
@@ -399,7 +461,7 @@
                 if (ok) {
                     engineReady = true;
                     progressContainer.style.display = 'none';
-                    showToast('✅ 語音引擎已就緒');
+                    showToast('✅ 語音引擎已就緒 (' + (useWebSpeech ? 'Web Speech' : 'Sherpa') + ')');
                 } else {
                     // 錯誤訊息已由 initRecognizer 寫入 #engineError
                 }
@@ -779,7 +841,7 @@
         if (c) requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
     }
 
-    // ===== 語音引擎初始化（含進度條控制） =====
+    // ===== 語音引擎初始化（自動選擇後端） =====
     async function initRecognizer() {
         if (recognizer) return true;
 
@@ -788,22 +850,53 @@
         if (progressContainer) progressContainer.style.display = 'block';
         if (errorDiv) { errorDiv.textContent = ''; errorDiv.style.display = 'none'; }
 
-        try {
-            await waitForModule();
-            const base = './model/';
-            recognizer = createOnlineRecognizer({
-                model: base + 'encoder.onnx',
-                decoder: base + 'decoder.onnx',
-                joiner: base + 'joiner.onnx',
-                tokens: base + 'tokens.txt',
-                lexicon: base + 'lexicon.txt',
-            });
+        // 嘗試使用 Sherpa（僅當支援 SharedArrayBuffer）
+        const useSherpa = window.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined';
+        let success = false;
+
+        if (useSherpa) {
+            try {
+                await waitForModule();
+                const base = './model/';
+                recognizer = createOnlineRecognizer({
+                    model: base + 'encoder.onnx',
+                    decoder: base + 'decoder.onnx',
+                    joiner: base + 'joiner.onnx',
+                    tokens: base + 'tokens.txt',
+                    lexicon: base + 'lexicon.txt',
+                });
+                useWebSpeech = false;
+                success = true;
+            } catch (e) {
+                console.warn('Sherpa 載入失敗，降級至 Web Speech API', e);
+                // 失敗後自動使用 Web Speech
+                try {
+                    recognizer = createWebSpeechRecognizer();
+                    useWebSpeech = true;
+                    success = true;
+                } catch (wsError) {
+                    console.error('Web Speech API 也不可用', wsError);
+                    success = false;
+                }
+            }
+        } else {
+            // 不支援 SharedArrayBuffer，直接使用 Web Speech
+            try {
+                recognizer = createWebSpeechRecognizer();
+                useWebSpeech = true;
+                success = true;
+            } catch (e) {
+                console.error('Web Speech API 不可用', e);
+                success = false;
+            }
+        }
+
+        if (success) {
             engineReady = true;
             if (progressContainer) progressContainer.style.display = 'none';
             return true;
-        } catch (e) {
-            console.error(e);
-            const msg = '⚠️ 模型載入失敗，請確認 model/ 中的五個文件均已正確放置。錯誤：' + e.message;
+        } else {
+            const msg = '⚠️ 無法載入任何語音引擎（Sherpa 與 Web Speech 均失敗）。請檢查瀏覽器支援。';
             showToast(msg);
             if (errorDiv) {
                 errorDiv.textContent = msg;
@@ -899,7 +992,7 @@
         currentEvalTarget = null;
     }
 
-    // ===== 錄音控制 =====
+    // ===== 錄音控制（支援兩種後端） =====
     async function startRecording() {
         const resultEl = document.getElementById('evalResult');
         if (!resultEl) return;
@@ -920,6 +1013,25 @@
             if (!granted) return;
         }
 
+        if (useWebSpeech) {
+            // 使用 Web Speech API
+            try {
+                // Web Speech 需要直接調用 startListening
+                recognizer.setOnResult((text) => {
+                    evaluatePinyin(text);
+                });
+                recognizer.startListening();
+                isRecording = true;
+                document.getElementById('btnMic').textContent = '🔴';
+                document.getElementById('btnMic').classList.add('recording');
+                resultEl.textContent = '🎤 正在聆聽 (Web Speech)...';
+            } catch (e) {
+                resultEl.innerHTML = `<div class="error-box">Web Speech 啟動失敗：${e.message}</div>`;
+            }
+            return;
+        }
+
+        // 使用 Sherpa（需要 AudioContext）
         try {
             audioContext = new AudioContext({ sampleRate: 16000 });
             await audioContext.resume();
@@ -942,7 +1054,7 @@
             isRecording = true;
             document.getElementById('btnMic').textContent = '🔴';
             document.getElementById('btnMic').classList.add('recording');
-            resultEl.textContent = '🎤 正在聆聽...';
+            resultEl.textContent = '🎤 正在聆聽 (Sherpa)...';
         } catch (e) {
             console.error('錄音啟動失敗', e);
             resultEl.innerHTML = `<div class="error-box">錄音錯誤：${e.message}。請檢查麥克風權限或重新整理頁面。</div>`;
@@ -952,6 +1064,15 @@
     }
 
     function stopRecording() {
+        if (useWebSpeech) {
+            if (recognizer) recognizer.stopListening();
+            isRecording = false;
+            const mic = document.getElementById('btnMic');
+            if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
+            return;
+        }
+
+        // Sherpa 停止
         if (audioContext) {
             audioContext.close();
             audioContext = null;
@@ -962,7 +1083,7 @@
         if (recognizer) recognizer.reset();
     }
 
-    // ===== 評測核心 =====
+    // ===== 評測核心（不變） =====
     function evaluatePinyin(recognizedChinese) {
         if (!currentEvalTarget) return;
         const targetPinyin = currentEvalTarget.pinyin.trim();
