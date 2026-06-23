@@ -91,10 +91,130 @@
 </div>
 <div id="toastContainer"></div>
 
-<script type="module">
-    // ===== 修正點1：改用 createOnlineRecognizer（正確的導出名稱） =====
-    import { createOnlineRecognizer } from './lib/sherpa-onnx-wasm-main-asr.js';
+<!-- ===== 使用 <script> 載入 WASM 膠水代碼 (非模組) ===== -->
+<script src="./lib/sherpa-onnx-wasm-main-asr.js"></script>
 
+<script type="module">
+    // ===== 現在 Module 已經被加到全域，我們從 window 取得 =====
+    const Module = window.Module;
+
+    // 等待 Module 初始化完成
+    function waitForModule() {
+        return new Promise((resolve, reject) => {
+            if (Module.ready) {
+                resolve(Module);
+            } else {
+                Module.onRuntimeInitialized = () => {
+                    resolve(Module);
+                };
+            }
+        });
+    }
+
+    // ===== 封裝一個 createOnlineRecognizer 函數，與之前的 API 一致 =====
+    function createOnlineRecognizer(config) {
+        // 從 config 取出模型路徑
+        const model = config.model;
+        const decoder = config.decoder;
+        const joiner = config.joiner;
+        const tokens = config.tokens;
+        const lexicon = config.lexicon;
+        // 其他參數可忽略，因為底層 C 函數需要另外設置，我們這裡簡化
+        // 但我們必須調用 Module._SherpaOnnxCreateOnlineRecognizer
+        // 該函數需要 C 字串指標，我們使用 Module.stringToUTF8 分配內存
+        const allocStr = (str) => {
+            const ptr = Module._malloc(str.length + 1);
+            Module.stringToUTF8(str, ptr, str.length + 1);
+            return ptr;
+        };
+        const modelPtr = allocStr(model);
+        const decoderPtr = allocStr(decoder);
+        const joinerPtr = allocStr(joiner);
+        const tokensPtr = allocStr(tokens);
+        const lexiconPtr = allocStr(lexicon);
+
+        // 調用 C 函數創建識別器
+        const recognizerPtr = Module._SherpaOnnxCreateOnlineRecognizer(
+            modelPtr, decoderPtr, joinerPtr, tokensPtr, lexiconPtr
+        );
+
+        // 釋放臨時字串內存
+        Module._free(modelPtr);
+        Module._free(decoderPtr);
+        Module._free(joinerPtr);
+        Module._free(tokensPtr);
+        Module._free(lexiconPtr);
+
+        if (!recognizerPtr) {
+            throw new Error('Failed to create online recognizer');
+        }
+
+        // 創建 stream 的輔助
+        let currentStream = null;
+
+        // 返回一個物件，包含我們需要的方法
+        return {
+            // acceptWaveform(sampleRate, samples)
+            acceptWaveform: (sampleRate, samples) => {
+                if (!currentStream) {
+                    // 如果沒有 stream，先創建一個
+                    currentStream = Module._SherpaOnnxCreateOnlineStream(recognizerPtr);
+                }
+                // 將 samples (Float32Array) 轉為指針
+                const floatPtr = Module._malloc(samples.length * 4);
+                Module.HEAPF32.set(samples, floatPtr / 4);
+                Module._SherpaOnnxOnlineStreamAcceptWaveform(
+                    currentStream, sampleRate, floatPtr, samples.length
+                );
+                Module._free(floatPtr);
+            },
+            isReady: () => {
+                if (!currentStream) return false;
+                return Module._SherpaOnnxIsOnlineStreamReady(currentStream) !== 0;
+            },
+            decode: () => {
+                if (!currentStream) return;
+                Module._SherpaOnnxDecodeOnlineStream(recognizerPtr, currentStream);
+            },
+            getResult: () => {
+                if (!currentStream) return null;
+                const resultPtr = Module._SherpaOnnxGetOnlineStreamResult(currentStream);
+                if (!resultPtr) return null;
+                const text = Module.UTF8ToString(resultPtr);
+                Module._SherpaOnnxDestroyOnlineRecognizerResult(resultPtr);
+                return { text };
+            },
+            reset: () => {
+                if (currentStream) {
+                    Module._SherpaOnnxOnlineStreamReset(currentStream);
+                    Module._SherpaOnnxDestroyOnlineStream(currentStream);
+                    currentStream = null;
+                }
+            },
+            // 額外：輸入結束標記（可選）
+            inputFinished: () => {
+                if (currentStream) {
+                    Module._SherpaOnnxOnlineStreamInputFinished(currentStream);
+                }
+            },
+            isEndpoint: () => {
+                if (!currentStream) return false;
+                return Module._SherpaOnnxOnlineStreamIsEndpoint(currentStream) !== 0;
+            },
+            // 銷毀識別器（可選）
+            destroy: () => {
+                if (currentStream) {
+                    Module._SherpaOnnxDestroyOnlineStream(currentStream);
+                    currentStream = null;
+                }
+                if (recognizerPtr) {
+                    Module._SherpaOnnxDestroyOnlineRecognizer(recognizerPtr);
+                }
+            }
+        };
+    }
+
+    // ===== 現在開始原先的應用程式碼，全部保持不變，但移除 import =====
     const AppState={currentView:'menu',currentThemeId:null,editThemeId:null};
     const STORAGE_KEY='pinyin_teaching_final';
     function getDefaultThemes(){return [{id:'1',title:'日常問候',characterName:'小明',dialogues:[{teacherMessage:'你好！歡迎來到普通話課堂。請用拼音回覆「你好」。',targetPinyin:'ni3 hao3',targetChinese:'你好',hint:'',openQuestion:'你還能用其他方式打招呼嗎？',openKeywords:'您好,嗨,早上好'},{teacherMessage:'很好！你叫什麼名字？請用拼音回覆「我叫小明」。',targetPinyin:'wo3 jiao4 xiao3 ming2',targetChinese:'我叫小明',hint:'',openQuestion:'你的名字是？',openKeywords:'我係,我叫'},{teacherMessage:'認識你很高興！你是哪裡人？',targetPinyin:'wo3 shi4 zhong1 guo2 ren2',targetChinese:'我是中國人',hint:''},{teacherMessage:'太棒了！你喜歡吃什麼？',targetPinyin:'wo3 xi3 huan1 chi1 jiao3 zi5',targetChinese:'我喜歡吃餃子',hint:'',openQuestion:'你還喜歡吃什麼？',openKeywords:'麵,飯,水果,蔬菜'},{teacherMessage:'餃子確實很好吃！今天的練習就到這裡。',targetPinyin:'xie4 xie5 lao3 shi1',targetChinese:'謝謝老師',hint:''}]},{id:'2',title:'自我介紹',characterName:'小華',dialogues:[{teacherMessage:'你好！請用拼音介紹你的名字。',targetPinyin:'wo3 jiao4 xiao3 hua2',targetChinese:'我叫小華',hint:'',openQuestion:'告訴我你的全名。',openKeywords:'我係,全名'},{teacherMessage:'你今年幾歲？',targetPinyin:'wo3 jin1 nian2 shi2 sui4',targetChinese:'我今年十歲',hint:''}]}]}
@@ -142,24 +262,20 @@
     function addSystemMessage(text){const chat=document.getElementById('chatArea');if(!chat)return;const d=document.createElement('div');d.className='system-hint';d.textContent=text;chat.appendChild(d);scrollChatToBottom()}
     function scrollChatToBottom(){const c=document.getElementById('chatArea');if(c)requestAnimationFrame(()=>{c.scrollTop=c.scrollHeight})}
 
-    /* ===== sherpa-onnx 拼音直接識別（修正點2：使用 createOnlineRecognizer） ===== */
+    // ===== 初始化引擎（現在使用封裝的 createOnlineRecognizer） =====
     async function initRecognizer(){
         if(recognizer)return true;
+        await waitForModule();  // 等待 WASM 載入
         try{
             const base = './model/';
-            // 改用 createOnlineRecognizer，並將參數名稱調整為符合其 API
+            // 使用我們自己封裝的 createOnlineRecognizer
             recognizer = createOnlineRecognizer({
                 model: base + 'encoder.onnx',
                 decoder: base + 'decoder.onnx',
                 joiner: base + 'joiner.onnx',
                 tokens: base + 'tokens.txt',
                 lexicon: base + 'lexicon.txt',
-                modelType: 'zipformer',        // 與您的 Zipformer 模型匹配
-                decodingMethod: 'greedy_search',
-                enableEndpoint: 1,
-                rule1MinTrailingSilence: 2.4,
-                rule2MinTrailingSilence: 1.2,
-                rule3MinUtteranceLength: 20.0,
+                // 其他參數目前封裝裡忽略，因為底層 C 函數只接受這五個路徑
             });
             showToast('✅ 拼音識別引擎就緒');
             return true;
