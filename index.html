@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>普通話拼音教學 · 拼音直接識別評測</title>
+    <!-- pinyin-pro CDN -->
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.0/dist/index.js"></script>
     <style>
-        /* 與之前相同的樣式，此處省略以節省空間，但實際使用時需保留完整樣式 */
         :root {
             --bg: #f0f2f5;
             --teacher-bubble: #ffffff;
@@ -79,7 +79,9 @@
         @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4);}50%{box-shadow:0 0 0 20px rgba(231,76,60,0);}}
         .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:18px;font-size:0.85rem;font-weight:600;z-index:200;pointer-events:none;animation:toastIn 0.3s ease-out,toastOut 0.3s 1.8s ease-in forwards;}
         @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}} @keyframes toastOut{to{opacity:0;}}
-        .error-box{background:#ffe6e6;color:#c0392b;padding:8px;border-radius:8px;margin:8px 0;font-size:0.85rem;border:1px solid #f5c6cb;}
+        .error-box{background:#ffe6e6;color:#c0392b;padding:8px;border-radius:8px;margin:8px 0;font-size:0.85rem;border:1px solid #f5c6cb;text-align:left;}
+        .spell-display.correct-flash{background:#d4edda;transition:background 0.2s;}
+        .spell-display.error-flash{background:#f8d7da;transition:background 0.2s;}
         @media(max-width:800px){.main-layout{flex-direction:column;}.input-section{max-width:100%;min-width:auto;}}
     </style>
 </head>
@@ -95,6 +97,7 @@
 </div>
 <div id="toastContainer"></div>
 
+<!-- WASM 載入設定 -->
 <script>
     window.Module = {
         ENVIRONMENT_IS_PTHREAD: false,
@@ -110,6 +113,7 @@
 <script src="./lib/sherpa-onnx-wasm-main-asr.js"></script>
 
 <script type="module">
+    // ===== 全域 Module =====
     const Module = window.Module;
     function waitForModule() {
         return new Promise((resolve, reject) => {
@@ -121,6 +125,7 @@
         });
     }
 
+    // ===== 建立辨識器工廠 =====
     function createOnlineRecognizer(config) {
         const { model, decoder, joiner, tokens, lexicon } = config;
         const allocStr = (str) => {
@@ -179,6 +184,7 @@
         };
     }
 
+    // ===== 應用程式狀態 =====
     const AppState = { currentView: 'menu', currentThemeId: null, editThemeId: null };
     const STORAGE_KEY = 'pinyin_teaching_final';
 
@@ -226,7 +232,8 @@
         isRecording = false,
         currentEvalTarget = null,
         micPermissionGranted = false,
-        currentMode = 'standard';
+        currentMode = 'standard',
+        engineReady = false;   // 標記引擎是否已載入成功
 
     const dynamicContent = document.getElementById('dynamicContent'),
         headerName = document.getElementById('headerName'),
@@ -276,6 +283,7 @@
         goTo(map[AppState.currentView] || 'menu');
     });
 
+    // ===== 菜單 =====
     function renderMenu() {
         dynamicContent.innerHTML = `
             <div class="page-container" style="align-items:center;justify-content:center;">
@@ -293,6 +301,7 @@
         document.getElementById('btnTeacher').addEventListener('click', () => goTo('teacher-dashboard'));
     }
 
+    // ===== 學生主題列表 =====
     function renderStudentThemes() {
         headerName.textContent = '選擇對話主題';
         headerSub.textContent = '學生模式';
@@ -310,6 +319,7 @@
         document.querySelectorAll('.theme-item').forEach(i => i.addEventListener('click', () => goTo('chat', { themeId: i.dataset.id })));
     }
 
+    // ===== 聊天視圖（進入即載入語音引擎） =====
     function renderChatView() {
         const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
         if (!theme) { showToast('主題不存在'); goTo('student-themes'); return; }
@@ -344,8 +354,22 @@
             updateTargetHint();
             scrollChatToBottom();
         };
+
+        // === 進入聊天後立即載入語音引擎（非同步） ===
+        if (!recognizer && !engineReady) {
+            showToast('⏳ 正在載入語音引擎...');
+            initRecognizer().then(ok => {
+                if (ok) {
+                    engineReady = true;
+                    showToast('✅ 語音引擎已就緒');
+                } else {
+                    showToast('⚠️ 語音引擎載入失敗，請檢查模型檔案');
+                }
+            });
+        }
     }
 
+    // ===== 鍵盤與輸入邏輯（與之前相同） =====
     function buildInputSection(dialogues) {
         document.getElementById('inputSection').innerHTML = `
             <div class="target-hint">💡 請拼寫回覆：<strong id="targetStrong">--</strong></div>
@@ -717,7 +741,7 @@
         if (c) requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
     }
 
-    // ===== 語音引擎初始化（含錯誤回饋） =====
+    // ===== 語音引擎初始化（增強錯誤回饋） =====
     async function initRecognizer() {
         if (recognizer) return true;
         try {
@@ -730,13 +754,13 @@
                 tokens: base + 'tokens.txt',
                 lexicon: base + 'lexicon.txt',
             });
-            showToast('✅ 拼音識別引擎就緒');
+            engineReady = true;
             return true;
         } catch (e) {
             console.error(e);
             const msg = '⚠️ 模型載入失敗，請確認 model/ 中的五個文件均已正確放置。錯誤：' + e.message;
             showToast(msg);
-            // 同時寫入 UI 中的 evalResult（如果存在）
+            // 同時將錯誤寫入 evalResult（若存在）
             const er = document.getElementById('evalResult');
             if (er) er.innerHTML = `<div class="error-box">${msg}</div>`;
             return false;
@@ -788,28 +812,28 @@
             </div>`;
         document.body.appendChild(modal);
 
-        document.getElementById('btnStandard').addEventListener('click', async () => {
+        // 綁定按鈕事件（不再重複載入引擎，因為已經在聊天時載入）
+        document.getElementById('btnStandard').addEventListener('click', () => {
             document.getElementById('evalQuestion').style.display = 'none';
             document.getElementById('btnMic').style.display = 'flex';
-            const ready = await initRecognizer();
-            if (!ready) {
-                document.getElementById('evalResult').innerHTML = `<div class="error-box">引擎未就緒，請檢查模型文件。</div>`;
-            } else {
-                currentMode = 'standard';
-                document.getElementById('evalResult').textContent = '請朗讀指定拼音';
+            // 檢查引擎是否就緒
+            if (!engineReady || !recognizer) {
+                document.getElementById('evalResult').innerHTML = `<div class="error-box">⚠️ 語音引擎尚未載入完成，請稍後再試。</div>`;
+                return;
             }
+            currentMode = 'standard';
+            document.getElementById('evalResult').textContent = '請朗讀指定拼音';
         });
         if (openQ) {
-            document.getElementById('btnOpen').addEventListener('click', async () => {
+            document.getElementById('btnOpen').addEventListener('click', () => {
                 document.getElementById('evalQuestion').style.display = 'block';
                 document.getElementById('btnMic').style.display = 'flex';
-                const ready = await initRecognizer();
-                if (!ready) {
-                    document.getElementById('evalResult').innerHTML = `<div class="error-box">引擎未就緒，請檢查模型文件。</div>`;
-                } else {
-                    currentMode = 'open';
-                    document.getElementById('evalResult').textContent = '請自由回答（普通話）';
+                if (!engineReady || !recognizer) {
+                    document.getElementById('evalResult').innerHTML = `<div class="error-box">⚠️ 語音引擎尚未載入完成，請稍後再試。</div>`;
+                    return;
                 }
+                currentMode = 'open';
+                document.getElementById('evalResult').textContent = '請自由回答（普通話）';
             });
         }
         document.getElementById('btnMic').addEventListener('click', () => {
@@ -826,39 +850,30 @@
         currentEvalTarget = null;
     }
 
-    // ===== 錄音控制（加強錯誤顯示） =====
+    // ===== 錄音控制（含詳細錯誤顯示） =====
     async function startRecording() {
         const resultEl = document.getElementById('evalResult');
         if (!resultEl) return;
 
-        // 先檢查瀏覽器支援
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            resultEl.innerHTML = `<div class="error-box">⚠️ 此瀏覽器不支援麥克風，請使用 Chrome/Firefox/Edge。</div>`;
+        // 檢查引擎是否就緒
+        if (!engineReady || !recognizer) {
+            resultEl.innerHTML = `<div class="error-box">⚠️ 語音引擎尚未載入，請稍後再試。</div>`;
             return;
         }
 
-        // 檢查是否已初始化引擎
-        if (!recognizer) {
-            resultEl.textContent = '⏳ 正在載入語音引擎...';
-            const ok = await initRecognizer();
-            if (!ok) {
-                resultEl.innerHTML = `<div class="error-box">引擎載入失敗，請確認網路與模型檔案。</div>`;
-                return;
-            }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            resultEl.innerHTML = `<div class="error-box">⚠️ 此瀏覽器不支援麥克風。</div>`;
+            return;
         }
 
-        // 取得麥克風權限
+        // 取得麥克風權限（若尚未取得）
         if (!mediaStream) {
             resultEl.textContent = '⏳ 請求麥克風權限...';
             const granted = await requestMic();
-            if (!granted) {
-                // 錯誤訊息已在 requestMic 內設定
-                return;
-            }
+            if (!granted) return;
         }
 
         try {
-            // 建立 AudioContext（手機需要 resume）
             audioContext = new AudioContext({ sampleRate: 16000 });
             await audioContext.resume();
 
@@ -884,7 +899,6 @@
         } catch (e) {
             console.error('錄音啟動失敗', e);
             resultEl.innerHTML = `<div class="error-box">錄音錯誤：${e.message}。請檢查麥克風權限或重新整理頁面。</div>`;
-            // 清理資源
             if (audioContext) { audioContext.close(); audioContext = null; }
             isRecording = false;
         }
@@ -899,10 +913,9 @@
         const mic = document.getElementById('btnMic');
         if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
         if (recognizer) recognizer.reset();
-        // 不釋放 mediaStream，保留權限
     }
 
-    // ===== 評測核心（使用 pinyin-pro） =====
+    // ===== 評測核心（pinyin-pro） =====
     function evaluatePinyin(recognizedChinese) {
         if (!currentEvalTarget) return;
         const targetPinyin = currentEvalTarget.pinyin.trim();
@@ -975,7 +988,7 @@
         return costs[s2.length];
     }
 
-    // ===== 老師管理（與之前相同，略作微調） =====
+    // ===== 老師管理（完整保留） =====
     function renderTeacherDashboard() {
         headerName.textContent = '老師管理';
         headerSub.textContent = '編輯對話主題';
@@ -1125,6 +1138,7 @@
         });
     }
 
+    // ===== 啟動 =====
     renderView();
 </script>
 </body>
