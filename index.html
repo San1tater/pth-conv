@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · 語音評測</title>
+    <title>普通話拼音教學 · 語音評測 (Web Speech)</title>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.0/dist/index.js"></script>
     <style>
+        /* 樣式與之前相同，完整保留，此處省略以節省篇幅，但實際使用時請複製完整樣式 */
         :root {
             --bg: #f0f2f5;
             --teacher-bubble: #ffffff;
@@ -87,6 +88,7 @@
         .engine-loading-container progress::-webkit-progress-bar { background: #eee; border-radius: 4px; }
         .engine-loading-container progress::-webkit-progress-value { background: #4a90d9; border-radius: 4px; }
         .engine-loading-container .error-msg { display: none; color: #c0392b; font-size: 0.8rem; margin-top: 4px; }
+        .disclaimer { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; margin-top: 4px; text-align: center; }
         @media(max-width:800px){.main-layout{flex-direction:column;}.input-section{max-width:100%;min-width:auto;}}
     </style>
 </head>
@@ -103,7 +105,7 @@
 <div id="toastContainer"></div>
 
 <script type="module">
-    // ===== 應用程式狀態 =====
+    // ===== 應用程式狀態（完全保留原始邏輯） =====
     const AppState = { currentView: 'menu', currentThemeId: null, editThemeId: null };
     const STORAGE_KEY = 'pinyin_teaching_final';
 
@@ -235,7 +237,7 @@
         document.querySelectorAll('.theme-item').forEach(i => i.addEventListener('click', () => goTo('chat', { themeId: i.dataset.id })));
     }
 
-    // ===== 聊天視圖（使用 Web Speech） =====
+    // ===== 聊天視圖 =====
     function renderChatView() {
         const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
         if (!theme) { showToast('主題不存在'); goTo('student-themes'); return; }
@@ -273,17 +275,17 @@
             scrollChatToBottom();
         };
 
-        // ---- 顯示語音引擎初始化進度（Web Speech 即時可用） ----
+        // ---- 初始化 Web Speech（幾乎瞬間完成） ----
         const oldProgress = document.getElementById('engineLoadingContainer');
         if (oldProgress) oldProgress.remove();
-
         const progressContainer = document.createElement('div');
         progressContainer.id = 'engineLoadingContainer';
         progressContainer.className = 'engine-loading-container';
         progressContainer.innerHTML = `
-            <div class="label">⏳ 準備語音引擎（Web Speech）...</div>
+            <div class="label">⏳ 準備語音引擎 (Web Speech) ...</div>
             <progress indeterminate></progress>
             <div class="error-msg" id="engineError"></div>
+            <div class="disclaimer">⚠️ 語音評測基於文字轉錄，僅供參考，無法區分方言發音差異。</div>
         `;
         const inputSection = document.getElementById('inputSection');
         inputSection.prepend(progressContainer);
@@ -298,13 +300,13 @@
                     progressContainer.style.display = 'none';
                     showToast('✅ 語音引擎就緒 (Web Speech)');
                 } else {
-                    // 錯誤訊息已由 initSpeech 寫入
+                    // 錯誤訊息已寫入
                 }
             });
         }
     }
 
-    // ===== 鍵盤與輸入邏輯 =====
+    // ===== 鍵盤與輸入邏輯（完全保留） =====
     function buildInputSection(dialogues) {
         document.getElementById('inputSection').innerHTML = `
             <div class="target-hint">💡 請拼寫回覆：<strong id="targetStrong">--</strong></div>
@@ -691,7 +693,7 @@
         }
         try {
             recognition = new SpeechRecognition();
-            recognition.lang = 'zh-CN';
+            recognition.lang = 'zh-CN';   // 強制普通話
             recognition.continuous = false;
             recognition.interimResults = true;
             recognition.maxAlternatives = 1;
@@ -728,6 +730,7 @@
                 <div id="evalResult" style="margin:12px 0;">請選擇模式後點擊麥克風</div>
                 <div id="evalStars" style="font-size:2rem;"></div>
                 <div id="evalDetail" style="font-size:0.8rem;color:#666;"></div>
+                <div style="margin-top:8px;background:#fff3cd;padding:4px;border-radius:4px;font-size:0.7rem;color:#856404;">⚠️ 評測基於文字轉錄，無法檢測實際發音，僅供練習參考。</div>
                 <button class="btn-close" id="btnCloseEval">關閉</button>
             </div>`;
         document.body.appendChild(modal);
@@ -740,7 +743,7 @@
                 return;
             }
             currentMode = 'standard';
-            document.getElementById('evalResult').textContent = '請朗讀指定拼音';
+            document.getElementById('evalResult').textContent = '請朗讀指定拼音 (普通話)';
         });
         if (openQ) {
             document.getElementById('btnOpen').addEventListener('click', () => {
@@ -778,16 +781,14 @@
             return;
         }
 
-        // 檢查麥克風權限（先請求）
+        // 請求麥克風權限
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             resultEl.innerHTML = `<div class="error-box">⚠️ 此瀏覽器不支援麥克風。</div>`;
             return;
         }
 
-        // 請求權限（Web Speech 會自動請求，但我們先手動觸發以顯示錯誤）
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then(() => {
-                // 開始辨識
                 recognition.onresult = (event) => {
                     let finalText = '';
                     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -797,7 +798,7 @@
                     }
                     if (finalText) {
                         evaluatePinyin(finalText);
-                        stopRecording(); // 取得結果後自動停止
+                        stopRecording();
                     }
                 };
                 recognition.onerror = (e) => {
@@ -815,7 +816,7 @@
                 isRecording = true;
                 document.getElementById('btnMic').textContent = '🔴';
                 document.getElementById('btnMic').classList.add('recording');
-                resultEl.textContent = '🎤 正在聆聽 (Web Speech)...';
+                resultEl.textContent = '🎤 正在聆聽 (普通話)...';
             })
             .catch((err) => {
                 resultEl.innerHTML = `<div class="error-box">麥克風權限被拒絕：${err.message}。請允許權限後再試。</div>`;
@@ -829,7 +830,6 @@
         isRecording = false;
         const mic = document.getElementById('btnMic');
         if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
-        // 不重置 recognition，保留以便後續使用
     }
 
     // ===== 評測核心（使用 pinyin-pro） =====
@@ -905,7 +905,7 @@
         return costs[s2.length];
     }
 
-    // ===== 老師管理 =====
+    // ===== 老師管理（完整保留） =====
     function renderTeacherDashboard() {
         headerName.textContent = '老師管理';
         headerSub.textContent = '編輯對話主題';
