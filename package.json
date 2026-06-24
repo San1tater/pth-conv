@@ -1,0 +1,9 @@
+{
+  "name": "pth-conv-backend",
+  "version": "1.0.0",
+  "description": "Backend proxy for Xunfei API",
+  "main": "api/proxy.js",
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
