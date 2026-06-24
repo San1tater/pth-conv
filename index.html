@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 診斷版</title>
+    <title>普通話語音評測 · 修正版</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -68,7 +68,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>診斷版</small></h1>
+    <h1>🎙️ 普通話語音評測 <small>修正版</small></h1>
     <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，即時評分</div>
 
     <div class="tabs">
@@ -188,9 +188,8 @@
         let audioBuffer = [];
         const SAMPLE_RATE = 16000;
         let cryptoReady = false;
-        let isEvaluating = false;
+        let isEvaluating = false;       // 防止重複調用
         let chunkCount = 0;
-        let wsConnected = false;
         let receivedAnyMessage = false;
         let timeoutId = null;
 
@@ -326,12 +325,19 @@
             });
         }
 
-        // ======================== WebSocket 評測 ============================
+        // ======================== WebSocket 評測（修正 isEvaluating 邏輯） ============================
         function startEvaluation() {
-            if (isEvaluating) return;
+            // 防止重複執行
+            if (isEvaluating) {
+                log('⚠️ 已有評測進行中，忽略重複調用。');
+                return;
+            }
+            isEvaluating = true;
+
             if (!teacherRefContent.trim()) {
                 setStatus(studentStatus, '⚠️ 請教師先設定參考答案。');
                 log('錯誤: 參考答案為空');
+                isEvaluating = false;
                 return;
             }
 
@@ -342,8 +348,10 @@
                     if (err) {
                         setStatus(studentStatus, `❌ ${err.message}`);
                         log(`錯誤: ${err.message}`);
+                        isEvaluating = false;
                         return;
                     }
+                    // 重試
                     startEvaluation();
                 });
                 return;
@@ -353,7 +361,6 @@
                 const wsUrl = buildWsUrl();
                 log(`WebSocket URL 生成成功 (長度: ${wsUrl.length})`);
                 ws = new WebSocket(wsUrl);
-                wsConnected = false;
                 receivedAnyMessage = false;
                 chunkCount = 0;
 
@@ -366,10 +373,10 @@
                         if (ws) ws.close();
                         stopRecording();
                     }
+                    isEvaluating = false;
                 }, 15000);
 
                 ws.onopen = () => {
-                    wsConnected = true;
                     log('WebSocket 已連接，發送握手幀...');
                     setStatus(studentStatus, '🔗 已連接服務器，發送握手...');
                     sendHandshake();
@@ -395,10 +402,10 @@
                     setStatus(studentStatus, '❌ WebSocket 錯誤，請查看控制台。');
                     if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
                     stopRecording();
+                    isEvaluating = false;
                 };
 
                 ws.onclose = (e) => {
-                    wsConnected = false;
                     log(`WebSocket 關閉: code=${e.code}, reason=${e.reason || 'none'}`);
                     if (!receivedAnyMessage) {
                         setStatus(studentStatus, `⚠️ 連接關閉 (code ${e.code})，未收到任何數據，可能認證失敗。`);
@@ -410,11 +417,13 @@
                         }
                     }
                     if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+                    isEvaluating = false;
                 };
             } catch (e) {
                 log(`建立 WebSocket 失敗: ${e.message}`);
                 setStatus(studentStatus, `❌ 建立連接失敗：${e.message}`);
                 stopRecording();
+                isEvaluating = false;
             }
         }
 
@@ -500,6 +509,7 @@
                 log(`❌ ${msg}`);
                 setStatus(studentStatus, `❌ ${msg}`);
                 stopRecording();
+                isEvaluating = false;
                 return;
             }
 
@@ -521,6 +531,7 @@
                 setStatus(studentStatus, '✅ 評測完成！');
                 if (ws && ws.readyState === WebSocket.OPEN) ws.close();
                 stopRecording();
+                isEvaluating = false;
             }
         }
 
@@ -532,7 +543,7 @@
             currentTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
-            isEvaluating = false;
+            // 重置狀態，但不重置 isEvaluating（由 startEvaluation 管理）
             receivedAnyMessage = false;
             chunkCount = 0;
 
@@ -556,9 +567,9 @@
                     timerDisplay.textContent = formatTime(seconds);
                 }, 1000);
                 setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容...');
-                log('錄音已啟動');
+                log('錄音已啟動，開始建立 WebSocket 評測...');
 
-                isEvaluating = true;
+                // 啟動評測（內部會管理 isEvaluating）
                 try {
                     startEvaluation();
                 } catch (e) {
@@ -570,7 +581,10 @@
         }
 
         function stopRecording() {
-            if (!isRecording && !isEvaluating) return;
+            if (!isRecording && !isEvaluating) {
+                // 如果已經停止，但可能還在等待評測，不重複執行
+                return;
+            }
             isRecording = false;
             micDot.className = 'dot';
             micStatusText.textContent = '⏹️ 錄音已停止';
@@ -615,7 +629,8 @@
                     setStatus(studentStatus, '⏹️ 錄音已停止，等待評測結果...');
                 }
             }
-            isEvaluating = false;
+            // 注意：不在此處設置 isEvaluating = false，因為評測可能還在進行（等待結果）
+            // 在 onclose 或收到 grade 時會設置
             log('========== 錄音停止 ==========');
         }
 
@@ -694,7 +709,6 @@
         studentRefDisplay.textContent = teacherRefContent;
         setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」。');
         log('系統初始化完成');
-        // 預加載 CryptoJS
         loadCryptoJs((err) => {
             if (err) {
                 log(`⚠️ ${err.message}`);
@@ -704,7 +718,7 @@
             }
         });
 
-        console.log('✅ 診斷版已啟動，請查看頁面日誌區。');
+        console.log('✅ 修正版已啟動，請查看頁面日誌區。');
     })();
 </script>
 </body>
