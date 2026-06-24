@@ -1,18 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通话语音评测（讯飞引擎·内置凭证）</title>
+    <title>普通話語音評測系統</title>
     <style>
-        /* ===== 全局样式 ===== */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         body {
-            font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
+            font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif;
             background: #f0f4f8;
             min-height: 100vh;
             display: flex;
@@ -21,78 +20,76 @@
             padding: 20px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 900px;
             width: 100%;
-            background: #ffffff;
+            background: #fff;
             border-radius: 32px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
-            padding: 40px 36px;
+            padding: 32px 36px 40px;
+            transition: 0.2s;
         }
         h1 {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
-            color: #1a2332;
+            color: #1a2634;
             display: flex;
             align-items: center;
             gap: 12px;
             margin-bottom: 8px;
         }
-        .subtitle {
-            color: #6b7a8f;
+        h1 small {
             font-size: 15px;
+            font-weight: 400;
+            color: #6b7a8a;
+            margin-left: auto;
+        }
+        .sub {
+            color: #5e6f7e;
+            font-size: 15px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 14px;
             margin-bottom: 28px;
-            border-left: 4px solid #0b8a5e;
-            padding-left: 16px;
-            background: #ecfdf5;
+            background: #f8fafc;
             border-radius: 0 12px 12px 0;
             line-height: 1.6;
         }
-        .subtitle strong {
-            color: #0b8a5e;
-        }
-
-        /* ===== 入口切换 ===== */
-        .role-tabs {
+        .tabs {
             display: flex;
-            gap: 0;
-            background: #eef2f6;
-            border-radius: 60px;
-            padding: 4px;
+            gap: 8px;
             margin-bottom: 28px;
+            border-bottom: 2px solid #e9edf2;
+            padding-bottom: 4px;
         }
-        .role-tab {
-            flex: 1;
+        .tab-btn {
             border: none;
             background: transparent;
-            padding: 12px 20px;
-            border-radius: 60px;
+            padding: 10px 24px;
             font-size: 16px;
             font-weight: 600;
-            color: #4a5a6e;
+            color: #6b7a8a;
+            border-radius: 40px;
             cursor: pointer;
-            transition: all 0.25s;
+            transition: 0.2s;
         }
-        .role-tab.active {
-            background: #ffffff;
-            color: #1a2332;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        .tab-btn.active {
+            background: #3b82f6;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.30);
         }
-        .role-tab:hover:not(.active) {
-            color: #1a2332;
+        .tab-btn:hover:not(.active) {
+            background: #eef2f6;
         }
-
-        /* ===== 面板 ===== */
         .panel {
             display: none;
-            animation: fadeUp 0.3s ease;
+            animation: fade 0.25s ease;
         }
         .panel.active {
             display: block;
         }
-        @keyframes fadeUp {
+        @keyframes fade {
             0% {
-                opacity: 0;
-                transform: translateY(12px);
+                opacity: 0.5;
+                transform: translateY(6px);
             }
             100% {
                 opacity: 1;
@@ -100,79 +97,117 @@
             }
         }
 
-        /* ===== 教师面板 ===== */
         .upload-area {
             border: 2px dashed #cbd5e1;
             border-radius: 20px;
             padding: 40px 20px;
             text-align: center;
             background: #fafcff;
+            transition: 0.2s;
             cursor: pointer;
-            transition: border-color 0.2s, background 0.2s;
-            margin-bottom: 20px;
         }
         .upload-area:hover {
             border-color: #3b82f6;
             background: #f0f7ff;
         }
-        .upload-area .icon {
-            font-size: 48px;
-            display: block;
-            margin-bottom: 8px;
-        }
-        #imagePreview {
-            margin-top: 16px;
-            max-width: 100%;
-            max-height: 300px;
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        .upload-area input[type="file"] {
             display: none;
         }
-        .teacher-form label {
+        .upload-area .icon {
+            font-size: 44px;
+            margin-bottom: 8px;
+        }
+        .upload-area p {
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .upload-area .hint {
+            color: #8a9aa8;
+            font-size: 14px;
+            margin-top: 6px;
+        }
+
+        .preview-box {
+            margin: 18px 0 22px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #f1f5f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 160px;
+        }
+        .preview-box img {
+            max-width: 100%;
+            max-height: 280px;
             display: block;
+        }
+        .preview-box .placeholder {
+            color: #8a9aa8;
+            font-size: 15px;
+            padding: 30px;
+        }
+
+        .ref-box {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin: 12px 0 18px;
+            border: 1px solid #e9edf2;
+        }
+        .ref-box label {
             font-weight: 600;
-            color: #1a2332;
-            margin-top: 18px;
+            color: #1e2a3a;
+            display: block;
             margin-bottom: 6px;
             font-size: 14px;
         }
-        .teacher-form textarea {
+        .ref-box textarea {
             width: 100%;
-            padding: 14px 16px;
-            border: 1.5px solid #dce2ea;
-            border-radius: 14px;
+            border: 1px solid #dce1e8;
+            border-radius: 12px;
+            padding: 12px 14px;
             font-size: 15px;
             font-family: inherit;
             resize: vertical;
-            min-height: 80px;
-            transition: border-color 0.2s;
+            min-height: 70px;
+            transition: 0.2s;
+            background: #fff;
         }
-        .teacher-form textarea:focus {
+        .ref-box textarea:focus {
             outline: none;
             border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 18px 0 10px;
         }
         .btn {
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 600;
+            background: #eef2f6;
+            color: #1e2a3a;
+            cursor: pointer;
+            transition: 0.2s;
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 12px 32px;
-            border: none;
-            border-radius: 60px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-top: 16px;
         }
         .btn-primary {
-            background: #1a2332;
+            background: #3b82f6;
             color: #fff;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.30);
         }
         .btn-primary:hover {
-            background: #2d3a4f;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(26, 35, 50, 0.20);
+            background: #2563eb;
+            transform: scale(1.01);
         }
         .btn-primary:disabled {
             opacity: 0.5;
@@ -180,852 +215,688 @@
             transform: none;
         }
         .btn-success {
-            background: #0b8a5e;
+            background: #22c55e;
             color: #fff;
+            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.30);
         }
         .btn-success:hover {
-            background: #0d9d6b;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(11, 138, 94, 0.25);
+            background: #16a34a;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #cbd5e1;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
         }
         .btn-danger {
-            background: #b91c1c;
+            background: #ef4444;
             color: #fff;
         }
         .btn-danger:hover {
-            background: #991b1b;
-        }
-        .btn-danger:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
+            background: #dc2626;
         }
 
-        /* ===== 学生面板 ===== */
-        .student-image-box {
+        .status-box {
+            margin: 16px 0 10px;
+            padding: 14px 18px;
+            border-radius: 14px;
             background: #f8fafc;
-            border-radius: 20px;
-            padding: 20px;
-            text-align: center;
-            margin-bottom: 20px;
-            min-height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1.5px solid #eef2f6;
+            border: 1px solid #e9edf2;
+            font-size: 14px;
+            color: #1e2a3a;
+            min-height: 50px;
+            line-height: 1.6;
         }
-        .student-image-box img {
-            max-width: 100%;
-            max-height: 320px;
-            border-radius: 12px;
-        }
-        .student-image-box .placeholder {
-            color: #8a9aa8;
-            font-size: 15px;
-        }
-        .reference-box {
-            background: #f0f7ff;
-            border-radius: 16px;
-            padding: 16px 20px;
-            margin-bottom: 20px;
-            border-left: 4px solid #3b82f6;
-        }
-        .reference-box .label {
-            font-size: 13px;
+        .status-box .label {
             font-weight: 600;
-            color: #3b82f6;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .reference-box .content {
-            margin-top: 4px;
-            color: #1a2332;
-            font-size: 15px;
-            line-height: 1.7;
+            color: #4b5a6a;
+            margin-right: 8px;
         }
 
-        /* ===== 录音控制 ===== */
-        .recording-controls {
+        .result-card {
+            background: #f8fafc;
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-top: 18px;
+            border: 1px solid #e2e8f0;
+        }
+        .result-card .score-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 18px 32px;
+            margin-bottom: 10px;
+        }
+        .result-card .score-item {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .result-card .score-item .num {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0b1e2e;
+        }
+        .result-card .score-item .num.good {
+            color: #22c55e;
+        }
+        .result-card .score-item .num.mid {
+            color: #eab308;
+        }
+        .result-card .score-item .num.poor {
+            color: #ef4444;
+        }
+        .result-card .detail {
+            margin-top: 12px;
+            padding-top: 14px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 15px;
+            line-height: 1.7;
+            color: #1e2a3a;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .result-card .detail strong {
+            color: #0b1e2e;
+        }
+
+        .footer-note {
+            margin-top: 28px;
+            font-size: 13px;
+            color: #8a9aa8;
+            text-align: center;
+            border-top: 1px solid #e9edf2;
+            padding-top: 22px;
+        }
+
+        /* 學生頁面專用 */
+        .student-speak-area {
+            background: #fafcff;
+            border-radius: 18px;
+            padding: 18px 20px 20px;
+            border: 1px solid #e9edf2;
+            margin: 10px 0 14px;
+        }
+        .student-speak-area .mic-hint {
+            display: flex;
             align-items: center;
-            margin: 16px 0 12px;
+            gap: 14px;
+            flex-wrap: wrap;
         }
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 16px;
-            border-radius: 60px;
-            font-size: 14px;
-            font-weight: 500;
-            background: #eef2f6;
-            color: #4a5a6e;
-        }
-        .status-badge.recording {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-        .status-badge .dot {
-            width: 10px;
-            height: 10px;
+        .student-speak-area .mic-hint .dot {
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            background: #8a9aa8;
-            display: inline-block;
+            background: #94a3b8;
+            transition: 0.2s;
         }
-        .status-badge.recording .dot {
-            background: #b91c1c;
+        .student-speak-area .mic-hint .dot.recording {
+            background: #ef4444;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
             animation: pulse 1s infinite;
         }
         @keyframes pulse {
             0%,
             100% {
-                opacity: 1;
                 transform: scale(1);
             }
             50% {
-                opacity: 0.4;
-                transform: scale(0.8);
+                transform: scale(1.25);
             }
         }
-
-        /* ===== 识别结果 ===== */
-        .result-box {
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 18px 20px;
-            margin-top: 16px;
-            border: 1.5px solid #eef2f6;
-            min-height: 60px;
-        }
-        .result-box .label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #6b7a8f;
-            margin-bottom: 4px;
-        }
-        .result-box .text {
-            font-size: 16px;
-            color: #1a2332;
-            line-height: 1.7;
-        }
-        .result-box .text.empty {
-            color: #b0c0d0;
-        }
-
-        /* ===== 评分 ===== */
-        .score-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin-top: 16px;
-        }
-        .score-item {
-            background: #ffffff;
-            border-radius: 14px;
+        .student-speak-area .transcript {
+            margin-top: 12px;
             padding: 14px 16px;
-            border: 1.5px solid #eef2f6;
-            text-align: center;
-        }
-        .score-item .value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #1a2332;
-        }
-        .score-item .value.good {
-            color: #0b8a5e;
-        }
-        .score-item .value.ok {
-            color: #d97706;
-        }
-        .score-item .value.poor {
-            color: #b91c1c;
-        }
-        .score-item .desc {
-            font-size: 13px;
-            color: #6b7a8f;
-            margin-top: 2px;
-        }
-
-        .advice-box {
-            background: #fefce8;
-            border-radius: 16px;
-            padding: 18px 20px;
-            margin-top: 16px;
-            border-left: 4px solid #d97706;
-        }
-        .advice-box .label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #d97706;
-        }
-        .advice-box .content {
-            margin-top: 4px;
-            color: #1a2332;
-            font-size: 15px;
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            min-height: 60px;
+            font-size: 16px;
             line-height: 1.7;
+            color: #0b1e2e;
+        }
+        .student-speak-area .transcript .empty {
+            color: #94a3b8;
         }
 
-        /* ===== 响应式 ===== */
-        @media (max-width: 640px) {
+        @media (max-width: 600px) {
             .container {
-                padding: 24px 16px;
+                padding: 20px 16px;
             }
-            h1 {
-                font-size: 22px;
+            .tabs {
+                gap: 4px;
             }
-            .role-tab {
+            .tab-btn {
+                padding: 8px 14px;
                 font-size: 14px;
-                padding: 10px 12px;
             }
-            .score-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-            .recording-controls {
+            .actions {
                 flex-direction: column;
-                align-items: stretch;
             }
             .btn {
                 justify-content: center;
+            }
+            .result-card .score-row {
+                gap: 10px 20px;
             }
         }
     </style>
 </head>
 <body>
-
-    <div class="container">
-        <h1>🎙️ 普通話語音評測</h1>
-        <div class="subtitle">
-            📖 看圖說故事 · 基於 <strong>科大訊飛</strong> 引擎 · <strong>嚴格識別普通話</strong>，拒絕方言口音
-            <span style="display:inline-block;margin-left:16px;font-weight:400;color:#8a9aa8;font-size:13px;">
-                🔒 純前端 · 憑證已內置
-            </span>
-        </div>
-
-        <!-- ===== 角色切换 ===== -->
-        <div class="role-tabs">
-            <button class="role-tab active" data-role="teacher">👩‍🏫 教師入口</button>
-            <button class="role-tab" data-role="student">🧑‍🎓 學生入口</button>
-        </div>
-
-        <!-- ============================================================ -->
-        <!-- ===== 教师面板 ===== -->
-        <!-- ============================================================ -->
-        <div id="panelTeacher" class="panel active">
-            <p style="color:#4a5a6e;margin-bottom:16px;font-size:15px;">
-                上傳圖片並設定參考答案，學生將根據此圖片進行看圖說話。
-            </p>
-
-            <div class="upload-area" id="uploadArea">
-                <span class="icon">🖼️</span>
-                <p><strong>點擊上傳圖片</strong> 或拖曳至此</p>
-                <span class="hint">支援 JPG / PNG / WebP</span>
-                <input type="file" id="imageInput" accept="image/*" style="display:none;" />
-                <img id="imagePreview" alt="圖片預覽" />
-            </div>
-
-            <div class="teacher-form">
-                <label for="refAnswer">📝 參考答案（標準敘述）</label>
-                <textarea id="refAnswer" placeholder="請輸入這段看圖說話的參考答案，用於比對學生發言內容...">小明的爸爸媽媽帶他去公園玩。公園裡有很多樹和花，還有一個大池塘。小明很開心，他和爸爸一起放風箏，媽媽在旁邊拍照。天氣很好，陽光明媚。</textarea>
-
-                <label for="refKeywords">🏷️ 關鍵詞（逗號分隔，用於評分）</label>
-                <textarea id="refKeywords" placeholder="例如：公園, 爸爸, 媽媽, 風箏, 拍照, 開心" style="min-height:50px;">公園, 爸爸, 媽媽, 風箏, 拍照, 開心, 樹, 花, 池塘, 陽光</textarea>
-
-                <button class="btn btn-success" id="saveTeacherConfig">💾 儲存設定</button>
-                <span id="saveStatus" style="margin-left:12px;font-size:14px;color:#0b8a5e;"></span>
-            </div>
-
-            <!-- 提示：凭证已内置，无需填写 -->
-            <div style="margin-top:20px;padding:12px 16px;background:#f0fdf4;border-radius:12px;border:1px solid #86efac;font-size:14px;color:#166534;">
-                ✅ 訊飛 API 憑證已內置（APPID: b35875f2），可直接使用。
-            </div>
-        </div>
-
-        <!-- ============================================================ -->
-        <!-- ===== 学生面板 ===== -->
-        <!-- ============================================================ -->
-        <div id="panelStudent" class="panel">
-            <!-- 显示教师上传的图片 -->
-            <div class="student-image-box" id="studentImageBox">
-                <span class="placeholder">📷 等待教師上傳圖片...</span>
-            </div>
-
-            <!-- 显示参考答案（学生可见） -->
-            <div class="reference-box" id="referenceBox">
-                <div class="label">📖 參考答案</div>
-                <div class="content" id="refDisplay">教師尚未設定參考答案。</div>
-            </div>
-
-            <!-- 录音控制 -->
-            <div class="recording-controls">
-                <button class="btn btn-primary" id="startRecord">🎤 開始錄音</button>
-                <button class="btn btn-danger" id="stopRecord" disabled>⏹ 停止錄音</button>
-                <span class="status-badge" id="statusBadge">
-                    <span class="dot"></span> 就緒
-                </span>
-            </div>
-
-            <!-- 识别结果 -->
-            <div class="result-box">
-                <div class="label">📝 識別結果</div>
-                <div class="text empty" id="recognizedText">點擊「開始錄音」後說話，語音將轉為文字...</div>
-            </div>
-
-            <!-- 评分结果 -->
-            <div id="scoreArea" style="display:none;">
-                <div class="score-grid" id="scoreGrid">
-                    <div class="score-item">
-                        <div class="value" id="scoreContent">—</div>
-                        <div class="desc">內容匹配度</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="value" id="scoreKeyword">—</div>
-                        <div class="desc">關鍵詞覆蓋</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="value" id="scoreLength">—</div>
-                        <div class="desc">表達完整度</div>
-                    </div>
-                    <div class="score-item">
-                        <div class="value" id="scoreOverall">—</div>
-                        <div class="desc">綜合評分</div>
-                    </div>
-                </div>
-                <div class="advice-box" id="adviceBox">
-                    <div class="label">💡 智能建議</div>
-                    <div class="content" id="adviceContent">評分完成後將顯示建議。</div>
-                </div>
-            </div>
-        </div>
-
+<div class="container">
+    <h1>
+        🎙️ 普通話語音評測
+        <small>看圖說話 · 即時評分</small>
+    </h1>
+    <div class="sub">
+        👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，系統自動評分
     </div>
 
-    <!-- ================================================================ -->
-    <!-- 引入 crypto-js 用于讯飞 API 鉴权 -->
-    <!-- ================================================================ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js">
-    </script>
+    <!-- 分頁 -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="teacher">👩‍🏫 教師入口</button>
+        <button class="tab-btn" data-tab="student">🧑‍🎓 學生入口</button>
+    </div>
 
-    <script>
-        // ================================================================
-        //  核心逻辑（讯飞凭证已硬编码）
-        // ================================================================
+    <!-- ========= 教師面板 ========= -->
+    <div id="panel-teacher" class="panel active">
+        <div class="upload-area" id="uploadArea">
+            <div class="icon">🖼️</div>
+            <p><strong>點擊上傳圖片</strong>（看圖說話主題）</p>
+            <div class="hint">支援 JPG / PNG / WebP</div>
+            <input type="file" id="imageInput" accept="image/*" />
+        </div>
 
-        (function() {
-            'use strict';
+        <div class="preview-box" id="imagePreview">
+            <span class="placeholder">📷 尚未上傳圖片</span>
+        </div>
 
-            // ---------- 讯飞凭证（硬编码） ----------
-            const XF_APPID = 'b35875f2';
-            const XF_API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
-            const XF_API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
+        <div class="ref-box">
+            <label for="refText">📝 參考答案（學生需朗讀的內容）</label>
+            <textarea id="refText" placeholder="請輸入學生應朗讀的普通話內容……">今天天氣真好，小貓在花園裏玩耍。</textarea>
+        </div>
 
-            // ---------- DOM 引用 ----------
-            const roleTabs = document.querySelectorAll('.role-tab');
-            const panelTeacher = document.getElementById('panelTeacher');
-            const panelStudent = document.getElementById('panelStudent');
+        <div class="actions">
+            <button class="btn btn-success" id="saveTeacherBtn">💾 儲存設定</button>
+            <button class="btn btn-outline" id="resetTeacherBtn">🔄 重設</button>
+        </div>
+        <div class="status-box" id="teacherStatus">
+            <span class="label">📌 狀態：</span> 準備就緒，請上傳圖片並輸入參考答案。
+        </div>
+    </div>
 
-            const uploadArea = document.getElementById('uploadArea');
-            const imageInput = document.getElementById('imageInput');
-            const imagePreview = document.getElementById('imagePreview');
+    <!-- ========= 學生面板 ========= -->
+    <div id="panel-student" class="panel">
+        <!-- 顯示教師設定的圖片與參考答案 -->
+        <div class="preview-box" id="studentImagePreview">
+            <span class="placeholder">📷 教師尚未上傳圖片</span>
+        </div>
+        <div class="ref-box" style="background:#f0f7ff; border-color:#b3d4fc;">
+            <label>📖 請朗讀以下內容：</label>
+            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">
+                教師尚未設定參考答案
+            </div>
+        </div>
 
-            const refAnswer = document.getElementById('refAnswer');
-            const refKeywords = document.getElementById('refKeywords');
-            const saveTeacherBtn = document.getElementById('saveTeacherConfig');
-            const saveStatus = document.getElementById('saveStatus');
+        <div class="student-speak-area">
+            <div class="mic-hint">
+                <span class="dot" id="micDot"></span>
+                <span id="micStatusText" style="font-weight:500; color:#2c3e50;">⏸️ 點擊下方按鈕開始錄音</span>
+                <span style="margin-left:auto; font-size:14px; color:#6b7a8a;" id="timerDisplay">00:00</span>
+            </div>
+            <div class="transcript" id="transcriptBox">
+                <span class="empty">🎤 語音識別結果將顯示在此……</span>
+            </div>
+        </div>
 
-            const studentImageBox = document.getElementById('studentImageBox');
-            const refDisplay = document.getElementById('refDisplay');
+        <div class="actions">
+            <button class="btn btn-primary" id="startRecordBtn">🎙️ 開始錄音</button>
+            <button class="btn btn-danger" id="stopRecordBtn" disabled>⏹️ 停止錄音</button>
+            <button class="btn btn-outline" id="clearStudentBtn">🗑️ 清空</button>
+        </div>
 
-            const startBtn = document.getElementById('startRecord');
-            const stopBtn = document.getElementById('stopRecord');
-            const statusBadge = document.getElementById('statusBadge');
-            const recognizedText = document.getElementById('recognizedText');
+        <!-- 評分結果 -->
+        <div class="result-card" id="resultCard" style="display:none;">
+            <div class="score-row">
+                <div class="score-item"><span>🏆 總分</span> <span class="num" id="totalScore">--</span></div>
+                <div class="score-item"><span>🎯 準確度</span> <span class="num" id="accScore">--</span></div>
+                <div class="score-item"><span>📊 流暢度</span> <span class="num" id="fluencyScore">--</span></div>
+                <div class="score-item"><span>📝 完整度</span> <span class="num" id="integrityScore">--</span></div>
+            </div>
+            <div class="detail" id="suggestionText">
+                <strong>💡 智能建議：</strong> 評分完成後將顯示改進建議。
+            </div>
+        </div>
 
-            const scoreArea = document.getElementById('scoreArea');
-            const scoreContent = document.getElementById('scoreContent');
-            const scoreKeyword = document.getElementById('scoreKeyword');
-            const scoreLength = document.getElementById('scoreLength');
-            const scoreOverall = document.getElementById('scoreOverall');
-            const adviceContent = document.getElementById('adviceContent');
+        <div class="status-box" id="studentStatus">
+            <span class="label">📌 狀態：</span> 請點擊「開始錄音」朗讀上面的內容。
+        </div>
+    </div>
 
-            // ---------- 状态 ----------
-            let teacherConfig = {
-                imageData: null,
-                refAnswer: '',
-                refKeywords: []
-            };
+    <div class="footer-note">
+        ⚡ 使用科大訊飛語音評測（流式版）· 僅識別普通話讀音 · 每日免費 500 次調用
+    </div>
+</div>
 
-            let isRecording = false;
-            let xfVoice = null;
-            let finalTranscript = '';
+<!-- ============================================================ -->
+<!-- 科大訊飛 WebSocket 語音評測 SDK (直接 CDN)                      -->
+<!-- ============================================================ -->
+<script src="https://webapi.xfyun.cn/sdk/v1.0.0/xfyun-web-sdk.min.js">
+</script>
 
-            // ---------- 本地存储 ----------
-            function loadConfig() {
-                try {
-                    const saved = localStorage.getItem('mandarin_teacher_config_v3');
-                    if (saved) {
-                        const parsed = JSON.parse(saved);
-                        teacherConfig = parsed;
-                        if (parsed.imageData) {
-                            imagePreview.src = parsed.imageData;
-                            imagePreview.style.display = 'block';
-                            updateStudentImage(parsed.imageData);
-                        }
-                        if (parsed.refAnswer) {
-                            refAnswer.value = parsed.refAnswer;
-                            refDisplay.textContent = parsed.refAnswer;
-                        }
-                        if (parsed.refKeywords && parsed.refKeywords.length) {
-                            refKeywords.value = parsed.refKeywords.join(', ');
-                        }
-                    }
-                } catch (e) { /* ignore */ }
+<script>
+    (function() {
+        'use strict';
+
+        // =============================================================
+        // 1. 配置（直接使用用戶提供的 APPID / APIKey / APISecret）
+        // =============================================================
+        const APPID = 'b35875f2';
+        const API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
+        const API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
+
+        // =============================================================
+        // 2. DOM 參考
+        // =============================================================
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const refText = document.getElementById('refText');
+        const saveTeacherBtn = document.getElementById('saveTeacherBtn');
+        const resetTeacherBtn = document.getElementById('resetTeacherBtn');
+        const teacherStatus = document.getElementById('teacherStatus');
+
+        const studentImagePreview = document.getElementById('studentImagePreview');
+        const studentRefDisplay = document.getElementById('studentRefDisplay');
+        const transcriptBox = document.getElementById('transcriptBox');
+        const micDot = document.getElementById('micDot');
+        const micStatusText = document.getElementById('micStatusText');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const startRecordBtn = document.getElementById('startRecordBtn');
+        const stopRecordBtn = document.getElementById('stopRecordBtn');
+        const clearStudentBtn = document.getElementById('clearStudentBtn');
+        const studentStatus = document.getElementById('studentStatus');
+
+        const resultCard = document.getElementById('resultCard');
+        const totalScore = document.getElementById('totalScore');
+        const accScore = document.getElementById('accScore');
+        const fluencyScore = document.getElementById('fluencyScore');
+        const integrityScore = document.getElementById('integrityScore');
+        const suggestionText = document.getElementById('suggestionText');
+
+        // =============================================================
+        // 3. 狀態
+        // =============================================================
+        let teacherImageDataUrl = null; // 教師上傳的圖片 dataURL
+        let teacherRefContent = '今天天氣真好，小貓在花園裏玩耍。';
+
+        // 語音評測相關
+        let iseRecorder = null; // SDK 實例
+        let isRecording = false;
+        let recordTimer = null;
+        let seconds = 0;
+        let currentTranscript = ''; // 累積識別文字
+
+        // =============================================================
+        // 4. 工具函數
+        // =============================================================
+        function setStatus(el, msg) {
+            if (!el) return;
+            const label = el.querySelector('.label');
+            if (label) {
+                el.innerHTML = `<span class="label">📌 狀態：</span> ${msg}`;
+            } else {
+                el.textContent = msg;
+            }
+        }
+
+        function formatTime(sec) {
+            const m = String(Math.floor(sec / 60)).padStart(2, '0');
+            const s = String(sec % 60).padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function showTranscript(text) {
+            if (text && text.trim()) {
+                transcriptBox.innerHTML = text;
+            } else {
+                transcriptBox.innerHTML = `<span class="empty">🎤 語音識別結果將顯示在此……</span>`;
+            }
+        }
+
+        function showResult(grade) {
+            // grade 為 SDK 返回的評測結果對象
+            // 根據訊飛文檔，常見欄位: total_score, accuracy_score, fluency_score, integrity_score, suggestion
+            const total = grade.total_score || grade.totalScore || grade.total || 0;
+            const acc = grade.accuracy_score || grade.accuracyScore || grade.accuracy || 0;
+            const fluency = grade.fluency_score || grade.fluencyScore || grade.fluency || 0;
+            const integrity = grade.integrity_score || grade.integrityScore || grade.integrity || 0;
+            const suggest = grade.suggestion || grade.advice || '繼續練習，加油！';
+
+            totalScore.textContent = Math.round(total);
+            accScore.textContent = Math.round(acc);
+            fluencyScore.textContent = Math.round(fluency);
+            integrityScore.textContent = Math.round(integrity);
+
+            // 根據總分改變顏色
+            const numEls = [totalScore, accScore, fluencyScore, integrityScore];
+            numEls.forEach(el => {
+                const val = parseFloat(el.textContent);
+                el.className = 'num';
+                if (val >= 80) el.classList.add('good');
+                else if (val >= 60) el.classList.add('mid');
+                else el.classList.add('poor');
+            });
+
+            suggestionText.innerHTML = `<strong>💡 智能建議：</strong> ${suggest}`;
+            resultCard.style.display = 'block';
+        }
+
+        // =============================================================
+        // 5. 初始化科大訊飛語音評測 SDK
+        // =============================================================
+        function initIseRecorder() {
+            if (typeof XfyunWebSdk === 'undefined') {
+                setStatus(studentStatus, '⚠️ 科大訊飛 SDK 未加載，請檢查網絡。');
+                return false;
             }
 
-            function saveConfig() {
-                const keywordsRaw = refKeywords.value.trim();
-                const keywords = keywordsRaw ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
-                teacherConfig.refAnswer = refAnswer.value.trim();
-                teacherConfig.refKeywords = keywords;
-                try {
-                    localStorage.setItem('mandarin_teacher_config_v3', JSON.stringify(teacherConfig));
-                } catch (e) { /* ignore */ }
-                refDisplay.textContent = teacherConfig.refAnswer || '教師尚未設定參考答案。';
-                saveStatus.textContent = '✅ 已儲存';
-                setTimeout(() => { saveStatus.textContent = ''; }, 2000);
-            }
-
-            function updateStudentImage(dataUrl) {
-                if (dataUrl) {
-                    studentImageBox.innerHTML = `<img src="${dataUrl}" alt="看圖說話圖片" />`;
+            try {
+                // 參考訊飛文檔: 使用 IseRecorder
+                // 注意: 不同版本 SDK 用法略有差異，此處採用標準流式版 API
+                if (typeof XfyunWebSdk.IseRecorder === 'function') {
+                    iseRecorder = new XfyunWebSdk.IseRecorder({
+                        appId: APPID,
+                        apiKey: API_KEY,
+                        apiSecret: API_SECRET,
+                        // 語言: 中文普通話
+                        language: 'zh_cn',
+                        // 試題類型: 句子朗讀 (read_sentence)
+                        category: 'read_sentence',
+                        // 參考文本
+                        refText: teacherRefContent,
+                        // 回調: 狀態變化
+                        onStatusChange: function(oldStatus, newStatus) {
+                            console.log('[ISE] status:', oldStatus, '→', newStatus);
+                            if (newStatus === 'recording') {
+                                isRecording = true;
+                                micDot.className = 'dot recording';
+                                micStatusText.textContent = '🔴 錄音中……';
+                                startRecordBtn.disabled = true;
+                                stopRecordBtn.disabled = false;
+                                // 開始計時
+                                seconds = 0;
+                                timerDisplay.textContent = '00:00';
+                                if (recordTimer) clearInterval(recordTimer);
+                                recordTimer = setInterval(() => {
+                                    seconds++;
+                                    timerDisplay.textContent = formatTime(seconds);
+                                }, 1000);
+                                setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容……');
+                            } else if (newStatus === 'end' || newStatus === 'stop') {
+                                isRecording = false;
+                                micDot.className = 'dot';
+                                micStatusText.textContent = '⏹️ 錄音已結束';
+                                startRecordBtn.disabled = false;
+                                stopRecordBtn.disabled = true;
+                                if (recordTimer) {
+                                    clearInterval(recordTimer);
+                                    recordTimer = null;
+                                }
+                                setStatus(studentStatus, '⏹️ 錄音結束，正在評測……');
+                            } else if (newStatus === 'init') {
+                                micDot.className = 'dot';
+                                micStatusText.textContent = '⏸️ 準備就緒';
+                                startRecordBtn.disabled = false;
+                                stopRecordBtn.disabled = true;
+                            }
+                        },
+                        // 回調: 識別結果（即時轉寫）
+                        onResult: function(result) {
+                            console.log('[ISE] onResult:', result);
+                            // result 可能包含轉寫文字
+                            if (result && result.text) {
+                                currentTranscript = result.text;
+                                showTranscript(currentTranscript);
+                            } else if (result && result.data && result.data.text) {
+                                currentTranscript = result.data.text;
+                                showTranscript(currentTranscript);
+                            }
+                        },
+                        // 回調: 評測完成
+                        onComplete: function(grade) {
+                            console.log('[ISE] onComplete:', grade);
+                            setStatus(studentStatus, '✅ 評測完成！');
+                            if (grade) {
+                                showResult(grade);
+                            } else {
+                                setStatus(studentStatus, '⚠️ 評測結果為空，請重試。');
+                            }
+                            // 重置按鈕狀態
+                            startRecordBtn.disabled = false;
+                            stopRecordBtn.disabled = true;
+                            micDot.className = 'dot';
+                            micStatusText.textContent = '⏸️ 評測完成';
+                            if (recordTimer) {
+                                clearInterval(recordTimer);
+                                recordTimer = null;
+                            }
+                        },
+                        // 錯誤回調
+                        onError: function(err) {
+                            console.error('[ISE] error:', err);
+                            setStatus(studentStatus, `❌ 錯誤：${err.message || err}`);
+                            startRecordBtn.disabled = false;
+                            stopRecordBtn.disabled = true;
+                            micDot.className = 'dot';
+                            micStatusText.textContent = '⚠️ 發生錯誤';
+                            if (recordTimer) {
+                                clearInterval(recordTimer);
+                                recordTimer = null;
+                            }
+                        }
+                    });
+                    return true;
                 } else {
-                    studentImageBox.innerHTML = `<span class="placeholder">📷 等待教師上傳圖片...</span>`;
+                    setStatus(studentStatus, '⚠️ 當前 SDK 不支援 IseRecorder，請檢查引入版本。');
+                    return false;
                 }
+            } catch (e) {
+                console.error('[ISE] init error:', e);
+                setStatus(studentStatus, `❌ 初始化失敗：${e.message}`);
+                return false;
             }
+        }
 
-            // ---------- 图片上传 ----------
-            uploadArea.addEventListener('click', () => imageInput.click());
-            uploadArea.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#3b82f6';
-                uploadArea.style.background = '#f0f7ff';
-            });
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.style.borderColor = '#cbd5e1';
-                uploadArea.style.background = '#fafcff';
-            });
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadArea.style.borderColor = '#cbd5e1';
-                uploadArea.style.background = '#fafcff';
-                if (e.dataTransfer.files.length) {
-                    handleImageFile(e.dataTransfer.files[0]);
+        // =============================================================
+        // 6. 重新設定參考文本（教師儲存時呼叫）
+        // =============================================================
+        function updateRefText(newText) {
+            teacherRefContent = newText || '今天天氣真好，小貓在花園裏玩耍。';
+            // 更新學生顯示
+            studentRefDisplay.textContent = teacherRefContent;
+            // 如果已經初始化 SDK，更新其參考文本
+            if (iseRecorder && typeof iseRecorder.setRefText === 'function') {
+                iseRecorder.setRefText(teacherRefContent);
+            } else if (iseRecorder && iseRecorder.options) {
+                iseRecorder.options.refText = teacherRefContent;
+            }
+            // 重新初始化以確保生效（簡便做法）
+            // 但為了避免中斷錄音，僅在非錄音狀態下重新初始化
+            if (!isRecording) {
+                // 重新建立實例
+                if (iseRecorder) {
+                    try {
+                        // 若存在 stop 方法則調用
+                        if (typeof iseRecorder.stop === 'function') {
+                            iseRecorder.stop();
+                        }
+                    } catch (e) { /* ignore */ }
                 }
-            });
-            imageInput.addEventListener('change', (e) => {
-                if (e.target.files.length) {
-                    handleImageFile(e.target.files[0]);
-                }
-            });
+                initIseRecorder();
+            }
+        }
 
-            function handleImageFile(file) {
-                if (!file.type.startsWith('image/')) {
-                    alert('請上傳圖片檔案');
+        // =============================================================
+        // 7. 教師功能
+        // =============================================================
+        // 上傳圖片
+        uploadArea.addEventListener('click', function(e) {
+            if (e.target.tagName !== 'INPUT') {
+                imageInput.click();
+            }
+        });
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                teacherImageDataUrl = ev.target.result;
+                // 教師預覽
+                imagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="教師上傳圖片" />`;
+                // 學生預覽
+                studentImagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="看圖說話圖片" />`;
+                setStatus(teacherStatus, '✅ 圖片已上傳，請設定參考答案並儲存。');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 儲存教師設定
+        saveTeacherBtn.addEventListener('click', function() {
+            const ref = refText.value.trim();
+            if (!ref) {
+                setStatus(teacherStatus, '⚠️ 請輸入參考答案內容。');
+                return;
+            }
+            // 更新參考文本
+            updateRefText(ref);
+            // 更新 textarea 顯示
+            refText.value = ref;
+            setStatus(teacherStatus, '✅ 設定已儲存！學生可開始朗讀評測。');
+            // 如果沒有圖片，提示
+            if (!teacherImageDataUrl) {
+                setStatus(teacherStatus, '⚠️ 設定已儲存，但尚未上傳圖片。');
+            }
+        });
+
+        // 重設教師
+        resetTeacherBtn.addEventListener('click', function() {
+            teacherImageDataUrl = null;
+            imagePreview.innerHTML = `<span class="placeholder">📷 尚未上傳圖片</span>`;
+            studentImagePreview.innerHTML = `<span class="placeholder">📷 教師尚未上傳圖片</span>`;
+            refText.value = '今天天氣真好，小貓在花園裏玩耍。';
+            imageInput.value = '';
+            updateRefText('今天天氣真好，小貓在花園裏玩耍。');
+            setStatus(teacherStatus, '🔄 已重設，請重新上傳圖片及設定答案。');
+        });
+
+        // =============================================================
+        // 8. 學生功能
+        // =============================================================
+        // 開始錄音
+        startRecordBtn.addEventListener('click', function() {
+            if (!iseRecorder) {
+                const ok = initIseRecorder();
+                if (!ok) {
+                    setStatus(studentStatus, '❌ 無法初始化語音評測，請檢查網絡或 SDK。');
                     return;
                 }
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const dataUrl = ev.target.result;
-                    imagePreview.src = dataUrl;
-                    imagePreview.style.display = 'block';
-                    teacherConfig.imageData = dataUrl;
-                    updateStudentImage(dataUrl);
-                    saveConfig();
-                };
-                reader.readAsDataURL(file);
+            }
+            // 確保參考文本最新
+            if (iseRecorder && typeof iseRecorder.setRefText === 'function') {
+                iseRecorder.setRefText(teacherRefContent);
+            } else if (iseRecorder && iseRecorder.options) {
+                iseRecorder.options.refText = teacherRefContent;
             }
 
-            // ---------- 保存教师配置 ----------
-            saveTeacherBtn.addEventListener('click', saveConfig);
+            // 清空之前的結果
+            resultCard.style.display = 'none';
+            currentTranscript = '';
+            showTranscript('');
 
-            // ---------- 角色切换 ----------
-            roleTabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    roleTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    const role = tab.dataset.role;
-                    if (role === 'teacher') {
-                        panelTeacher.classList.add('active');
-                        panelStudent.classList.remove('active');
-                    } else {
-                        panelTeacher.classList.remove('active');
-                        panelStudent.classList.add('active');
-                        if (isRecording) stopRecording();
-                    }
-                });
+            try {
+                if (typeof iseRecorder.start === 'function') {
+                    iseRecorder.start();
+                    setStatus(studentStatus, '🎙️ 正在啟動麥克風……');
+                } else {
+                    setStatus(studentStatus, '❌ SDK 不支援 start 方法，請檢查版本。');
+                }
+            } catch (e) {
+                console.error('[ISE] start error:', e);
+                setStatus(studentStatus, `❌ 啟動失敗：${e.message}`);
+            }
+        });
+
+        // 停止錄音
+        stopRecordBtn.addEventListener('click', function() {
+            if (iseRecorder && typeof iseRecorder.stop === 'function') {
+                iseRecorder.stop();
+                setStatus(studentStatus, '⏹️ 正在停止錄音並提交評測……');
+            } else {
+                setStatus(studentStatus, '⚠️ 無法停止錄音。');
+            }
+        });
+
+        // 清空學生內容
+        clearStudentBtn.addEventListener('click', function() {
+            if (isRecording) {
+                if (iseRecorder && typeof iseRecorder.stop === 'function') {
+                    iseRecorder.stop();
+                }
+            }
+            currentTranscript = '';
+            showTranscript('');
+            resultCard.style.display = 'none';
+            setStatus(studentStatus, '🗑️ 已清空，可重新錄音。');
+            if (recordTimer) {
+                clearInterval(recordTimer);
+                recordTimer = null;
+            }
+            timerDisplay.textContent = '00:00';
+            seconds = 0;
+            micDot.className = 'dot';
+            micStatusText.textContent = '⏸️ 已清空';
+            startRecordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+        });
+
+        // =============================================================
+        // 9. 分頁切換
+        // =============================================================
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const target = this.dataset.tab;
+                document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                document.getElementById(`panel-${target}`).classList.add('active');
             });
+        });
 
-            // ================================================================
-            //  讯飞语音听写（流式版）WebAPI 封装
-            // ================================================================
+        // =============================================================
+        // 10. 啟動初始化
+        // =============================================================
+        // 預設參考文字
+        refText.value = teacherRefContent;
+        studentRefDisplay.textContent = teacherRefContent;
 
-            function generateXfWsUrl(appid, apiKey, apiSecret) {
-                const host = 'iat-api.xfyun.cn';
-                const path = '/v2/iat';
-                const date = new Date().toUTCString();
-                const signatureOrigin = 'host: ' + host + '\n' +
-                    'date: ' + date + '\n' +
-                    'GET ' + path + ' HTTP/1.1';
-                const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
-                const signature = CryptoJS.enc.Base64.stringify(hmac);
-                const authorization = 'api_key="' + apiKey + '", ' +
-                    'algorithm="hmac-sha256", ' +
-                    'headers="host date request-line", ' +
-                    'signature="' + signature + '"';
-                const encodedAuth = encodeURIComponent(authorization);
-                const encodedDate = encodeURIComponent(date);
-                return 'wss://' + host + path +
-                    '?authorization=' + encodedAuth +
-                    '&date=' + encodedDate +
-                    '&host=' + host;
+        // 初始化 SDK（延遲加載確保 SDK 就緒）
+        setTimeout(function() {
+            const ok = initIseRecorder();
+            if (ok) {
+                setStatus(studentStatus, '✅ 語音評測已就緒，可開始錄音。');
+            } else {
+                setStatus(studentStatus, '⚠️ 請檢查網絡後刷新頁面。');
             }
+        }, 800);
 
-            function createXfVoiceRecognition(appid, apiKey, apiSecret) {
-                let ws = null;
-                let audioContext = null;
-                let mediaStream = null;
-                let source = null;
-                let processor = null;
-                let isActive = false;
-                let resultCallback = null;
-                let errorCallback = null;
-                let statusCallback = null;
-                let accumulatedText = '';
+        // 暴露更新函數給全局（調試用）
+        window.__updateRefText = updateRefText;
 
-                const wsUrl = generateXfWsUrl(appid, apiKey, apiSecret);
-
-                function start() {
-                    if (isActive) return;
-                    accumulatedText = '';
-                    isActive = true;
-                    if (statusCallback) statusCallback('recording');
-
-                    ws = new WebSocket(wsUrl);
-                    ws.binaryType = 'arraybuffer';
-
-                    ws.onopen = function() {
-                        navigator.mediaDevices.getUserMedia({ audio: true })
-                            .then(function(stream) {
-                                mediaStream = stream;
-                                audioContext = new(window.AudioContext || window.webkitAudioContext)();
-                                const sampleRate = audioContext.sampleRate;
-                                source = audioContext.createMediaStreamSource(stream);
-                                processor = audioContext.createScriptProcessor(4096, 1, 1);
-                                source.connect(processor);
-                                processor.connect(audioContext.destination);
-
-                                processor.onaudioprocess = function(e) {
-                                    if (!isActive || ws.readyState !== WebSocket.OPEN) return;
-                                    const inputData = e.inputBuffer.getChannelData(0);
-                                    const pcmData = new Int16Array(inputData.length);
-                                    for (let i = 0; i < inputData.length; i++) {
-                                        pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(inputData[i] *
-                                        32767)));
-                                    }
-                                    ws.send(pcmData.buffer);
-                                };
-
-                                const startFrame = {
-                                    common: { app_id: appid },
-                                    business: {
-                                        domain: 'iat',
-                                        language: 'zh_cn',
-                                        accent: 'mandarin', // 强制普通话
-                                        vad: 'eos',
-                                        dwa: 'wpgs'
-                                    },
-                                    data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
-                                };
-                                ws.send(JSON.stringify(startFrame));
-                                if (statusCallback) statusCallback('recording');
-                            })
-                            .catch(function(err) {
-                                if (errorCallback) errorCallback('麥克風權限被拒絕: ' + err.message);
-                                stop();
-                            });
-                    };
-
-                    ws.onmessage = function(event) {
-                        try {
-                            const response = JSON.parse(event.data);
-                            if (response.code !== 0) {
-                                if (errorCallback) errorCallback('訊飛錯誤: ' + response.code + ' - ' + response
-                                    .message);
-                                stop();
-                                return;
-                            }
-                            if (response.data && response.data.result) {
-                                const result = response.data.result;
-                                let text = '';
-                                if (result.ws) {
-                                    for (const w of result.ws) {
-                                        for (const cw of w.cw) {
-                                            text += cw.w;
-                                        }
-                                    }
-                                }
-                                if (text) {
-                                    accumulatedText = text;
-                                    if (resultCallback) resultCallback(text, result.pgs === 'apd');
-                                }
-                            }
-                            if (response.data && response.data.status === 2) {
-                                if (resultCallback && accumulatedText) {
-                                    resultCallback(accumulatedText, true);
-                                }
-                                stop();
-                            }
-                        } catch (e) {
-                            // 可能为二进制数据，忽略
-                        }
-                    };
-
-                    ws.onerror = function(err) {
-                        if (errorCallback) errorCallback('WebSocket 錯誤');
-                        stop();
-                    };
-
-                    ws.onclose = function() {
-                        stop();
-                    };
-                }
-
-                function stop() {
-                    isActive = false;
-                    if (processor) { try { processor.disconnect(); } catch (e) {} processor = null; }
-                    if (source) { try { source.disconnect(); } catch (e) {} source = null; }
-                    if (audioContext) { try { audioContext.close(); } catch (e) {} audioContext = null; }
-                    if (mediaStream) { try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {} mediaStream =
-                        null; }
-                    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
-                    if (statusCallback) statusCallback('idle');
-                }
-
-                return {
-                    start: start,
-                    stop: stop,
-                    onResult: function(cb) { resultCallback = cb; },
-                    onError: function(cb) { errorCallback = cb; },
-                    onStatusChange: function(cb) { statusCallback = cb; },
-                    isActive: function() { return isActive; }
-                };
-            }
-
-            // ---------- 录音控制 ----------
-            function startRecording() {
-                if (isRecording) return;
-                finalTranscript = '';
-                recognizedText.textContent = '🎤 連線中...';
-                recognizedText.className = 'text';
-                scoreArea.style.display = 'none';
-
-                xfVoice = createXfVoiceRecognition(XF_APPID, XF_API_KEY, XF_API_SECRET);
-
-                xfVoice.onResult(function(text, isFinal) {
-                    recognizedText.textContent = text;
-                    recognizedText.className = 'text';
-                    if (isFinal) {
-                        finalTranscript = text;
-                    }
-                });
-
-                xfVoice.onError(function(error) {
-                    statusBadge.textContent = '❌ ' + error;
-                    statusBadge.className = 'status-badge';
-                    isRecording = false;
-                    startBtn.disabled = false;
-                    stopBtn.disabled = true;
-                    if (recognizedText.textContent.includes('連線中')) {
-                        recognizedText.textContent = '⚠️ 識別失敗: ' + error;
-                        recognizedText.className = 'text empty';
-                    }
-                });
-
-                xfVoice.onStatusChange(function(status) {
-                    if (status === 'recording') {
-                        isRecording = true;
-                        startBtn.disabled = true;
-                        stopBtn.disabled = false;
-                        statusBadge.textContent = '🔴 錄音中...';
-                        statusBadge.className = 'status-badge recording';
-                    } else {
-                        isRecording = false;
-                        startBtn.disabled = false;
-                        stopBtn.disabled = true;
-                        statusBadge.textContent = '⏹ 已停止';
-                        statusBadge.className = 'status-badge';
-                        if (finalTranscript.trim()) {
-                            recognizedText.textContent = finalTranscript;
-                            recognizedText.className = 'text';
-                            performScoring(finalTranscript);
-                        } else if (!recognizedText.textContent.includes('⚠️')) {
-                            recognizedText.textContent = '⚠️ 未識別到語音，請再試一次';
-                            recognizedText.className = 'text empty';
-                        }
-                    }
-                });
-
-                xfVoice.start();
-            }
-
-            function stopRecording() {
-                if (xfVoice) {
-                    xfVoice.stop();
-                }
-                isRecording = false;
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                statusBadge.textContent = '⏹ 已停止';
-                statusBadge.className = 'status-badge';
-            }
-
-            startBtn.addEventListener('click', startRecording);
-            stopBtn.addEventListener('click', stopRecording);
-
-            // ---------- 评分逻辑 ----------
-            function performScoring(transcript) {
-                const ref = teacherConfig.refAnswer || '';
-                const keywords = teacherConfig.refKeywords || [];
-
-                let contentScore = 0;
-                if (ref && transcript) {
-                    const sim = calculateSimilarity(transcript, ref);
-                    contentScore = Math.round(sim * 100);
-                } else if (ref) {
-                    contentScore = 0;
-                } else {
-                    contentScore = 50;
-                }
-
-                let keywordScore = 0;
-                if (keywords.length > 0 && transcript) {
-                    let found = 0;
-                    const lowerTranscript = transcript.toLowerCase();
-                    for (const kw of keywords) {
-                        if (lowerTranscript.includes(kw.toLowerCase())) {
-                            found++;
-                        }
-                    }
-                    keywordScore = Math.round((found / keywords.length) * 100);
-                } else if (keywords.length === 0) {
-                    keywordScore = 50;
-                } else {
-                    keywordScore = 0;
-                }
-
-                let lengthScore = 0;
-                const refLen = ref ? ref.length : 50;
-                const transLen = transcript ? transcript.length : 0;
-                if (transLen === 0) {
-                    lengthScore = 0;
-                } else if (refLen > 0) {
-                    const ratio = Math.min(transLen / refLen, 2);
-                    lengthScore = Math.min(Math.round(ratio * 50), 100);
-                } else {
-                    lengthScore = Math.min(Math.round(transLen / 10 * 20), 100);
-                }
-
-                const overall = Math.round((contentScore * 0.4 + keywordScore * 0.35 + lengthScore * 0.25));
-
-                scoreContent.textContent = contentScore + '%';
-                scoreContent.className = 'value ' + getScoreClass(contentScore);
-                scoreKeyword.textContent = keywordScore + '%';
-                scoreKeyword.className = 'value ' + getScoreClass(keywordScore);
-                scoreLength.textContent = lengthScore + '%';
-                scoreLength.className = 'value ' + getScoreClass(lengthScore);
-                scoreOverall.textContent = overall + '%';
-                scoreOverall.className = 'value ' + getScoreClass(overall);
-
-                scoreArea.style.display = 'block';
-                generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall);
-            }
-
-            function getScoreClass(score) {
-                if (score >= 70) return 'good';
-                if (score >= 40) return 'ok';
-                return 'poor';
-            }
-
-            function calculateSimilarity(s1, s2) {
-                const a = s1.toLowerCase();
-                const b = s2.toLowerCase();
-                if (a.length === 0 && b.length === 0) return 1;
-                if (a.length === 0 || b.length === 0) return 0;
-                const maxLen = Math.max(a.length, b.length);
-                const dist = levenshteinDistance(a, b);
-                return 1 - (dist / maxLen);
-            }
-
-            function levenshteinDistance(a, b) {
-                const matrix = [];
-                for (let i = 0; i <= b.length; i++) {
-                    matrix[i] = [i];
-                }
-                for (let j = 0; j <= a.length; j++) {
-                    matrix[0][j] = j;
-                }
-                for (let i = 1; i <= b.length; i++) {
-                    for (let j = 1; j <= a.length; j++) {
-                        if (b[i - 1] === a[j - 1]) {
-                            matrix[i][j] = matrix[i - 1][j - 1];
-                        } else {
-                            matrix[i][j] = Math.min(
-                                matrix[i - 1][j - 1] + 1,
-                                matrix[i][j - 1] + 1,
-                                matrix[i - 1][j] + 1
-                            );
-                        }
-                    }
-                }
-                return matrix[b.length][a.length];
-            }
-
-            function generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall) {
-                const adviceEl = document.getElementById('adviceContent');
-                let advice = '';
-                if (overall >= 80) {
-                    advice = '🎉 表現非常優秀！說話內容豐富，表達流暢。繼續保持，可以嘗試加入更多細節描述。';
-                } else if (overall >= 60) {
-                    advice = '👍 整體不錯！建議多留意關鍵詞的運用，嘗試用更完整的句子表達想法。';
-                } else if (overall >= 40) {
-                    advice = '📖 繼續努力！建議先參考答案的結構，練習使用關鍵詞組織句子。多聽多說會有進步！';
-                } else {
-                    advice = '💪 加油！可以先把圖片中的主要元素（人物、地點、活動）說出來，再慢慢豐富內容。';
-                }
-                if (keywordScore < 50 && teacherConfig.refKeywords.length > 0) {
-                    advice += ' 試著用上「' + teacherConfig.refKeywords.slice(0, 3).join('、') + '」這些關鍵詞。';
-                }
-                if (lengthScore < 40) {
-                    advice += ' 可以說得更完整一些，描述更多細節。';
-                }
-                adviceEl.textContent = advice;
-            }
-
-            // ---------- 初始化 ----------
-            loadConfig();
-            if (teacherConfig.imageData) {
-                updateStudentImage(teacherConfig.imageData);
-            }
-            if (teacherConfig.refAnswer) {
-                refDisplay.textContent = teacherConfig.refAnswer;
-            }
-
-            console.log('✅ 普通話語音評測系統已載入（訊飛引擎，憑證已內置）');
-            console.log('📌 直接使用，無需再填寫憑證');
-
-        })();
-    </script>
-
+        console.log('✅ 普通話語音評測系統已啟動');
+        console.log('📌 APPID:', APPID);
+        console.log('📌 參考文本:', teacherRefContent);
+    })();
+</script>
 </body>
 </html>
