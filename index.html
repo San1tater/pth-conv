@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>普通话严苛评测 · 基于置信度防方言</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>普通话语音评测（讯飞引擎·拒绝方言）</title>
     <style>
+        /* ===== 全局样式 ===== */
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
         body {
             font-family: 'Segoe UI', 'PingFang SC', Roboto, sans-serif;
-            background: #f4f7fc;
+            background: #f0f4f8;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -22,33 +23,38 @@
         .container {
             max-width: 1000px;
             width: 100%;
-            background: #fff;
+            background: #ffffff;
             border-radius: 32px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
-            padding: 36px 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
+            padding: 40px 36px;
         }
         h1 {
-            font-size: 26px;
-            color: #0b1e33;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a2332;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            margin-bottom: 8px;
         }
-        .warning-banner {
-            background: #fef2f2;
-            border-left: 5px solid #b91c1c;
-            padding: 12px 18px;
-            border-radius: 8px;
-            margin: 12px 0 24px 0;
-            font-size: 14px;
-            color: #7f1d1d;
+        .subtitle {
+            color: #6b7a8f;
+            font-size: 15px;
+            margin-bottom: 28px;
+            border-left: 4px solid #0b8a5e;
+            padding-left: 16px;
+            background: #ecfdf5;
+            border-radius: 0 12px 12px 0;
+            line-height: 1.6;
         }
-        .warning-banner strong {
-            color: #b91c1c;
+        .subtitle strong {
+            color: #0b8a5e;
         }
+
+        /* ===== 入口切换 ===== */
         .role-tabs {
             display: flex;
-            gap: 4px;
+            gap: 0;
             background: #eef2f6;
             border-radius: 60px;
             padding: 4px;
@@ -58,29 +64,35 @@
             flex: 1;
             border: none;
             background: transparent;
-            padding: 10px 16px;
+            padding: 12px 20px;
             border-radius: 60px;
+            font-size: 16px;
             font-weight: 600;
             color: #4a5a6e;
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.25s;
         }
         .role-tab.active {
-            background: #fff;
-            color: #0b1e33;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            background: #ffffff;
+            color: #1a2332;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
         }
+        .role-tab:hover:not(.active) {
+            color: #1a2332;
+        }
+
+        /* ===== 面板 ===== */
         .panel {
             display: none;
-            animation: fade 0.25s ease;
+            animation: fadeUp 0.3s ease;
         }
         .panel.active {
             display: block;
         }
-        @keyframes fade {
+        @keyframes fadeUp {
             0% {
-                opacity: 0.5;
-                transform: translateY(6px);
+                opacity: 0;
+                transform: translateY(12px);
             }
             100% {
                 opacity: 1;
@@ -88,68 +100,97 @@
             }
         }
 
+        /* ===== 教师面板 ===== */
         .upload-area {
             border: 2px dashed #cbd5e1;
             border-radius: 20px;
-            padding: 30px;
+            padding: 40px 20px;
             text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
             background: #fafcff;
-            margin-bottom: 18px;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 20px;
         }
         .upload-area:hover {
-            border-color: #2563eb;
+            border-color: #3b82f6;
             background: #f0f7ff;
         }
         .upload-area .icon {
-            font-size: 40px;
+            font-size: 48px;
+            display: block;
+            margin-bottom: 8px;
         }
         #imagePreview {
+            margin-top: 16px;
             max-width: 100%;
-            max-height: 260px;
+            max-height: 300px;
             border-radius: 16px;
-            margin-top: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
             display: none;
         }
         .teacher-form label {
-            font-weight: 600;
-            font-size: 14px;
-            color: #1e293b;
             display: block;
-            margin-top: 16px;
-            margin-bottom: 4px;
+            font-weight: 600;
+            color: #1a2332;
+            margin-top: 18px;
+            margin-bottom: 6px;
+            font-size: 14px;
         }
-        .teacher-form textarea {
+        .teacher-form textarea,
+        .teacher-form input[type="text"] {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 16px;
             border: 1.5px solid #dce2ea;
             border-radius: 14px;
             font-size: 15px;
             font-family: inherit;
             resize: vertical;
-            min-height: 70px;
+            transition: border-color 0.2s;
         }
-        .teacher-form textarea:focus {
+        .teacher-form textarea {
+            min-height: 80px;
+        }
+        .teacher-form textarea:focus,
+        .teacher-form input[type="text"]:focus {
             outline: none;
-            border-color: #2563eb;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
         }
         .btn {
-            padding: 10px 28px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 32px;
             border: none;
             border-radius: 60px;
+            font-size: 16px;
             font-weight: 600;
-            font-size: 15px;
             cursor: pointer;
-            transition: 0.2s;
-            margin-top: 12px;
+            transition: all 0.2s;
+            margin-top: 16px;
         }
         .btn-primary {
-            background: #0b1e33;
+            background: #1a2332;
             color: #fff;
         }
         .btn-primary:hover {
-            background: #1e3a5f;
+            background: #2d3a4f;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(26, 35, 50, 0.20);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-success {
+            background: #0b8a5e;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #0d9d6b;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(11, 138, 94, 0.25);
         }
         .btn-danger {
             background: #b91c1c;
@@ -158,67 +199,82 @@
         .btn-danger:hover {
             background: #991b1b;
         }
-        .btn-success {
-            background: #0b8a5e;
-            color: #fff;
-        }
-        .btn-success:hover {
-            background: #0d7a52;
-        }
-        .btn:disabled {
+        .btn-danger:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            transform: none;
         }
         .btn-outline {
             background: transparent;
+            color: #1a2332;
             border: 1.5px solid #dce2ea;
-            color: #1e293b;
+        }
+        .btn-outline:hover {
+            background: #f0f4f8;
+            border-color: #b0c0d0;
         }
 
+        /* ===== 学生面板 ===== */
         .student-image-box {
             background: #f8fafc;
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: 20px;
+            padding: 20px;
             text-align: center;
-            min-height: 100px;
-            border: 1px solid #eef2f6;
-            margin-bottom: 16px;
+            margin-bottom: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #eef2f6;
         }
         .student-image-box img {
             max-width: 100%;
-            max-height: 280px;
+            max-height: 320px;
             border-radius: 12px;
+        }
+        .student-image-box .placeholder {
+            color: #8a9aa8;
+            font-size: 15px;
         }
         .reference-box {
             background: #f0f7ff;
-            border-radius: 12px;
-            padding: 14px 18px;
-            margin-bottom: 16px;
-            border-left: 4px solid #2563eb;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
         }
         .reference-box .label {
+            font-size: 13px;
             font-weight: 600;
-            font-size: 12px;
-            color: #2563eb;
+            color: #3b82f6;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .reference-box .content {
+            margin-top: 4px;
+            color: #1a2332;
+            font-size: 15px;
+            line-height: 1.7;
         }
 
+        /* ===== 录音控制 ===== */
         .recording-controls {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
             align-items: center;
-            margin: 12px 0;
+            margin: 16px 0 12px;
         }
         .status-badge {
-            padding: 6px 16px;
-            border-radius: 60px;
-            background: #eef2f6;
-            font-size: 14px;
-            font-weight: 500;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-size: 14px;
+            font-weight: 500;
+            background: #eef2f6;
+            color: #4a5a6e;
         }
         .status-badge.recording {
             background: #fee2e2;
@@ -228,7 +284,7 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #94a3b8;
+            background: #8a9aa8;
             display: inline-block;
         }
         .status-badge.recording .dot {
@@ -242,50 +298,53 @@
                 transform: scale(1);
             }
             50% {
-                opacity: 0.3;
-                transform: scale(0.7);
+                opacity: 0.4;
+                transform: scale(0.8);
             }
         }
 
+        /* ===== 识别结果 ===== */
         .result-box {
             background: #f8fafc;
-            border-radius: 14px;
-            padding: 16px 18px;
-            border: 1px solid #eef2f6;
-            margin-top: 12px;
-            min-height: 50px;
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-top: 16px;
+            border: 1.5px solid #eef2f6;
+            min-height: 60px;
         }
         .result-box .label {
-            font-weight: 600;
             font-size: 13px;
-            color: #64748b;
+            font-weight: 600;
+            color: #6b7a8f;
+            margin-bottom: 4px;
         }
         .result-box .text {
             font-size: 16px;
-            color: #0b1e33;
-            margin-top: 4px;
+            color: #1a2332;
+            line-height: 1.7;
         }
         .result-box .text.empty {
             color: #b0c0d0;
         }
 
+        /* ===== 评分 ===== */
         .score-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
             gap: 12px;
             margin-top: 16px;
         }
         .score-item {
-            background: #fff;
+            background: #ffffff;
             border-radius: 14px;
-            padding: 12px;
-            border: 1px solid #eef2f6;
+            padding: 14px 16px;
+            border: 1.5px solid #eef2f6;
             text-align: center;
         }
         .score-item .value {
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 700;
-            color: #0b1e33;
+            color: #1a2332;
         }
         .score-item .value.good {
             color: #0b8a5e;
@@ -297,58 +356,104 @@
             color: #b91c1c;
         }
         .score-item .desc {
-            font-size: 12px;
-            color: #64748b;
+            font-size: 13px;
+            color: #6b7a8f;
             margin-top: 2px;
         }
+
         .advice-box {
             background: #fefce8;
-            border-radius: 14px;
-            padding: 16px 18px;
+            border-radius: 16px;
+            padding: 18px 20px;
             margin-top: 16px;
             border-left: 4px solid #d97706;
         }
         .advice-box .label {
-            font-weight: 600;
             font-size: 13px;
+            font-weight: 600;
             color: #d97706;
         }
         .advice-box .content {
             margin-top: 4px;
+            color: #1a2332;
             font-size: 15px;
-            line-height: 1.6;
+            line-height: 1.7;
         }
 
-        .confidence-bar {
-            margin-top: 12px;
-            background: #eef2f6;
-            border-radius: 60px;
-            height: 8px;
-            overflow: hidden;
+        .api-config {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-top: 20px;
+            border: 1.5px solid #eef2f6;
         }
-        .confidence-bar .fill {
-            height: 100%;
-            border-radius: 60px;
-            background: #2563eb;
-            transition: width 0.3s;
+        .api-config .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7a8f;
+            margin-bottom: 8px;
+            display: block;
         }
-        .confidence-bar .fill.danger {
-            background: #b91c1c;
+        .api-config .row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
         }
-        .confidence-bar .fill.warning {
-            background: #d97706;
+        .api-config .row input {
+            flex: 1;
+            min-width: 120px;
+            padding: 10px 14px;
+            border: 1.5px solid #dce2ea;
+            border-radius: 12px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .api-config .row input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+        .api-config .hint {
+            font-size: 13px;
+            color: #6b7a8f;
+            margin-top: 6px;
+        }
+        .api-config .hint a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .api-config .hint a:hover {
+            text-decoration: underline;
         }
 
+        /* ===== 响应式 ===== */
         @media (max-width: 640px) {
             .container {
-                padding: 20px 12px;
+                padding: 24px 16px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            .role-tab {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+            .score-grid {
+                grid-template-columns: 1fr 1fr;
             }
             .recording-controls {
                 flex-direction: column;
+                align-items: stretch;
             }
             .btn {
-                width: 100%;
                 justify-content: center;
+            }
+            .api-config .row {
+                flex-direction: column;
+            }
+            .api-config .row input {
+                width: 100%;
             }
         }
     </style>
@@ -356,422 +461,736 @@
 <body>
 
     <div class="container">
+        <!-- 标题 -->
         <h1>🎙️ 普通話語音評測</h1>
-        <div class="warning-banner">
-            ⚠️ <strong>防方言機制已開啟</strong>：系統將嚴格審查語音置信度（Confidence）。若檢測到粵語或地方口音導致置信度偏低（< 0.70），將直接判定為發音不標準，無法獲得高分。
+        <div class="subtitle">
+            📖 看圖說故事 · 基於 <strong>科大訊飛</strong> 引擎 · <strong>嚴格識別普通話</strong>，拒絕方言口音
+            <span style="display:inline-block;margin-left:16px;font-weight:400;color:#8a9aa8;font-size:13px;">
+                🔒 純前端 · 本地測試
+            </span>
         </div>
 
+        <!-- ===== 角色切换 ===== -->
         <div class="role-tabs">
-            <button class="role-tab active" data-role="teacher">👩‍🏫 教師</button>
-            <button class="role-tab" data-role="student">🧑‍🎓 學生</button>
+            <button class="role-tab active" data-role="teacher">👩‍🏫 教師入口</button>
+            <button class="role-tab" data-role="student">🧑‍🎓 學生入口</button>
         </div>
 
-        <!-- 教师面板 -->
+        <!-- ============================================================ -->
+        <!-- ===== 教师面板 ===== -->
+        <!-- ============================================================ -->
         <div id="panelTeacher" class="panel active">
+            <p style="color:#4a5a6e;margin-bottom:16px;font-size:15px;">
+                上傳圖片並設定參考答案，學生將根據此圖片進行看圖說話。
+            </p>
+
             <div class="upload-area" id="uploadArea">
                 <span class="icon">🖼️</span>
-                <p><strong>點擊上傳看圖說話圖片</strong></p>
-                <input type="file" id="imageInput" accept="image/*" style="display:none;">
-                <img id="imagePreview" />
+                <p><strong>點擊上傳圖片</strong> 或拖曳至此</p>
+                <span class="hint">支援 JPG / PNG / WebP</span>
+                <input type="file" id="imageInput" accept="image/*" style="display:none;" />
+                <img id="imagePreview" alt="圖片預覽" />
             </div>
+
             <div class="teacher-form">
-                <label>📝 參考答案（標準敘述）</label>
-                <textarea id="refAnswer">今天的天氣很好，小明和爸爸在公園裡放風箏。媽媽在一旁拍照，他們玩得非常開心。</textarea>
-                <label>🏷️ 關鍵詞（逗號分隔）</label>
-                <textarea id="refKeywords" style="min-height:40px;">天氣, 小明, 爸爸, 公園, 風箏, 拍照, 開心</textarea>
-                <button class="btn btn-success" id="saveConfigBtn">💾 儲存設定</button>
+                <label for="refAnswer">📝 參考答案（標準敘述）</label>
+                <textarea id="refAnswer" placeholder="請輸入這段看圖說話的參考答案，用於比對學生發言內容...">小明的爸爸媽媽帶他去公園玩。公園裡有很多樹和花，還有一個大池塘。小明很開心，他和爸爸一起放風箏，媽媽在旁邊拍照。天氣很好，陽光明媚。</textarea>
+
+                <label for="refKeywords">🏷️ 關鍵詞（逗號分隔，用於評分）</label>
+                <textarea id="refKeywords" placeholder="例如：公園, 爸爸, 媽媽, 風箏, 拍照, 開心" style="min-height:50px;">公園, 爸爸, 媽媽, 風箏, 拍照, 開心, 樹, 花, 池塘, 陽光</textarea>
+
+                <button class="btn btn-success" id="saveTeacherConfig">💾 儲存設定</button>
                 <span id="saveStatus" style="margin-left:12px;font-size:14px;color:#0b8a5e;"></span>
             </div>
+
+            <!-- ===== 讯飞 API 配置 ===== -->
+            <div class="api-config">
+                <span class="label">🔑 科大訊飛 API 憑證（必填）</span>
+                <div class="row">
+                    <input type="text" id="xfAppid" placeholder="APPID" />
+                    <input type="text" id="xfApiKey" placeholder="APIKey" />
+                    <input type="text" id="xfApiSecret" placeholder="APISecret" />
+                </div>
+                <div class="hint">
+                    ⚠️ 憑證僅保存在本地瀏覽器中，不會上傳至任何伺服器。
+                    請前往 <a href="https://www.xfyun.cn/services/voicedictation" target="_blank">訊飛開放平台</a> 獲取[reference:8]。
+                    每日 500 次免費額度，足夠測試使用[reference:9][reference:10]。
+                </div>
+            </div>
         </div>
 
-        <!-- 学生面板 -->
+        <!-- ============================================================ -->
+        <!-- ===== 学生面板 ===== -->
+        <!-- ============================================================ -->
         <div id="panelStudent" class="panel">
+            <!-- 显示教师上传的图片 -->
             <div class="student-image-box" id="studentImageBox">
-                <span style="color:#94a3b8;">📷 等待教師上傳圖片...</span>
+                <span class="placeholder">📷 等待教師上傳圖片...</span>
             </div>
-            <div class="reference-box">
+
+            <!-- 显示参考答案（学生可见） -->
+            <div class="reference-box" id="referenceBox">
                 <div class="label">📖 參考答案</div>
-                <div id="refDisplay" style="margin-top:4px;color:#1e293b;">教師尚未設定。</div>
+                <div class="content" id="refDisplay">教師尚未設定參考答案。</div>
             </div>
 
+            <!-- 录音控制 -->
             <div class="recording-controls">
-                <button class="btn btn-primary" id="startBtn">🎤 開始錄音</button>
-                <button class="btn btn-danger" id="stopBtn" disabled>⏹ 停止</button>
-                <span class="status-badge" id="statusBadge"><span class="dot"></span> 就緒</span>
+                <button class="btn btn-primary" id="startRecord">🎤 開始錄音</button>
+                <button class="btn btn-danger" id="stopRecord" disabled>⏹ 停止錄音</button>
+                <span class="status-badge" id="statusBadge">
+                    <span class="dot"></span> 就緒
+                </span>
             </div>
 
+            <!-- 识别结果 -->
             <div class="result-box">
-                <div class="label">📝 識別文字</div>
-                <div class="text empty" id="recognizedText">點擊錄音後說話...</div>
-                <!-- 置信度条 -->
-                <div style="margin-top:10px;">
-                    <div style="display:flex;justify-content:space-between;font-size:13px;color:#475569;">
-                        <span>語音置信度 (Confidence)</span>
-                        <span id="confidenceLabel">--</span>
-                    </div>
-                    <div class="confidence-bar">
-                        <div class="fill" id="confidenceFill" style="width:0%;"></div>
-                    </div>
-                </div>
+                <div class="label">📝 識別結果</div>
+                <div class="text empty" id="recognizedText">點擊「開始錄音」後說話，語音將轉為文字...</div>
             </div>
 
-            <div id="scoreArea" style="display:none;margin-top:16px;">
-                <div class="score-grid">
-                    <div class="score-item"><div class="value" id="sContent">—</div><div class="desc">內容匹配</div></div>
-                    <div class="score-item"><div class="value" id="sKeyword">—</div><div class="desc">關鍵詞覆蓋</div></div>
-                    <div class="score-item"><div class="value" id="sConfidence">—</div><div class="desc">發音置信度</div></div>
-                    <div class="score-item"><div class="value" id="sOverall">—</div><div class="desc">綜合評分</div></div>
+            <!-- 评分结果 -->
+            <div id="scoreArea" style="display:none;">
+                <div class="score-grid" id="scoreGrid">
+                    <div class="score-item">
+                        <div class="value" id="scoreContent">—</div>
+                        <div class="desc">內容匹配度</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreKeyword">—</div>
+                        <div class="desc">關鍵詞覆蓋</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreLength">—</div>
+                        <div class="desc">表達完整度</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreOverall">—</div>
+                        <div class="desc">綜合評分</div>
+                    </div>
                 </div>
-                <div class="advice-box">
-                    <div class="label">💡 智能診斷</div>
-                    <div class="content" id="adviceContent">評分完成後顯示分析。</div>
+                <div class="advice-box" id="adviceBox">
+                    <div class="label">💡 智能建議</div>
+                    <div class="content" id="adviceContent">評分完成後將顯示建議。</div>
                 </div>
             </div>
         </div>
+
     </div>
 
+    <!-- ================================================================ -->
+    <!-- 引入 crypto-js 用于讯飞 API 鉴权 -->
+    <!-- ================================================================ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js">
+    </script>
+
     <script>
+        // ================================================================
+        //  核心逻辑
+        // ================================================================
+
         (function() {
             'use strict';
 
-            // ---- DOM 引用 ----
-            const tabs = document.querySelectorAll('.role-tab');
-            const pTeacher = document.getElementById('panelTeacher');
-            const pStudent = document.getElementById('panelStudent');
+            // ---------- DOM 引用 ----------
+            const roleTabs = document.querySelectorAll('.role-tab');
+            const panelTeacher = document.getElementById('panelTeacher');
+            const panelStudent = document.getElementById('panelStudent');
+
             const uploadArea = document.getElementById('uploadArea');
             const imageInput = document.getElementById('imageInput');
             const imagePreview = document.getElementById('imagePreview');
+
             const refAnswer = document.getElementById('refAnswer');
             const refKeywords = document.getElementById('refKeywords');
-            const saveBtn = document.getElementById('saveConfigBtn');
+            const saveTeacherBtn = document.getElementById('saveTeacherConfig');
             const saveStatus = document.getElementById('saveStatus');
+
             const studentImageBox = document.getElementById('studentImageBox');
             const refDisplay = document.getElementById('refDisplay');
-            const startBtn = document.getElementById('startBtn');
-            const stopBtn = document.getElementById('stopBtn');
+
+            const startBtn = document.getElementById('startRecord');
+            const stopBtn = document.getElementById('stopRecord');
             const statusBadge = document.getElementById('statusBadge');
             const recognizedText = document.getElementById('recognizedText');
-            const confidenceFill = document.getElementById('confidenceFill');
-            const confidenceLabel = document.getElementById('confidenceLabel');
+
             const scoreArea = document.getElementById('scoreArea');
-            const sContent = document.getElementById('sContent');
-            const sKeyword = document.getElementById('sKeyword');
-            const sConfidence = document.getElementById('sConfidence');
-            const sOverall = document.getElementById('sOverall');
+            const scoreContent = document.getElementById('scoreContent');
+            const scoreKeyword = document.getElementById('scoreKeyword');
+            const scoreLength = document.getElementById('scoreLength');
+            const scoreOverall = document.getElementById('scoreOverall');
             const adviceContent = document.getElementById('adviceContent');
 
-            // ---- 状态 ----
-            let config = {
+            const xfAppid = document.getElementById('xfAppid');
+            const xfApiKey = document.getElementById('xfApiKey');
+            const xfApiSecret = document.getElementById('xfApiSecret');
+
+            // ---------- 状态 ----------
+            let teacherConfig = {
                 imageData: null,
                 refAnswer: '',
-                refKeywords: []
+                refKeywords: [],
+                xfAppid: '',
+                xfApiKey: '',
+                xfApiSecret: ''
             };
 
             let isRecording = false;
-            let recognition = null;
+            let xfVoice = null; // 讯飞识别实例
             let finalTranscript = '';
-            let finalConfidence = 0;
 
-            // ---- 本地存储 ----
-            function loadFromStorage() {
+            // ---------- 本地存储 ----------
+            function loadConfig() {
                 try {
-                    const raw = localStorage.getItem('mandarin_teacher_config_v2');
-                    if (raw) {
-                        const c = JSON.parse(raw);
-                        config = c;
-                        if (c.imageData) {
-                            imagePreview.src = c.imageData;
+                    const saved = localStorage.getItem('mandarin_teacher_config_v2');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        teacherConfig = parsed;
+                        // 回填界面
+                        if (parsed.imageData) {
+                            imagePreview.src = parsed.imageData;
                             imagePreview.style.display = 'block';
-                            studentImageBox.innerHTML = `<img src="${c.imageData}" alt="圖片" />`;
+                            updateStudentImage(parsed.imageData);
                         }
-                        if (c.refAnswer) {
-                            refAnswer.value = c.refAnswer;
-                            refDisplay.textContent = c.refAnswer;
+                        if (parsed.refAnswer) {
+                            refAnswer.value = parsed.refAnswer;
+                            refDisplay.textContent = parsed.refAnswer;
                         }
-                        if (c.refKeywords && c.refKeywords.length) {
-                            refKeywords.value = c.refKeywords.join(', ');
+                        if (parsed.refKeywords && parsed.refKeywords.length) {
+                            refKeywords.value = parsed.refKeywords.join(', ');
                         }
+                        if (parsed.xfAppid) xfAppid.value = parsed.xfAppid;
+                        if (parsed.xfApiKey) xfApiKey.value = parsed.xfApiKey;
+                        if (parsed.xfApiSecret) xfApiSecret.value = parsed.xfApiSecret;
                     }
-                } catch (e) {}
+                } catch (e) { /* ignore */ }
             }
 
-            function saveToStorage() {
-                const kw = refKeywords.value.trim().split(',').map(s => s.trim()).filter(Boolean);
-                config.refAnswer = refAnswer.value.trim();
-                config.refKeywords = kw;
+            function saveConfig() {
+                const keywordsRaw = refKeywords.value.trim();
+                const keywords = keywordsRaw ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+                teacherConfig.refAnswer = refAnswer.value.trim();
+                teacherConfig.refKeywords = keywords;
+                teacherConfig.xfAppid = xfAppid.value.trim();
+                teacherConfig.xfApiKey = xfApiKey.value.trim();
+                teacherConfig.xfApiSecret = xfApiSecret.value.trim();
+
                 try {
-                    localStorage.setItem('mandarin_teacher_config_v2', JSON.stringify(config));
-                } catch (e) {}
-                refDisplay.textContent = config.refAnswer || '教師尚未設定。';
+                    localStorage.setItem('mandarin_teacher_config_v2', JSON.stringify(teacherConfig));
+                } catch (e) { /* ignore */ }
+
+                refDisplay.textContent = teacherConfig.refAnswer || '教師尚未設定參考答案。';
                 saveStatus.textContent = '✅ 已儲存';
-                setTimeout(() => saveStatus.textContent = '', 1800);
+                setTimeout(() => { saveStatus.textContent = ''; }, 2000);
             }
 
-            // ---- 图片 ----
+            function updateStudentImage(dataUrl) {
+                if (dataUrl) {
+                    studentImageBox.innerHTML = `<img src="${dataUrl}" alt="看圖說話圖片" />`;
+                } else {
+                    studentImageBox.innerHTML = `<span class="placeholder">📷 等待教師上傳圖片...</span>`;
+                }
+            }
+
+            // ---------- 图片上传 ----------
             uploadArea.addEventListener('click', () => imageInput.click());
-            imageInput.addEventListener('change', (e) => {
-                if (e.target.files[0]) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        const data = ev.target.result;
-                        config.imageData = data;
-                        imagePreview.src = data;
-                        imagePreview.style.display = 'block';
-                        studentImageBox.innerHTML = `<img src="${data}" alt="圖片" />`;
-                        saveToStorage();
-                    };
-                    reader.readAsDataURL(e.target.files[0]);
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#3b82f6';
+                uploadArea.style.background = '#f0f7ff';
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#cbd5e1';
+                uploadArea.style.background = '#fafcff';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e1';
+                uploadArea.style.background = '#fafcff';
+                if (e.dataTransfer.files.length) {
+                    handleImageFile(e.dataTransfer.files[0]);
                 }
             });
 
-            // ---- 保存 ----
-            saveBtn.addEventListener('click', saveToStorage);
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
 
-            // ---- 切换角色 ----
-            tabs.forEach(tab => {
+            function handleImageFile(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('請上傳圖片檔案');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const dataUrl = ev.target.result;
+                    imagePreview.src = dataUrl;
+                    imagePreview.style.display = 'block';
+                    teacherConfig.imageData = dataUrl;
+                    updateStudentImage(dataUrl);
+                    saveConfig();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // ---------- 保存教师配置 ----------
+            saveTeacherBtn.addEventListener('click', saveConfig);
+
+            // ---------- 角色切换 ----------
+            roleTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
+                    roleTabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    if (tab.dataset.role === 'teacher') {
-                        pTeacher.classList.add('active');
-                        pStudent.classList.remove('active');
+                    const role = tab.dataset.role;
+                    if (role === 'teacher') {
+                        panelTeacher.classList.add('active');
+                        panelStudent.classList.remove('active');
                     } else {
-                        pTeacher.classList.remove('active');
-                        pStudent.classList.add('active');
+                        panelTeacher.classList.remove('active');
+                        panelStudent.classList.add('active');
                         if (isRecording) stopRecording();
                     }
                 });
             });
 
-            // ---- 核心：语音识别 + 严苛置信度审查 ----
-            function initRecognition() {
-                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                if (!SR) {
-                    statusBadge.textContent = '❌ 不支援語音識別';
-                    startBtn.disabled = true;
-                    return null;
-                }
-                const rec = new SR();
-                // 【关键】强制指定为大陆普通话（标准声学模型）
-                rec.lang = 'zh-CN';
-                rec.continuous = false;
-                rec.interimResults = true;
-                rec.maxAlternatives = 1;
+            // ================================================================
+            //  讯飞语音听写（流式版）WebAPI 封装
+            //  参考：https://github.com/MuGuiLin/VoiceDictation [reference:11]
+            //  文档：wss://iat-api.xfyun.cn/v2/iat [reference:12]
+            // ================================================================
 
-                rec.onstart = () => {
-                    isRecording = true;
-                    startBtn.disabled = true;
-                    stopBtn.disabled = false;
-                    statusBadge.className = 'status-badge recording';
-                    statusBadge.innerHTML = '<span class="dot"></span> 🔴 錄音中...';
-                    finalTranscript = '';
-                    finalConfidence = 0;
-                    recognizedText.textContent = '🎤 聆聽中...';
-                    recognizedText.className = 'text';
-                    confidenceFill.style.width = '0%';
-                    confidenceLabel.textContent = '--';
-                    scoreArea.style.display = 'none';
-                };
+            /**
+             * 生成讯飞 WebSocket 鉴权 URL
+             */
+            function generateXfWsUrl(appid, apiKey, apiSecret) {
+                const host = 'iat-api.xfyun.cn';
+                const path = '/v2/iat';
+                const date = new Date().toUTCString();
 
-                rec.onerror = (e) => {
-                    console.warn('识别错误:', e.error);
-                    statusBadge.className = 'status-badge';
-                    statusBadge.textContent = '❌ 錯誤: ' + e.error;
-                    isRecording = false;
-                    startBtn.disabled = false;
-                    stopBtn.disabled = true;
-                };
+                // 构建签名原始字符串
+                const signatureOrigin = 'host: ' + host + '\n' +
+                    'date: ' + date + '\n' +
+                    'GET ' + path + ' HTTP/1.1';
 
-                rec.onresult = (event) => {
-                    let interim = '';
-                    let final = '';
-                    let conf = 0;
+                // 使用 HMAC-SHA256 签名
+                const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
+                const signature = CryptoJS.enc.Base64.stringify(hmac);
 
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        const result = event.results[i];
-                        const transcript = result[0].transcript;
-                        // 【关键】获取置信度 (0~1)
-                        const confidence = result[0].confidence || 0;
+                // 构建 authorization
+                const authorization = 'api_key="' + apiKey + '", ' +
+                    'algorithm="hmac-sha256", ' +
+                    'headers="host date request-line", ' +
+                    'signature="' + signature + '"';
 
-                        if (result.isFinal) {
-                            final += transcript;
-                            conf = confidence; // 取最后一段的置信度
-                        } else {
-                            interim += transcript;
-                        }
-                    }
+                // URL 编码
+                const encodedAuth = encodeURIComponent(authorization);
+                const encodedDate = encodeURIComponent(date);
 
-                    const displayText = final || interim || '🎤 聆聽中...';
-                    recognizedText.textContent = displayText;
-                    recognizedText.className = 'text';
-
-                    // 实时更新置信度条
-                    if (final) {
-                        finalTranscript = final;
-                        finalConfidence = conf;
-                        confidenceFill.style.width = (conf * 100) + '%';
-                        confidenceLabel.textContent = (conf * 100).toFixed(1) + '%';
-                        // 颜色警示
-                        confidenceFill.className = 'fill';
-                        if (conf < 0.5) confidenceFill.classList.add('danger');
-                        else if (conf < 0.70) confidenceFill.classList.add('warning');
-                    }
-                };
-
-                rec.onend = () => {
-                    isRecording = false;
-                    startBtn.disabled = false;
-                    stopBtn.disabled = true;
-                    statusBadge.className = 'status-badge';
-                    statusBadge.innerHTML = '<span class="dot"></span> 已停止';
-
-                    if (finalTranscript.trim()) {
-                        recognizedText.textContent = finalTranscript;
-                        recognizedText.className = 'text';
-                        // 立即执行评分（包含置信度审查）
-                        performStrictScoring(finalTranscript, finalConfidence);
-                    } else {
-                        recognizedText.textContent = '⚠️ 未識別到有效語音，請重試';
-                        recognizedText.className = 'text empty';
-                    }
-                };
-
-                return rec;
+                return 'wss://' + host + path +
+                    '?authorization=' + encodedAuth +
+                    '&date=' + encodedDate +
+                    '&host=' + host;
             }
 
-            // ---- 严苛评分逻辑 ----
-            function performStrictScoring(transcript, confidence) {
-                const ref = config.refAnswer || '';
-                const keywords = config.refKeywords || [];
+            /**
+             * 创建讯飞语音识别实例
+             * 返回 { start, stop, onResult, onError, onStatusChange }
+             */
+            function createXfVoiceRecognition(appid, apiKey, apiSecret) {
+                let ws = null;
+                let audioContext = null;
+                let mediaStream = null;
+                let source = null;
+                let processor = null;
+                let isActive = false;
+                let resultCallback = null;
+                let errorCallback = null;
+                let statusCallback = null;
+                let accumulatedText = '';
 
-                // 1. 内容匹配度 (编辑距离)
+                const wsUrl = generateXfWsUrl(appid, apiKey, apiSecret);
+
+                function start() {
+                    if (isActive) return;
+                    if (!appid || !apiKey || !apiSecret) {
+                        if (errorCallback) errorCallback('請先填寫完整的訊飛 API 憑證（APPID / APIKey / APISecret）');
+                        return;
+                    }
+
+                    accumulatedText = '';
+                    isActive = true;
+                    if (statusCallback) statusCallback('recording');
+
+                    // 1. 建立 WebSocket 连接
+                    ws = new WebSocket(wsUrl);
+                    ws.binaryType = 'arraybuffer';
+
+                    ws.onopen = function() {
+                        // 2. 获取麦克风
+                        navigator.mediaDevices.getUserMedia({ audio: true })
+                            .then(function(stream) {
+                                mediaStream = stream;
+                                audioContext = new(window.AudioContext || window.webkitAudioContext)();
+                                const sampleRate = audioContext.sampleRate;
+                                // 讯飞要求 16kHz 采样率，但浏览器可能不是，需要重采样
+                                // 这里简化处理，直接使用浏览器采样率，讯飞也支持 8k/16k
+                                // 实际生产环境需要重采样到 16kHz
+                                source = audioContext.createMediaStreamSource(stream);
+                                processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                                source.connect(processor);
+                                processor.connect(audioContext.destination);
+
+                                processor.onaudioprocess = function(e) {
+                                    if (!isActive || ws.readyState !== WebSocket.OPEN) return;
+                                    const inputData = e.inputBuffer.getChannelData(0);
+                                    // 转换为 16-bit PCM
+                                    const pcmData = new Int16Array(inputData.length);
+                                    for (let i = 0; i < inputData.length; i++) {
+                                        pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(inputData[i] *
+                                        32767)));
+                                    }
+                                    // 发送音频数据（二进制）
+                                    ws.send(pcmData.buffer);
+                                };
+
+                                // 发送开始标志（JSON）
+                                const startFrame = {
+                                    common: { app_id: appid },
+                                    business: {
+                                        domain: 'iat',
+                                        language: 'zh_cn',
+                                        accent: 'mandarin', // 关键：强制普通话 [reference:13]
+                                        vad: 'eos',
+                                        dwa: 'wpgs' // 动态修正
+                                    },
+                                    data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
+                                };
+                                ws.send(JSON.stringify(startFrame));
+
+                                if (statusCallback) statusCallback('recording');
+                            })
+                            .catch(function(err) {
+                                if (errorCallback) errorCallback('麥克風權限被拒絕: ' + err.message);
+                                stop();
+                            });
+                    };
+
+                    ws.onmessage = function(event) {
+                        try {
+                            const response = JSON.parse(event.data);
+                            if (response.code !== 0) {
+                                if (errorCallback) errorCallback('訊飛錯誤: ' + response.code + ' - ' + response
+                                    .message);
+                                stop();
+                                return;
+                            }
+                            // 解析识别文本
+                            if (response.data && response.data.result) {
+                                const result = response.data.result;
+                                let text = '';
+                                if (result.ws) {
+                                    for (const w of result.ws) {
+                                        for (const cw of w.cw) {
+                                            text += cw.w;
+                                        }
+                                    }
+                                }
+                                if (text) {
+                                    accumulatedText = text;
+                                    if (resultCallback) resultCallback(text, result.pgs === 'apd');
+                                }
+                            }
+                            // 检查是否结束
+                            if (response.data && response.data.status === 2) {
+                                // 识别结束
+                                if (resultCallback && accumulatedText) {
+                                    resultCallback(accumulatedText, true);
+                                }
+                                stop();
+                            }
+                        } catch (e) {
+                            // 可能是二进制数据，忽略
+                        }
+                    };
+
+                    ws.onerror = function(err) {
+                        if (errorCallback) errorCallback('WebSocket 錯誤');
+                        stop();
+                    };
+
+                    ws.onclose = function() {
+                        stop();
+                    };
+                }
+
+                function stop() {
+                    isActive = false;
+                    if (processor) {
+                        try { processor.disconnect(); } catch (e) {}
+                        processor = null;
+                    }
+                    if (source) {
+                        try { source.disconnect(); } catch (e) {}
+                        source = null;
+                    }
+                    if (audioContext) {
+                        try { audioContext.close(); } catch (e) {}
+                        audioContext = null;
+                    }
+                    if (mediaStream) {
+                        try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
+                        mediaStream = null;
+                    }
+                    if (ws) {
+                        try { ws.close(); } catch (e) {}
+                        ws = null;
+                    }
+                    if (statusCallback) statusCallback('idle');
+                }
+
+                return {
+                    start: start,
+                    stop: stop,
+                    onResult: function(cb) { resultCallback = cb; },
+                    onError: function(cb) { errorCallback = cb; },
+                    onStatusChange: function(cb) { statusCallback = cb; },
+                    isActive: function() { return isActive; }
+                };
+            }
+
+            // ---------- 录音控制 ----------
+            function startRecording() {
+                if (isRecording) return;
+
+                const appid = teacherConfig.xfAppid || xfAppid.value.trim();
+                const apiKey = teacherConfig.xfApiKey || xfApiKey.value.trim();
+                const apiSecret = teacherConfig.xfApiSecret || xfApiSecret.value.trim();
+
+                if (!appid || !apiKey || !apiSecret) {
+                    statusBadge.textContent = '⚠️ 請先在教師頁面填寫訊飛 API 憑證';
+                    statusBadge.className = 'status-badge';
+                    return;
+                }
+
+                // 保存凭证
+                if (!teacherConfig.xfAppid) {
+                    teacherConfig.xfAppid = appid;
+                    teacherConfig.xfApiKey = apiKey;
+                    teacherConfig.xfApiSecret = apiSecret;
+                    saveConfig();
+                }
+
+                finalTranscript = '';
+                recognizedText.textContent = '🎤 連線中...';
+                recognizedText.className = 'text';
+                scoreArea.style.display = 'none';
+
+                // 创建识别实例
+                xfVoice = createXfVoiceRecognition(appid, apiKey, apiSecret);
+
+                xfVoice.onResult(function(text, isFinal) {
+                    recognizedText.textContent = text;
+                    recognizedText.className = 'text';
+                    if (isFinal) {
+                        finalTranscript = text;
+                    }
+                });
+
+                xfVoice.onError(function(error) {
+                    statusBadge.textContent = '❌ ' + error;
+                    statusBadge.className = 'status-badge';
+                    isRecording = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    if (recognizedText.textContent.includes('連線中')) {
+                        recognizedText.textContent = '⚠️ 識別失敗: ' + error;
+                        recognizedText.className = 'text empty';
+                    }
+                });
+
+                xfVoice.onStatusChange(function(status) {
+                    if (status === 'recording') {
+                        isRecording = true;
+                        startBtn.disabled = true;
+                        stopBtn.disabled = false;
+                        statusBadge.textContent = '🔴 錄音中...';
+                        statusBadge.className = 'status-badge recording';
+                    } else {
+                        isRecording = false;
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        statusBadge.textContent = '⏹ 已停止';
+                        statusBadge.className = 'status-badge';
+                        // 如果有最终结果，进行评分
+                        if (finalTranscript.trim()) {
+                            recognizedText.textContent = finalTranscript;
+                            recognizedText.className = 'text';
+                            performScoring(finalTranscript);
+                        } else if (!recognizedText.textContent.includes('⚠️')) {
+                            recognizedText.textContent = '⚠️ 未識別到語音，請再試一次';
+                            recognizedText.className = 'text empty';
+                        }
+                    }
+                });
+
+                xfVoice.start();
+            }
+
+            function stopRecording() {
+                if (xfVoice) {
+                    xfVoice.stop();
+                }
+                isRecording = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusBadge.textContent = '⏹ 已停止';
+                statusBadge.className = 'status-badge';
+            }
+
+            startBtn.addEventListener('click', startRecording);
+            stopBtn.addEventListener('click', stopRecording);
+
+            // ---------- 评分逻辑 ----------
+            function performScoring(transcript) {
+                const ref = teacherConfig.refAnswer || '';
+                const keywords = teacherConfig.refKeywords || [];
+
+                // 1. 内容匹配度
                 let contentScore = 0;
                 if (ref && transcript) {
-                    const sim = 1 - (levenshteinDistance(transcript, ref) / Math.max(transcript.length, ref.length));
-                    contentScore = Math.round(Math.max(0, sim) * 100);
+                    const sim = calculateSimilarity(transcript, ref);
+                    contentScore = Math.round(sim * 100);
+                } else if (ref) {
+                    contentScore = 0;
                 } else {
-                    contentScore = ref ? 0 : 50;
+                    contentScore = 50;
                 }
 
                 // 2. 关键词覆盖
                 let keywordScore = 0;
                 if (keywords.length > 0 && transcript) {
                     let found = 0;
-                    const lowT = transcript.toLowerCase();
+                    const lowerTranscript = transcript.toLowerCase();
                     for (const kw of keywords) {
-                        if (lowT.includes(kw.toLowerCase())) found++;
+                        if (lowerTranscript.includes(kw.toLowerCase())) {
+                            found++;
+                        }
                     }
                     keywordScore = Math.round((found / keywords.length) * 100);
+                } else if (keywords.length === 0) {
+                    keywordScore = 50;
                 } else {
-                    keywordScore = keywords.length === 0 ? 50 : 0;
+                    keywordScore = 0;
                 }
 
-                // 3. 【核心】发音置信度得分 —— 直接使用 Confidence
-                // 如果 confidence < 0.70，视为发音不标准（疑似粤语/方言）
-                let confidenceScore = 0;
-                if (confidence > 0) {
-                    // 将 0~1 映射到 0~100，但设置硬门槛：低于0.7直接给极低分
-                    if (confidence < 0.5) {
-                        confidenceScore = Math.round(confidence * 30); // 最高 15分
-                    } else if (confidence < 0.70) {
-                        confidenceScore = Math.round(30 + (confidence - 0.5) * 150); // 30~60分
-                    } else {
-                        confidenceScore = Math.round(70 + (confidence - 0.7) * 100); // 70~100分
-                    }
-                    confidenceScore = Math.min(100, Math.max(0, confidenceScore));
+                // 3. 表达完整度
+                let lengthScore = 0;
+                const refLen = ref ? ref.length : 50;
+                const transLen = transcript ? transcript.length : 0;
+                if (transLen === 0) {
+                    lengthScore = 0;
+                } else if (refLen > 0) {
+                    const ratio = Math.min(transLen / refLen, 2);
+                    lengthScore = Math.min(Math.round(ratio * 50), 100);
                 } else {
-                    confidenceScore = 0;
+                    lengthScore = Math.min(Math.round(transLen / 10 * 20), 100);
                 }
 
-                // 4. 综合评分（加重发音权重）
-                // 内容 30% + 关键词 20% + 发音置信度 50%
-                const overall = Math.round(contentScore * 0.3 + keywordScore * 0.2 + confidenceScore * 0.5);
+                // 4. 综合评分
+                const overall = Math.round((contentScore * 0.4 + keywordScore * 0.35 + lengthScore * 0.25));
 
-                // ---- 渲染评分 ----
-                sContent.textContent = contentScore + '%';
-                sContent.className = 'value ' + getClass(contentScore);
-                sKeyword.textContent = keywordScore + '%';
-                sKeyword.className = 'value ' + getClass(keywordScore);
-                sConfidence.textContent = confidenceScore + '%';
-                sConfidence.className = 'value ' + getClass(confidenceScore);
-                sOverall.textContent = overall + '%';
-                sOverall.className = 'value ' + getClass(overall);
+                scoreContent.textContent = contentScore + '%';
+                scoreContent.className = 'value ' + getScoreClass(contentScore);
+                scoreKeyword.textContent = keywordScore + '%';
+                scoreKeyword.className = 'value ' + getScoreClass(keywordScore);
+                scoreLength.textContent = lengthScore + '%';
+                scoreLength.className = 'value ' + getScoreClass(lengthScore);
+                scoreOverall.textContent = overall + '%';
+                scoreOverall.className = 'value ' + getScoreClass(overall);
+
                 scoreArea.style.display = 'block';
-
-                // ---- 生成智能建议 ----
-                let advice = '';
-                if (confidence < 0.70) {
-                    advice = '🚨 <strong>發音警告：</strong>檢測到語音置信度僅 ' + (confidence * 100).toFixed(1) +
-                        '%，遠低於標準普通話門檻（70%）。這通常表示帶有明顯的粵語口音或方言發音，請嚴格使用標準普通話朗讀。';
-                } else if (confidence < 0.85) {
-                    advice = '🔊 發音基本清晰，但仍有輕微口音影響。建議注意聲調（如一聲、四聲）和翹舌音（zh/ch/sh）。';
-                } else {
-                    advice = '✅ 發音標準清晰！普通話聲學特徵匹配良好。繼續保持。';
-                }
-
-                if (contentScore < 50 && ref) {
-                    advice += ' 內容偏離參考答案較多，建議圍繞圖片中的要素（人物、地點、活動）組織語言。';
-                } else if (keywordScore < 50 && keywords.length > 0) {
-                    advice += ' 關鍵詞覆蓋不足，試著帶入「' + keywords.slice(0, 3).join('、') + '」等詞彙。';
-                }
-
-                adviceContent.innerHTML = advice;
+                generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall);
             }
 
-            function getClass(score) {
+            function getScoreClass(score) {
                 if (score >= 70) return 'good';
                 if (score >= 40) return 'ok';
                 return 'poor';
             }
 
+            function calculateSimilarity(s1, s2) {
+                const a = s1.toLowerCase();
+                const b = s2.toLowerCase();
+                if (a.length === 0 && b.length === 0) return 1;
+                if (a.length === 0 || b.length === 0) return 0;
+                const maxLen = Math.max(a.length, b.length);
+                const dist = levenshteinDistance(a, b);
+                return 1 - (dist / maxLen);
+            }
+
             function levenshteinDistance(a, b) {
                 const matrix = [];
-                for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-                for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+                for (let i = 0; i <= b.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= a.length; j++) {
+                    matrix[0][j] = j;
+                }
                 for (let i = 1; i <= b.length; i++) {
                     for (let j = 1; j <= a.length; j++) {
-                        if (b[i - 1] === a[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
-                        else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
+                        if (b[i - 1] === a[j - 1]) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
                     }
                 }
                 return matrix[b.length][a.length];
             }
 
-            // ---- 录音控制 ----
-            function startRecording() {
-                if (!recognition) {
-                    recognition = initRecognition();
-                    if (!recognition) return;
+            function generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall) {
+                const adviceEl = document.getElementById('adviceContent');
+                let advice = '';
+                if (overall >= 80) {
+                    advice = '🎉 表現非常優秀！說話內容豐富，表達流暢。繼續保持，可以嘗試加入更多細節描述。';
+                } else if (overall >= 60) {
+                    advice = '👍 整體不錯！建議多留意關鍵詞的運用，嘗試用更完整的句子表達想法。';
+                } else if (overall >= 40) {
+                    advice = '📖 繼續努力！建議先參考答案的結構，練習使用關鍵詞組織句子。多聽多說會有進步！';
+                } else {
+                    advice = '💪 加油！可以先把圖片中的主要元素（人物、地點、活動）說出來，再慢慢豐富內容。';
                 }
-                try { recognition.start(); } catch (e) {
-                    if (e.name === 'InvalidStateError') {
-                        recognition.stop();
-                        setTimeout(() => { try { recognition.start(); } catch (e2) {} }, 200);
-                    }
+                if (keywordScore < 50 && teacherConfig.refKeywords.length > 0) {
+                    advice += ' 試著用上「' + teacherConfig.refKeywords.slice(0, 3).join('、') + '」這些關鍵詞。';
                 }
+                if (lengthScore < 40) {
+                    advice += ' 可以說得更完整一些，描述更多細節。';
+                }
+                adviceEl.textContent = advice;
             }
 
-            function stopRecording() {
-                if (recognition && isRecording) {
-                    try { recognition.stop(); } catch (e) {}
-                }
-                isRecording = false;
-                startBtn.disabled = false;
-                stopBtn.disabled = true;
-                statusBadge.className = 'status-badge';
-                statusBadge.innerHTML = '<span class="dot"></span> 已停止';
+            // ---------- 初始化 ----------
+            loadConfig();
+            if (teacherConfig.imageData) {
+                updateStudentImage(teacherConfig.imageData);
+            }
+            if (teacherConfig.refAnswer) {
+                refDisplay.textContent = teacherConfig.refAnswer;
             }
 
-            startBtn.addEventListener('click', startRecording);
-            stopBtn.addEventListener('click', stopRecording);
+            console.log('✅ 普通話語音評測系統已載入（訊飛引擎）');
+            console.log('📌 請在教師頁面填寫訊飛 API 憑證後使用');
 
-            // ---- 初始化 ----
-            loadFromStorage();
-            recognition = initRecognition();
-
-            console.log('✅ 嚴苛版語音評測已啟動 (置信度門檻: 0.70)');
-            console.log('📌 提示：若用粵語朗讀，置信度將暴跌，系統會自動判定為發音不標準。');
         })();
     </script>
+
 </body>
 </html>
