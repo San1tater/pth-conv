@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通话语音评测（讯飞引擎·拒绝方言）</title>
+    <title>普通话语音评测（讯飞引擎·内置凭证）</title>
     <style>
         /* ===== 全局样式 ===== */
         * {
@@ -136,8 +136,7 @@
             margin-bottom: 6px;
             font-size: 14px;
         }
-        .teacher-form textarea,
-        .teacher-form input[type="text"] {
+        .teacher-form textarea {
             width: 100%;
             padding: 14px 16px;
             border: 1.5px solid #dce2ea;
@@ -145,13 +144,10 @@
             font-size: 15px;
             font-family: inherit;
             resize: vertical;
+            min-height: 80px;
             transition: border-color 0.2s;
         }
-        .teacher-form textarea {
-            min-height: 80px;
-        }
-        .teacher-form textarea:focus,
-        .teacher-form input[type="text"]:focus {
+        .teacher-form textarea:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
@@ -203,15 +199,6 @@
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
-        }
-        .btn-outline {
-            background: transparent;
-            color: #1a2332;
-            border: 1.5px solid #dce2ea;
-        }
-        .btn-outline:hover {
-            background: #f0f4f8;
-            border-color: #b0c0d0;
         }
 
         /* ===== 学生面板 ===== */
@@ -380,53 +367,6 @@
             line-height: 1.7;
         }
 
-        .api-config {
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 18px 20px;
-            margin-top: 20px;
-            border: 1.5px solid #eef2f6;
-        }
-        .api-config .label {
-            font-size: 13px;
-            font-weight: 600;
-            color: #6b7a8f;
-            margin-bottom: 8px;
-            display: block;
-        }
-        .api-config .row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-        }
-        .api-config .row input {
-            flex: 1;
-            min-width: 120px;
-            padding: 10px 14px;
-            border: 1.5px solid #dce2ea;
-            border-radius: 12px;
-            font-size: 14px;
-            font-family: inherit;
-        }
-        .api-config .row input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-        }
-        .api-config .hint {
-            font-size: 13px;
-            color: #6b7a8f;
-            margin-top: 6px;
-        }
-        .api-config .hint a {
-            color: #3b82f6;
-            text-decoration: none;
-        }
-        .api-config .hint a:hover {
-            text-decoration: underline;
-        }
-
         /* ===== 响应式 ===== */
         @media (max-width: 640px) {
             .container {
@@ -449,24 +389,17 @@
             .btn {
                 justify-content: center;
             }
-            .api-config .row {
-                flex-direction: column;
-            }
-            .api-config .row input {
-                width: 100%;
-            }
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- 标题 -->
         <h1>🎙️ 普通話語音評測</h1>
         <div class="subtitle">
             📖 看圖說故事 · 基於 <strong>科大訊飛</strong> 引擎 · <strong>嚴格識別普通話</strong>，拒絕方言口音
             <span style="display:inline-block;margin-left:16px;font-weight:400;color:#8a9aa8;font-size:13px;">
-                🔒 純前端 · 本地測試
+                🔒 純前端 · 憑證已內置
             </span>
         </div>
 
@@ -503,19 +436,9 @@
                 <span id="saveStatus" style="margin-left:12px;font-size:14px;color:#0b8a5e;"></span>
             </div>
 
-            <!-- ===== 讯飞 API 配置 ===== -->
-            <div class="api-config">
-                <span class="label">🔑 科大訊飛 API 憑證（必填）</span>
-                <div class="row">
-                    <input type="text" id="xfAppid" placeholder="APPID" />
-                    <input type="text" id="xfApiKey" placeholder="APIKey" />
-                    <input type="text" id="xfApiSecret" placeholder="APISecret" />
-                </div>
-                <div class="hint">
-                    ⚠️ 憑證僅保存在本地瀏覽器中，不會上傳至任何伺服器。
-                    請前往 <a href="https://www.xfyun.cn/services/voicedictation" target="_blank">訊飛開放平台</a> 獲取[reference:8]。
-                    每日 500 次免費額度，足夠測試使用[reference:9][reference:10]。
-                </div>
+            <!-- 提示：凭证已内置，无需填写 -->
+            <div style="margin-top:20px;padding:12px 16px;background:#f0fdf4;border-radius:12px;border:1px solid #86efac;font-size:14px;color:#166534;">
+                ✅ 訊飛 API 憑證已內置（APPID: b35875f2），可直接使用。
             </div>
         </div>
 
@@ -586,11 +509,16 @@
 
     <script>
         // ================================================================
-        //  核心逻辑
+        //  核心逻辑（讯飞凭证已硬编码）
         // ================================================================
 
         (function() {
             'use strict';
+
+            // ---------- 讯飞凭证（硬编码） ----------
+            const XF_APPID = 'b35875f2';
+            const XF_API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
+            const XF_API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
 
             // ---------- DOM 引用 ----------
             const roleTabs = document.querySelectorAll('.role-tab');
@@ -621,32 +549,24 @@
             const scoreOverall = document.getElementById('scoreOverall');
             const adviceContent = document.getElementById('adviceContent');
 
-            const xfAppid = document.getElementById('xfAppid');
-            const xfApiKey = document.getElementById('xfApiKey');
-            const xfApiSecret = document.getElementById('xfApiSecret');
-
             // ---------- 状态 ----------
             let teacherConfig = {
                 imageData: null,
                 refAnswer: '',
-                refKeywords: [],
-                xfAppid: '',
-                xfApiKey: '',
-                xfApiSecret: ''
+                refKeywords: []
             };
 
             let isRecording = false;
-            let xfVoice = null; // 讯飞识别实例
+            let xfVoice = null;
             let finalTranscript = '';
 
             // ---------- 本地存储 ----------
             function loadConfig() {
                 try {
-                    const saved = localStorage.getItem('mandarin_teacher_config_v2');
+                    const saved = localStorage.getItem('mandarin_teacher_config_v3');
                     if (saved) {
                         const parsed = JSON.parse(saved);
                         teacherConfig = parsed;
-                        // 回填界面
                         if (parsed.imageData) {
                             imagePreview.src = parsed.imageData;
                             imagePreview.style.display = 'block';
@@ -659,9 +579,6 @@
                         if (parsed.refKeywords && parsed.refKeywords.length) {
                             refKeywords.value = parsed.refKeywords.join(', ');
                         }
-                        if (parsed.xfAppid) xfAppid.value = parsed.xfAppid;
-                        if (parsed.xfApiKey) xfApiKey.value = parsed.xfApiKey;
-                        if (parsed.xfApiSecret) xfApiSecret.value = parsed.xfApiSecret;
                     }
                 } catch (e) { /* ignore */ }
             }
@@ -671,14 +588,9 @@
                 const keywords = keywordsRaw ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
                 teacherConfig.refAnswer = refAnswer.value.trim();
                 teacherConfig.refKeywords = keywords;
-                teacherConfig.xfAppid = xfAppid.value.trim();
-                teacherConfig.xfApiKey = xfApiKey.value.trim();
-                teacherConfig.xfApiSecret = xfApiSecret.value.trim();
-
                 try {
-                    localStorage.setItem('mandarin_teacher_config_v2', JSON.stringify(teacherConfig));
+                    localStorage.setItem('mandarin_teacher_config_v3', JSON.stringify(teacherConfig));
                 } catch (e) { /* ignore */ }
-
                 refDisplay.textContent = teacherConfig.refAnswer || '教師尚未設定參考答案。';
                 saveStatus.textContent = '✅ 已儲存';
                 setTimeout(() => { saveStatus.textContent = ''; }, 2000);
@@ -694,7 +606,6 @@
 
             // ---------- 图片上传 ----------
             uploadArea.addEventListener('click', () => imageInput.click());
-
             uploadArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 uploadArea.style.borderColor = '#3b82f6';
@@ -712,7 +623,6 @@
                     handleImageFile(e.dataTransfer.files[0]);
                 }
             });
-
             imageInput.addEventListener('change', (e) => {
                 if (e.target.files.length) {
                     handleImageFile(e.target.files[0]);
@@ -758,47 +668,29 @@
 
             // ================================================================
             //  讯飞语音听写（流式版）WebAPI 封装
-            //  参考：https://github.com/MuGuiLin/VoiceDictation [reference:11]
-            //  文档：wss://iat-api.xfyun.cn/v2/iat [reference:12]
             // ================================================================
 
-            /**
-             * 生成讯飞 WebSocket 鉴权 URL
-             */
             function generateXfWsUrl(appid, apiKey, apiSecret) {
                 const host = 'iat-api.xfyun.cn';
                 const path = '/v2/iat';
                 const date = new Date().toUTCString();
-
-                // 构建签名原始字符串
                 const signatureOrigin = 'host: ' + host + '\n' +
                     'date: ' + date + '\n' +
                     'GET ' + path + ' HTTP/1.1';
-
-                // 使用 HMAC-SHA256 签名
                 const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
                 const signature = CryptoJS.enc.Base64.stringify(hmac);
-
-                // 构建 authorization
                 const authorization = 'api_key="' + apiKey + '", ' +
                     'algorithm="hmac-sha256", ' +
                     'headers="host date request-line", ' +
                     'signature="' + signature + '"';
-
-                // URL 编码
                 const encodedAuth = encodeURIComponent(authorization);
                 const encodedDate = encodeURIComponent(date);
-
                 return 'wss://' + host + path +
                     '?authorization=' + encodedAuth +
                     '&date=' + encodedDate +
                     '&host=' + host;
             }
 
-            /**
-             * 创建讯飞语音识别实例
-             * 返回 { start, stop, onResult, onError, onStatusChange }
-             */
             function createXfVoiceRecognition(appid, apiKey, apiSecret) {
                 let ws = null;
                 let audioContext = null;
@@ -815,62 +707,47 @@
 
                 function start() {
                     if (isActive) return;
-                    if (!appid || !apiKey || !apiSecret) {
-                        if (errorCallback) errorCallback('請先填寫完整的訊飛 API 憑證（APPID / APIKey / APISecret）');
-                        return;
-                    }
-
                     accumulatedText = '';
                     isActive = true;
                     if (statusCallback) statusCallback('recording');
 
-                    // 1. 建立 WebSocket 连接
                     ws = new WebSocket(wsUrl);
                     ws.binaryType = 'arraybuffer';
 
                     ws.onopen = function() {
-                        // 2. 获取麦克风
                         navigator.mediaDevices.getUserMedia({ audio: true })
                             .then(function(stream) {
                                 mediaStream = stream;
                                 audioContext = new(window.AudioContext || window.webkitAudioContext)();
                                 const sampleRate = audioContext.sampleRate;
-                                // 讯飞要求 16kHz 采样率，但浏览器可能不是，需要重采样
-                                // 这里简化处理，直接使用浏览器采样率，讯飞也支持 8k/16k
-                                // 实际生产环境需要重采样到 16kHz
                                 source = audioContext.createMediaStreamSource(stream);
                                 processor = audioContext.createScriptProcessor(4096, 1, 1);
-
                                 source.connect(processor);
                                 processor.connect(audioContext.destination);
 
                                 processor.onaudioprocess = function(e) {
                                     if (!isActive || ws.readyState !== WebSocket.OPEN) return;
                                     const inputData = e.inputBuffer.getChannelData(0);
-                                    // 转换为 16-bit PCM
                                     const pcmData = new Int16Array(inputData.length);
                                     for (let i = 0; i < inputData.length; i++) {
                                         pcmData[i] = Math.max(-32768, Math.min(32767, Math.round(inputData[i] *
                                         32767)));
                                     }
-                                    // 发送音频数据（二进制）
                                     ws.send(pcmData.buffer);
                                 };
 
-                                // 发送开始标志（JSON）
                                 const startFrame = {
                                     common: { app_id: appid },
                                     business: {
                                         domain: 'iat',
                                         language: 'zh_cn',
-                                        accent: 'mandarin', // 关键：强制普通话 [reference:13]
+                                        accent: 'mandarin', // 强制普通话
                                         vad: 'eos',
-                                        dwa: 'wpgs' // 动态修正
+                                        dwa: 'wpgs'
                                     },
                                     data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw' }
                                 };
                                 ws.send(JSON.stringify(startFrame));
-
                                 if (statusCallback) statusCallback('recording');
                             })
                             .catch(function(err) {
@@ -888,7 +765,6 @@
                                 stop();
                                 return;
                             }
-                            // 解析识别文本
                             if (response.data && response.data.result) {
                                 const result = response.data.result;
                                 let text = '';
@@ -904,16 +780,14 @@
                                     if (resultCallback) resultCallback(text, result.pgs === 'apd');
                                 }
                             }
-                            // 检查是否结束
                             if (response.data && response.data.status === 2) {
-                                // 识别结束
                                 if (resultCallback && accumulatedText) {
                                     resultCallback(accumulatedText, true);
                                 }
                                 stop();
                             }
                         } catch (e) {
-                            // 可能是二进制数据，忽略
+                            // 可能为二进制数据，忽略
                         }
                     };
 
@@ -929,26 +803,12 @@
 
                 function stop() {
                     isActive = false;
-                    if (processor) {
-                        try { processor.disconnect(); } catch (e) {}
-                        processor = null;
-                    }
-                    if (source) {
-                        try { source.disconnect(); } catch (e) {}
-                        source = null;
-                    }
-                    if (audioContext) {
-                        try { audioContext.close(); } catch (e) {}
-                        audioContext = null;
-                    }
-                    if (mediaStream) {
-                        try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {}
-                        mediaStream = null;
-                    }
-                    if (ws) {
-                        try { ws.close(); } catch (e) {}
-                        ws = null;
-                    }
+                    if (processor) { try { processor.disconnect(); } catch (e) {} processor = null; }
+                    if (source) { try { source.disconnect(); } catch (e) {} source = null; }
+                    if (audioContext) { try { audioContext.close(); } catch (e) {} audioContext = null; }
+                    if (mediaStream) { try { mediaStream.getTracks().forEach(t => t.stop()); } catch (e) {} mediaStream =
+                        null; }
+                    if (ws) { try { ws.close(); } catch (e) {} ws = null; }
                     if (statusCallback) statusCallback('idle');
                 }
 
@@ -965,32 +825,12 @@
             // ---------- 录音控制 ----------
             function startRecording() {
                 if (isRecording) return;
-
-                const appid = teacherConfig.xfAppid || xfAppid.value.trim();
-                const apiKey = teacherConfig.xfApiKey || xfApiKey.value.trim();
-                const apiSecret = teacherConfig.xfApiSecret || xfApiSecret.value.trim();
-
-                if (!appid || !apiKey || !apiSecret) {
-                    statusBadge.textContent = '⚠️ 請先在教師頁面填寫訊飛 API 憑證';
-                    statusBadge.className = 'status-badge';
-                    return;
-                }
-
-                // 保存凭证
-                if (!teacherConfig.xfAppid) {
-                    teacherConfig.xfAppid = appid;
-                    teacherConfig.xfApiKey = apiKey;
-                    teacherConfig.xfApiSecret = apiSecret;
-                    saveConfig();
-                }
-
                 finalTranscript = '';
                 recognizedText.textContent = '🎤 連線中...';
                 recognizedText.className = 'text';
                 scoreArea.style.display = 'none';
 
-                // 创建识别实例
-                xfVoice = createXfVoiceRecognition(appid, apiKey, apiSecret);
+                xfVoice = createXfVoiceRecognition(XF_APPID, XF_API_KEY, XF_API_SECRET);
 
                 xfVoice.onResult(function(text, isFinal) {
                     recognizedText.textContent = text;
@@ -1025,7 +865,6 @@
                         stopBtn.disabled = true;
                         statusBadge.textContent = '⏹ 已停止';
                         statusBadge.className = 'status-badge';
-                        // 如果有最终结果，进行评分
                         if (finalTranscript.trim()) {
                             recognizedText.textContent = finalTranscript;
                             recognizedText.className = 'text';
@@ -1059,7 +898,6 @@
                 const ref = teacherConfig.refAnswer || '';
                 const keywords = teacherConfig.refKeywords || [];
 
-                // 1. 内容匹配度
                 let contentScore = 0;
                 if (ref && transcript) {
                     const sim = calculateSimilarity(transcript, ref);
@@ -1070,7 +908,6 @@
                     contentScore = 50;
                 }
 
-                // 2. 关键词覆盖
                 let keywordScore = 0;
                 if (keywords.length > 0 && transcript) {
                     let found = 0;
@@ -1087,7 +924,6 @@
                     keywordScore = 0;
                 }
 
-                // 3. 表达完整度
                 let lengthScore = 0;
                 const refLen = ref ? ref.length : 50;
                 const transLen = transcript ? transcript.length : 0;
@@ -1100,7 +936,6 @@
                     lengthScore = Math.min(Math.round(transLen / 10 * 20), 100);
                 }
 
-                // 4. 综合评分
                 const overall = Math.round((contentScore * 0.4 + keywordScore * 0.35 + lengthScore * 0.25));
 
                 scoreContent.textContent = contentScore + '%';
@@ -1186,8 +1021,8 @@
                 refDisplay.textContent = teacherConfig.refAnswer;
             }
 
-            console.log('✅ 普通話語音評測系統已載入（訊飛引擎）');
-            console.log('📌 請在教師頁面填寫訊飛 API 憑證後使用');
+            console.log('✅ 普通話語音評測系統已載入（訊飛引擎，憑證已內置）');
+            console.log('📌 直接使用，無需再填寫憑證');
 
         })();
     </script>
