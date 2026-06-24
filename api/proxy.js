@@ -1,15 +1,12 @@
-// api/proxy.js
 const crypto = require('crypto');
 const WebSocket = require('ws');
 
-// 環境變數（由 Vercel 注入）
 const APPID = process.env.XUNFEI_APPID;
 const API_KEY = process.env.XUNFEI_API_KEY;
 const API_SECRET = process.env.XUNFEI_API_SECRET;
 const IAT_URL = 'wss://iat-api.xfyun.cn/v2/iat';
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
-// 構建 WebSocket 簽名 URL
 function buildWsUrl(host, path, apiKey, apiSecret) {
     const date = new Date().toUTCString();
     const requestLine = `GET ${path} HTTP/1.1`;
@@ -22,7 +19,6 @@ function buildWsUrl(host, path, apiKey, apiSecret) {
     return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
 }
 
-// 語音識別
 function recognizeAudio(audioBase64) {
     return new Promise((resolve, reject) => {
         if (!audioBase64) {
@@ -94,7 +90,6 @@ function recognizeAudio(audioBase64) {
     });
 }
 
-// 星火評分
 function scoreAnswer(questionInfo, answerText) {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(SPARK_URL);
@@ -103,18 +98,19 @@ function scoreAnswer(questionInfo, answerText) {
         let resultText = '';
         let finished = false;
 
+        // 強制使用標準繁體書面語，禁止粵語口語（如「嘅」），並要求輸出繁體中文。
         let prompt = '';
         if (questionInfo.type === 'open') {
-            prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${questionInfo.refAnswer || ''}\n關鍵字：${(questionInfo.keywords||[]).join('、')}\n學生回答：${answerText}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
+            prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${questionInfo.refAnswer || ''}\n關鍵字：${(questionInfo.keywords||[]).join('、')}\n學生回答：${answerText}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議。\n要求：\n1. 建議必須使用繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。\n2. 評分結果請以 JSON 格式輸出，格式：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
         } else {
-            prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${questionInfo.subQuestions.map((sq, i) => `子問題${i+1}：${sq.question}  參考答案：${sq.answer||''}  關鍵字：${(sq.keywords||[]).join('、')}`).join('\n')}\n學生回答：${answerText}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度）(0-10)，並給出總分(0-10)和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
+            prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${questionInfo.subQuestions.map((sq, i) => `子問題${i+1}：${sq.question}  參考答案：${sq.answer||''}  關鍵字：${(sq.keywords||[]).join('、')}`).join('\n')}\n學生回答：${answerText}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度）(0-10)，並給出總分(0-10)和整體建議。\n要求：\n1. 建議必須使用繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。\n2. 評分結果請以 JSON 格式輸出，格式：{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"建議"}`;
         }
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
                 header: { app_id: APPID, uid: 'student' },
                 parameter: { chat: { domain: '4.0Ultra', temperature: 0.3, max_tokens: 1024, top_k: 5 } },
-                payload: { message: { text: [ { role: 'system', content: '你是一位專業的普通話教師。' }, { role: 'user', content: prompt } ] } }
+                payload: { message: { text: [ { role: 'system', content: '你是一位專業的普通話教師，必須使用繁體中文標準書面語。' }, { role: 'user', content: prompt } ] } }
             }));
         });
 
@@ -154,14 +150,11 @@ function scoreAnswer(questionInfo, answerText) {
     });
 }
 
-// Vercel 入口（已加入 CORS 標頭）
 module.exports = async (req, res) => {
-    // ==== 設定 CORS 標頭 ====
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // 處理預檢請求 (OPTIONS)
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -179,7 +172,6 @@ module.exports = async (req, res) => {
             return;
         }
 
-        // 語音識別
         let transcript = '';
         if (audioBase64) {
             transcript = await recognizeAudio(audioBase64);
@@ -187,7 +179,9 @@ module.exports = async (req, res) => {
             transcript = textAnswer;
         }
 
-        // 評分
+        // 如果識別結果大部份是英文，可以過濾或標記，但我們保持原樣
+        // 評分時會根據中文內容評分，若無中文則總分為 0
+
         const answerForScore = transcript || textAnswer || '';
         const scoreRaw = await scoreAnswer(question, answerForScore);
         let scoreJSON;
@@ -206,6 +200,6 @@ module.exports = async (req, res) => {
             score: scoreJSON
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, stack: error.stack });
     }
 };
