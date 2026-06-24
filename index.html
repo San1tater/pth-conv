@@ -99,6 +99,16 @@
             font-size: 15px;
             color: #1e2a3a;
         }
+        .image-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .image-preview-container img {
+            max-height: 80px;
+            border-radius: 6px;
+        }
     </style>
 </head>
 <body>
@@ -271,11 +281,14 @@
         }
 
         // ================================================================
-        // 6. 教師視圖
+        // 6. 教師視圖（修正：編輯時不重置篩選器）
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
             const semesters = ['上學期','下學期'];
+            // 保留當前篩選值
+            const currentFilterGrade = document.getElementById('filterGrade')?.value || '';
+            const currentFilterSemester = document.getElementById('filterSemester')?.value || '';
             let html = `
                 <div class="teacher-grid">
                     <div class="question-list">
@@ -286,11 +299,11 @@
                         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
                             <select id="filterGrade" onchange="applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
                                 <option value="">${t('grade')}</option>
-                                ${grades.map(g => `<option value="${g}">${g}</option>`).join('')}
+                                ${grades.map(g => `<option value="${g}" ${currentFilterGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
                             </select>
                             <select id="filterSemester" onchange="applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
                                 <option value="">${t('semester')}</option>
-                                ${semesters.map(s => `<option value="${s}">${s}</option>`).join('')}
+                                ${semesters.map(s => `<option value="${s}" ${currentFilterSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
                             </select>
                         </div>
                         <div id="questionListContainer">${renderQuestionList()}</div>
@@ -332,10 +345,9 @@
         function renderEditor() {
             const q = questions.find(q => q.id === editingQuestionId);
             const isOpen = q ? q.type === 'open' : true;
-            // 取得當前篩選的年級與學期（用於新增）
+            // 使用題目本身的年級/學期（若無則用篩選器的值）
             const filterGrade = document.getElementById('filterGrade')?.value || '';
             const filterSemester = document.getElementById('filterSemester')?.value || '';
-            // 如果是編輯已有題目，使用題目本身的年級與學期；否則使用篩選條件
             const displayGrade = q ? q.grade : (filterGrade || '一年級');
             const displaySemester = q ? q.semester : (filterSemester || '上學期');
 
@@ -365,7 +377,10 @@
                 <div class="form-group">
                     <label>${t('image')}</label>
                     <input type="file" id="editImage" accept="image/*" onchange="handleImageUpload(event)" />
-                    ${q && q.image ? `<div style="margin-top:6px;"><img src="${q.image}" style="max-height:80px; border-radius:6px;" /></div>` : ''}
+                    <div id="imagePreviewContainer" class="image-preview-container">
+                        ${q && q.image ? `<img src="${q.image}" id="imagePreviewImg" />` : ''}
+                        ${q && q.image ? `<button class="btn btn-danger btn-sm" onclick="removeImage()">移除圖片</button>` : ''}
+                    </div>
                     <input type="hidden" id="editImageData" value="${q ? q.image || '' : ''}" />
                 </div>
             `;
@@ -397,10 +412,9 @@
         }
 
         // ================================================================
-        // 7. 教師操作函數（修改以支援固定年級/學期）
+        // 7. 教師操作函數
         // ================================================================
         window.startNewQuestion = function() {
-            // 使用當前篩選條件作為預設年級/學期
             const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
             const filterSemester = document.getElementById('filterSemester')?.value || '上學期';
             const newQ = {
@@ -419,8 +433,15 @@
             saveData();
             render();
         };
-        window.selectQuestion = function(id) { editingQuestionId = id; render(); };
-        window.editQuestion = function(id) { editingQuestionId = id; render(); };
+        window.selectQuestion = function(id) {
+            // 切換編輯的題目，但不重置篩選器
+            editingQuestionId = id;
+            render();
+        };
+        window.editQuestion = function(id) {
+            editingQuestionId = id;
+            render();
+        };
         window.deleteQuestion = function(id) {
             if (!confirm('確定刪除該題目？')) return;
             questions = questions.filter(q => q.id !== id);
@@ -428,7 +449,10 @@
             saveData();
             render();
         };
-        window.applyFilter = function() { render(); };
+        window.applyFilter = function() {
+            // 僅重新渲染列表，不重置編輯器
+            render();
+        };
 
         window.toggleQuestionType = function() {
             const type = document.getElementById('editType').value;
@@ -448,12 +472,19 @@
             const reader = new FileReader();
             reader.onload = function(ev) {
                 document.getElementById('editImageData').value = ev.target.result;
-                const div = document.getElementById('editImage').parentElement;
-                let img = div.querySelector('img');
-                if (!img) { img = document.createElement('img'); img.style.maxHeight = '80px'; img.style.borderRadius = '6px'; img.style.marginTop = '6px'; div.appendChild(img); }
-                img.src = ev.target.result;
+                const container = document.getElementById('imagePreviewContainer');
+                container.innerHTML = `<img src="${ev.target.result}" id="imagePreviewImg" style="max-height:80px; border-radius:6px;" />
+                                        <button class="btn btn-danger btn-sm" onclick="removeImage()">移除圖片</button>`;
             };
             reader.readAsDataURL(file);
+        };
+
+        window.removeImage = function() {
+            document.getElementById('editImageData').value = '';
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = '';
+            // 清空 file input
+            document.getElementById('editImage').value = '';
         };
 
         window.addSubQuestion = function() {
@@ -580,7 +611,7 @@
         };
 
         // ================================================================
-        // 9. 學生答題視圖（同前，但確保繁簡轉換）
+        // 9. 學生答題視圖（確保繁體顯示）
         // ================================================================
         function renderStudentAnswer() {
             const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -677,7 +708,7 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（完整無省略，含英文處理）
+        // 10. 開放式錄音綁定（完整無省略，繁體轉換修正）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -839,7 +870,7 @@
                         }
                         if (text) {
                             finalTranscript += text;
-                            // 轉繁體顯示
+                            // 即時轉繁體顯示
                             transcript.innerHTML = toTraditional(finalTranscript);
                             progressBar.style.width = '40%';
                         }
@@ -971,7 +1002,7 @@
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（完整無省略，含英文處理及修正）
+        // 11. 半固定式錄音綁定（完整無省略，繁體轉換修正）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
