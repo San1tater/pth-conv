@@ -71,7 +71,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>訊飛聽寫 + 星火評分</small></h1>
+    <h1>🎙️ 普通話語音評測 <small>訊飛聽寫 + 星火 4.0Ultra 評分</small></h1>
     <div class="sub">👩‍🏫 教師上傳圖片及主題描述 ｜ 🧑‍🎓 學生錄音，訊飛轉文字，星火大模型評分</div>
 
     <div class="tabs">
@@ -132,12 +132,12 @@
                 <div class="score-item"><span>🔊 語音準確度</span> <span class="num" id="integrityScore">--</span></div>
             </div>
             <div class="detail" id="suggestionText"><strong>💡 智能建議：</strong> 評分完成後顯示建議。</div>
-            <div id="scoreSource">評分來源：訊飛星火 Spark Ultra-32K</div>
+            <div id="scoreSource">評分來源：訊飛星火 4.0Ultra</div>
         </div>
 
         <div class="status-box" id="studentStatus"><span class="label">📌 狀態：</span> 請點擊「開始錄音」看圖說話。</div>
     </div>
-    <div class="footer-note">⚡ 語音識別：訊飛語音聽寫 ｜ 評分：訊飛星火 Spark Ultra-32K 大模型</div>
+    <div class="footer-note">⚡ 語音識別：訊飛語音聽寫 ｜ 評分：訊飛星火 4.0Ultra 大模型</div>
 </div>
 
 <script>
@@ -153,12 +153,12 @@
             IAT_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             IAT_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
             IAT_WS_URL: 'wss://iat-api.xfyun.cn/v2/iat',
-            // 星火大模型 (Spark Ultra-32K)
+            // 星火大模型 (4.0Ultra)
             SPARK_APPID: 'b35875f2',
             SPARK_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             SPARK_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
-            SPARK_WS_URL: 'wss://spark-api.xf-yun.com/v4.0/chat', // Ultra-32K 地址[reference:6]
-            SPARK_DOMAIN: 'Ultra', // domain 參數[reference:7]
+            SPARK_WS_URL: 'wss://spark-api.xf-yun.com/v4.0/chat', // 4.0 Ultra
+            SPARK_DOMAIN: '4.0Ultra', // 修正為正確的 domain
         };
 
         // ================================================================
@@ -566,13 +566,13 @@
         }
 
         // ================================================================
-        // 9. 星火大模型評分 (Spark Ultra-32K)
+        // 9. 星火大模型評分 (Spark 4.0Ultra)
         // ================================================================
         function callSparkForScore(studentAnswer) {
             if (isScoring) return;
             isScoring = true;
             setStatus(studentStatus, '🤖 正在呼叫星火大模型評分...');
-            log('呼叫星火 Spark Ultra-32K 進行評分...');
+            log('呼叫星火 4.0Ultra 進行評分...');
 
             if (!cryptoReady) {
                 log('等待 CryptoJS 加載完成...');
@@ -591,7 +591,7 @@
             try {
                 const urlObj = new URL(CONFIG.SPARK_WS_URL);
                 const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.SPARK_API_KEY, CONFIG.SPARK_API_SECRET);
-                log(`嘗試連線星火大模型...`);
+                log(`嘗試連線星火大模型 (domain=${CONFIG.SPARK_DOMAIN})...`);
                 sparkWs = new WebSocket(wsUrl);
                 sparkResult = '';
 
@@ -634,7 +634,6 @@
                     if (sparkTimeoutId) { clearTimeout(sparkTimeoutId);
                         sparkTimeoutId = null; }
                     isScoring = false;
-                    // 如果沒有收到結果，顯示錯誤
                     if (!sparkResult) {
                         setStatus(studentStatus, '⚠️ 星火評分未返回結果，請重試。');
                     }
@@ -672,7 +671,7 @@ ${studentAnswer}
 
 只回覆 JSON，不要有其他內容。`;
 
-            // 星火大模型 v4.0/chat 請求格式[reference:8]
+            // 星火大模型 v4.0/chat 請求格式
             const request = {
                 header: {
                     app_id: CONFIG.SPARK_APPID,
@@ -680,7 +679,7 @@ ${studentAnswer}
                 },
                 parameter: {
                     chat: {
-                        domain: CONFIG.SPARK_DOMAIN, // Ultra[reference:9]
+                        domain: CONFIG.SPARK_DOMAIN, // 4.0Ultra
                         temperature: 0.3,
                         max_tokens: 1024,
                         top_k: 5
@@ -702,7 +701,6 @@ ${studentAnswer}
         }
 
         function handleSparkMessage(data) {
-            // 檢查錯誤
             if (data.header && data.header.code !== 0) {
                 const msg = `星火錯誤 (${data.header.code})：${data.header.message || '未知錯誤'}`;
                 log(`❌ ${msg}`, 'error');
@@ -714,7 +712,6 @@ ${studentAnswer}
                 return;
             }
 
-            // 累積結果
             if (data.payload && data.payload.choices && data.payload.choices.text) {
                 for (const text of data.payload.choices.text) {
                     if (text.content) {
@@ -724,7 +721,6 @@ ${studentAnswer}
                 }
             }
 
-            // 檢查是否為最後一幀
             if (data.header && data.header.status === 2) {
                 log('星火大模型回應完成', 'success');
                 if (sparkTimeoutId) { clearTimeout(sparkTimeoutId);
@@ -732,9 +728,7 @@ ${studentAnswer}
                 if (sparkWs && sparkWs.readyState === WebSocket.OPEN) sparkWs.close();
 
                 try {
-                    // 嘗試解析 JSON（可能包含 Markdown 代碼塊）
                     let jsonStr = sparkResult.trim();
-                    // 移除可能的 Markdown 代碼塊標記
                     jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
                     const grade = JSON.parse(jsonStr);
                     showResult(grade);
@@ -743,7 +737,6 @@ ${studentAnswer}
                     log(`解析星火 JSON 失敗: ${e.message}`, 'error');
                     log(`原始回應: ${sparkResult.substring(0, 200)}...`);
                     setStatus(studentStatus, '⚠️ 星火回應格式異常，請重試。');
-                    // 顯示一個默認評分
                     showResult({
                         accuracy: 0,
                         fluency: 0,
@@ -923,7 +916,7 @@ ${studentAnswer}
         // ================================================================
         studentRefDisplay.textContent = teacherRefContent;
         setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」看圖說話。');
-        log('系統初始化完成 (訊飛聽寫 + 星火評分)');
+        log('系統初始化完成 (訊飛聽寫 + 星火 4.0Ultra 評分)');
 
         loadCryptoJs((err) => {
             if (err) {
@@ -934,8 +927,8 @@ ${studentAnswer}
             }
         });
 
-        console.log('✅ 訊飛聽寫 + 星火評分版已啟動');
-        console.log(`📌 星火模型: Spark Ultra-32K (${CONFIG.SPARK_WS_URL})`);
+        console.log('✅ 訊飛聽寫 + 星火 4.0Ultra 評分版已啟動');
+        console.log(`📌 星火模型: 4.0Ultra (${CONFIG.SPARK_WS_URL})`);
     })();
 </script>
 </body>
