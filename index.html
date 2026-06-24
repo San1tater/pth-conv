@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · 最終完整版</title>
+    <title>普通話語音評測系統 · 最終修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -219,7 +219,6 @@
         let subRecordingIndex = null;
         let subLocked = false;
 
-        // 教師過濾狀態（避免選擇題目時重設）
         let teacherFilterGrade = '';
         let teacherFilterSemester = '';
 
@@ -256,17 +255,18 @@
         }
 
         // ================================================================
-        // 4. 簡繁轉換
+        // 4. 簡繁轉換（直接創建新轉換器，確保有效）
         // ================================================================
-        let converter = null;
-        function initOpenCC() {
-            if (typeof OpenCC !== 'undefined') {
-                converter = OpenCC.Converter({ from: 'cn', to: 'hk' });
-            }
-        }
         function toTraditional(text) {
             if (!text) return text;
-            if (converter) return converter(text);
+            try {
+                if (typeof OpenCC !== 'undefined') {
+                    const conv = OpenCC.Converter({ from: 'cn', to: 'hk' });
+                    return conv(text);
+                }
+            } catch(e) {
+                console.warn('簡繁轉換失敗，使用原文字', e);
+            }
             return text;
         }
 
@@ -297,12 +297,11 @@
         }
 
         // ================================================================
-        // 6. 教師視圖（保留過濾狀態）
+        // 6. 教師視圖
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
             const semesters = ['上學期','下學期'];
-            // 確保過濾狀態有值
             if (!teacherFilterGrade) teacherFilterGrade = '';
             if (!teacherFilterSemester) teacherFilterSemester = '';
 
@@ -334,7 +333,6 @@
         function renderQuestionList() {
             const gradeFilter = document.getElementById('filterGrade')?.value || '';
             const semFilter = document.getElementById('filterSemester')?.value || '';
-            // 更新全局過濾狀態
             teacherFilterGrade = gradeFilter;
             teacherFilterSemester = semFilter;
 
@@ -366,10 +364,8 @@
         function renderEditor() {
             const q = questions.find(q => q.id === editingQuestionId);
             const isOpen = q ? q.type === 'open' : true;
-            // 取得當前篩選的年級與學期（用於新增）
             const filterGrade = document.getElementById('filterGrade')?.value || '';
             const filterSemester = document.getElementById('filterSemester')?.value || '';
-            // 如果是編輯已有題目，使用題目本身的年級與學期；否則使用篩選條件
             const displayGrade = q ? q.grade : (filterGrade || '一年級');
             const displaySemester = q ? q.semester : (filterSemester || '上學期');
 
@@ -434,7 +430,7 @@
         }
 
         // ================================================================
-        // 7. 教師操作函數（含移除圖片）
+        // 7. 教師操作函數
         // ================================================================
         window.startNewQuestion = function() {
             const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -457,7 +453,6 @@
         };
         window.selectQuestion = function(id) {
             editingQuestionId = id;
-            // 不重置過濾狀態，直接重新渲染
             render();
         };
         window.editQuestion = function(id) {
@@ -472,7 +467,6 @@
             render();
         };
         window.applyFilter = function() {
-            // 更新過濾狀態
             const grade = document.getElementById('filterGrade')?.value || '';
             const sem = document.getElementById('filterSemester')?.value || '';
             teacherFilterGrade = grade;
@@ -731,7 +725,7 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（確保顯示繁體）
+        // 10. 開放式錄音綁定（顯示繁體 + 滿分100）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -952,7 +946,7 @@
             }
 
             function sendSparkRequest(q, answer) {
-                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-100)，給出總分，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
                 const request = {
                     header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
                     parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
@@ -988,10 +982,12 @@
             function displayScore(grade) {
                 const resultDiv = document.getElementById('scoreResult');
                 resultDiv.classList.remove('hidden');
-                document.getElementById('totalScore').textContent = Math.round(grade.total_score || 0);
-                document.getElementById('accScore').textContent = Math.round(grade.accuracy || 0);
-                document.getElementById('fluencyScore').textContent = Math.round(grade.fluency || 0);
-                document.getElementById('integrityScore').textContent = Math.round(grade.integrity || 0);
+                // 星火返回 0-10，乘以10轉為100分制
+                const factor = 10;
+                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
+                document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
+                document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
+                document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
                 document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
                 document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
                 document.querySelectorAll('#scoreResult .num').forEach(el => {
@@ -1025,7 +1021,7 @@
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（確保顯示繁體）
+        // 11. 半固定式錄音綁定（顯示繁體 + 滿分100）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -1319,7 +1315,7 @@
                 (q.subQuestions || []).forEach((sq, idx) => {
                     subInfo += `子問題${idx+1}：${sq.question}\n參考答案：${sq.answer || ''}\n關鍵字：${(sq.keywords||[]).join('、')}\n學生回答：${subAnswers[idx] || ''}\n\n`;
                 });
-                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${subInfo}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度），並給出總分和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${subInfo}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度）(0-10)，並給出總分(0-10)和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
                 const request = {
                     header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
                     parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
@@ -1383,7 +1379,8 @@
             function displayFixedScore(grade) {
                 const resultDiv = document.getElementById('scoreResult');
                 resultDiv.classList.remove('hidden');
-                document.getElementById('totalScore').textContent = Math.round(grade.total_score || 0);
+                const factor = 10;
+                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
                 let avgAcc = 0, avgFlu = 0, avgInt = 0;
                 const subScores = grade.sub_scores || [];
                 if (subScores.length > 0) {
@@ -1397,9 +1394,9 @@
                     avgFlu = grade.fluency || 0;
                     avgInt = grade.integrity || 0;
                 }
-                document.getElementById('accScore').textContent = Math.round(avgAcc);
-                document.getElementById('fluencyScore').textContent = Math.round(avgFlu);
-                document.getElementById('integrityScore').textContent = Math.round(avgInt);
+                document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
+                document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
+                document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
                 document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
                 document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
                 document.querySelectorAll('#scoreResult .num').forEach(el => {
@@ -1409,7 +1406,7 @@
                 let fbHtml = '';
                 (q.subQuestions || []).forEach((sq, idx) => {
                     const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0};
-                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>內容:${s.accuracy||0} 豐富:${s.fluency||0} 語音:${s.integrity||0}</div>`;
+                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}</div>`;
                 });
                 document.getElementById('subFeedback').innerHTML = fbHtml;
                 console.log('✅ 評分完成！');
@@ -1442,10 +1439,9 @@
         // ================================================================
         // 12. 初始化
         // ================================================================
-        initOpenCC();
         loadData();
         render();
-        console.log('✅ 最終完整版已啟動，所有功能皆已包含。');
+        console.log('✅ 最終修正版已啟動，顯示繁體且評分為100分制。');
     })();
 </script>
 </body>
