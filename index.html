@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js"></script>
 
     <style>
-        /* ===== 完整樣式（複製自原檔案，未省略） ===== */
+        /* ===== 完整樣式（與原檔案一致，此處完整列出） ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; color: #1e2a3a; }
         #app { width: 100%; max-width: 1200px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
@@ -142,16 +142,13 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // 啟用離線持久化（可選）
-        db.enablePersistence().catch(err => console.warn('離線持久化失敗', err));
+        // ================================================================
+        // 2. 後端代理位址（使用相對路徑以避免跨域）
+        // ================================================================
+        const BACKEND_URL = '/api/proxy';
 
         // ================================================================
-        // 2. 後端代理位址（請修改為您的 Vercel 部署網址）
-        // ================================================================
-        const BACKEND_URL = '/api/proxy'; // <-- 請改成您的實際網址
-
-        // ================================================================
-        // 3. 語言包（完整複製）
+        // 3. 語言包
         // ================================================================
         const LANG = {
             zh: {
@@ -195,41 +192,24 @@
         function t(key) { return LANG[currentLang][key] || key; }
 
         // ================================================================
-        // 4. 簡繁轉換（完整複製）
+        // 4. 簡繁轉換
         // ================================================================
         let cnToHkConverter = null;
         function initConverter() {
             if (typeof OpenCC !== 'undefined') {
                 try {
                     cnToHkConverter = OpenCC.Converter({ from: 'cn', to: 'hk' });
-                    console.log('✅ 簡繁轉換器初始化成功');
                 } catch(e) {
-                    console.warn('⚠️ 簡繁轉換器初始化失敗', e);
                     cnToHkConverter = null;
                 }
-            } else {
-                console.warn('⚠️ OpenCC 庫未載入，將使用 fallback');
             }
         }
         function forceToTraditional(text) {
             if (!text) return text;
             if (cnToHkConverter) {
-                try {
-                    return cnToHkConverter(text);
-                } catch(e) {
-                    return text;
-                }
+                try { return cnToHkConverter(text); } catch(e) { return text; }
             }
             return text;
-        }
-        function displayTraditional(element, simplifiedText) {
-            if (!element) return;
-            const traditional = forceToTraditional(simplifiedText);
-            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-                element.value = traditional;
-            } else {
-                element.textContent = traditional;
-            }
         }
 
         // ================================================================
@@ -250,7 +230,7 @@
         let teacherFilterSemester = '';
 
         // ================================================================
-        // 6. Firestore 即時監聽（取代 loadData / saveData）
+        // 6. Firestore 即時監聽
         // ================================================================
         let unsubscribeQuestions = null;
 
@@ -485,8 +465,17 @@
             const q = questions.find(q => q.id === editingQuestionId);
             if (q) {
                 q.type = type;
-                if (type === 'open') { q.subQuestions = []; q.refAnswer = document.getElementById('editRefAnswer')?.value || ''; }
-                else { q.refAnswer = ''; }
+                // 切換時清空不相關欄位，避免殘留
+                if (type === 'open') {
+                    q.subQuestions = [];
+                    q.refAnswer = document.getElementById('editRefAnswer')?.value || '';
+                } else {
+                    q.refAnswer = '';
+                    // 如果切換到固定式，初始化空子問題陣列
+                    if (!q.subQuestions || q.subQuestions.length === 0) {
+                        q.subQuestions = [{ question: '', answer: '', keywords: [] }];
+                    }
+                }
                 render();
             }
         };
@@ -512,6 +501,7 @@
         window.addSubQuestion = function() {
             const q = questions.find(q => q.id === editingQuestionId);
             if (!q) return;
+            // 讀取當前所有子問題
             const sqDivs = document.querySelectorAll('.sub-question');
             const subs = [];
             sqDivs.forEach(div => {
@@ -539,42 +529,47 @@
         window.saveQuestion = function(displayGrade, displaySemester) {
             const q = questions.find(q => q.id === editingQuestionId);
             if (!q) return;
-            q.grade = displayGrade;
-            q.semester = displaySemester;
-            q.title = document.getElementById('editTitle').value;
-            q.type = document.getElementById('editType').value;
-            if (q.type === 'open') q.refAnswer = document.getElementById('editRefAnswer').value;
-            else q.refAnswer = '';
-            if (q.type === 'open') {
-                q.keywords = document.getElementById('editKeywords').value.split(',').map(s=>s.trim()).filter(s=>s);
-            } else {
-                q.keywords = [];
-            }
-            q.image = document.getElementById('editImageData').value;
-            if (q.type === 'fixed') {
+
+            // 讀取表單值
+            const title = document.getElementById('editTitle').value;
+            const type = document.getElementById('editType').value;
+            const image = document.getElementById('editImageData').value || '';
+
+            // 根據類型構建更新數據
+            let updateData = {
+                grade: displayGrade,
+                semester: displaySemester,
+                title: title,
+                type: type,
+                image: image,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (type === 'open') {
+                const refAnswer = document.getElementById('editRefAnswer').value || '';
+                const keywords = document.getElementById('editKeywords').value.split(',').map(s=>s.trim()).filter(s=>s);
+                updateData.refAnswer = refAnswer;
+                updateData.keywords = keywords;
+                updateData.subQuestions = [];  // 清空子問題
+            } else { // fixed
+                updateData.refAnswer = '';
+                updateData.keywords = [];
+                // 收集子問題
                 const sqDivs = document.querySelectorAll('.sub-question');
                 const subs = [];
                 sqDivs.forEach(div => {
                     const qInput = div.querySelector('.sq-question');
                     const aInput = div.querySelector('.sq-answer');
                     const kInput = div.querySelector('.sq-keywords');
-                    if (qInput) subs.push({ question: qInput.value || '', answer: aInput ? aInput.value : '', keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : [] });
+                    if (qInput) subs.push({
+                        question: qInput.value || '',
+                        answer: aInput ? aInput.value : '',
+                        keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : []
+                    });
                 });
-                q.subQuestions = subs;
-            } else q.subQuestions = [];
+                updateData.subQuestions = subs;
+            }
 
-            // 更新 Firestore
-            const updateData = {
-                grade: q.grade,
-                semester: q.semester,
-                title: q.title,
-                type: q.type,
-                refAnswer: q.refAnswer,
-                keywords: q.keywords,
-                image: q.image,
-                subQuestions: q.subQuestions,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
             db.collection('questions').doc(editingQuestionId).update(updateData)
                 .catch(err => console.error('更新失敗:', err));
         };
@@ -826,7 +821,6 @@
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
                 if (workletNode) { workletNode.disconnect(); workletNode=null; }
-                // 處理音頻
                 processAudio();
             }
 
@@ -853,7 +847,6 @@
             function processAudio() {
                 if (isProcessing) return;
                 isProcessing = true;
-                // 合併所有 PCM 數據
                 const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
                 if (totalLength === 0) {
                     progressContainer.classList.add('hidden');
@@ -864,7 +857,6 @@
                 const merged = new Int16Array(totalLength);
                 let offset = 0;
                 for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
-                // 轉為 Base64
                 const bytes = new Uint8Array(merged.buffer);
                 let binary = '';
                 for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
@@ -873,7 +865,6 @@
                 progressBar.style.width = '30%';
                 statusText.textContent = '📡 '+t('recognizing');
 
-                // 呼叫後端代理
                 const questionInfo = {
                     type: q.type,
                     refAnswer: q.refAnswer || '',
@@ -931,7 +922,7 @@
         }
 
         // ================================================================
-        // 14. 半固定式錄音綁定（改用後端代理）
+        // 14. 半固定式錄音綁定（改用後端代理） - 修復按鈕即時更新問題
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -951,6 +942,7 @@
             const SAMPLE_RATE = 16000;
             let isProcessing = false;
 
+            // 定義更新按鈕狀態的函數（直接操作 DOM）
             function updateButtons() {
                 recordBtns.forEach((btn, idx) => {
                     const answered = subAnswered[idx] || false;
@@ -960,8 +952,26 @@
                     btn.disabled = disabled;
                 });
                 const allDone = subs.every((_, idx) => subAnswered[idx]);
-                submitBtn.disabled = !allDone || subLocked || isProcessing;
-                submitStatus.textContent = allDone ? t('done') : t('answering');
+                if (submitBtn) {
+                    submitBtn.disabled = !allDone || subLocked || isProcessing;
+                }
+                if (submitStatus) {
+                    submitStatus.textContent = allDone ? t('done') : t('answering');
+                }
+                // 更新狀態文字樣式
+                document.querySelectorAll('.sq-status').forEach((span, idx) => {
+                    const answered = subAnswered[idx] || false;
+                    if (answered) {
+                        span.textContent = t('alreadyAnswered');
+                        span.className = 'sq-status done';
+                    } else if (currentRecordingIdx === idx && isRecording) {
+                        span.textContent = t('recording');
+                        span.className = 'sq-status';
+                    } else {
+                        span.textContent = t('notStarted');
+                        span.className = 'sq-status';
+                    }
+                });
             }
 
             recordBtns.forEach((btn, idx) => {
@@ -989,13 +999,18 @@
                 try {
                     await initAudioWorklet();
                     isRecording = true;
+                    // 更新狀態
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    statusSpan.textContent = t('recording');
-                    statusSpan.className = 'sq-status';
+                    if (statusSpan) {
+                        statusSpan.textContent = t('recording');
+                        statusSpan.className = 'sq-status';
+                    }
                     recordBtns.forEach(b => b.disabled = true);
+                    updateButtons();
                 } catch(err) {
                     console.error('麥克風錯誤:', err);
-                    statusSpan.textContent = '❌ 錯誤';
+                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                    if (statusSpan) statusSpan.textContent = '❌ 錯誤';
                 }
             }
 
@@ -1011,6 +1026,7 @@
                 if (workletNode) { workletNode.disconnect(); workletNode=null; }
                 // 處理音頻
                 processAudioForSub(idx);
+                // 更新按鈕狀態
                 updateButtons();
             }
 
@@ -1040,8 +1056,9 @@
                 const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
                 if (totalLength === 0) {
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    statusSpan.textContent = '⚠️ 無聲音';
+                    if (statusSpan) statusSpan.textContent = '⚠️ 無聲音';
                     isProcessing = false;
+                    updateButtons();
                     return;
                 }
                 const merged = new Int16Array(totalLength);
@@ -1055,9 +1072,8 @@
                 progressContainer.classList.remove('hidden');
                 progressBar.style.width = '30%';
                 const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                statusSpan.textContent = t('recognizing');
+                if (statusSpan) statusSpan.textContent = t('recognizing');
 
-                // 呼叫後端代理（只做語音識別，評分稍後統一）
                 const questionInfo = {
                     type: q.type,
                     refAnswer: q.refAnswer || '',
@@ -1080,105 +1096,97 @@
                     subAnswered[idx] = true;
                     currentRecordingIdx = null;
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    statusSpan.textContent = t('alreadyAnswered');
-                    statusSpan.className = 'sq-status done';
+                    if (statusSpan) {
+                        statusSpan.textContent = t('alreadyAnswered');
+                        statusSpan.className = 'sq-status done';
+                    }
                     const transcriptEl = transcripts[idx];
-                    transcriptEl.textContent = forceToTraditional(transcriptText);
+                    if (transcriptEl) {
+                        transcriptEl.textContent = forceToTraditional(transcriptText);
+                    }
                     const recordBtn = recordBtns[idx];
                     const stopBtn = stopBtns[idx];
-                    recordBtn.style.display = 'inline-block';
-                    stopBtn.style.display = 'none';
+                    if (recordBtn) recordBtn.style.display = 'inline-block';
+                    if (stopBtn) stopBtn.style.display = 'none';
+                    // 更新所有按鈕狀態
                     updateButtons();
-                    const allDone = subs.every((_, i) => subAnswered[i]);
-                    if (allDone) {
-                        submitStatus.textContent = t('done');
-                        submitBtn.disabled = false;
-                    }
                     progressContainer.classList.add('hidden');
                 })
                 .catch(err => {
                     console.error('後端錯誤:', err);
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    statusSpan.textContent = '❌ 錯誤';
+                    if (statusSpan) statusSpan.textContent = '❌ 錯誤';
                     progressContainer.classList.add('hidden');
                 })
                 .finally(() => {
                     isProcessing = false;
+                    updateButtons();
                 });
             }
 
             // 提交全部答案進行評分
-            submitBtn.onclick = function() {
-                if (this.disabled) return;
-                subLocked = true;
-                updateButtons();
-                progressContainer.classList.remove('hidden');
-                progressBar.style.width = '10%';
-                progressText.textContent = t('progress');
-
-                // 收集所有子問題回答
-                let fullAnswer = '';
-                subs.forEach((sq, idx) => {
-                    fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
-                });
-                // 檢查是否含中文
-                const hasChinese = /[\u4e00-\u9fa5]/.test(fullAnswer);
-                if (!hasChinese) {
-                    const grade = {
-                        total_score: 0,
-                        suggestion: t('englishDetected'),
-                        sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0 }))
-                    };
-                    displayFixedScore(grade);
-                    progressContainer.classList.add('hidden');
-                    subLocked = false;
+            if (submitBtn) {
+                submitBtn.onclick = function() {
+                    if (this.disabled) return;
+                    subLocked = true;
                     updateButtons();
-                    return;
-                }
+                    progressContainer.classList.remove('hidden');
+                    progressBar.style.width = '10%';
+                    progressText.textContent = t('progress');
 
-                // 呼叫評分（但後端已可一併評分，此處因架構簡化，我們將所有子問題回答拼接後呼叫評分）
-                // 但更好的方式是讓後端直接根據題目和所有子答案評分，我們可以重複使用同一個接口，
-                // 但為了簡單，我們將整個答案文本傳給後端（同開放式），但需告知題目類型為 fixed 且包含子問題。
-                const questionInfo = {
-                    type: q.type,
-                    refAnswer: q.refAnswer || '',
-                    keywords: q.keywords || [],
-                    subQuestions: q.subQuestions || []
-                };
-                // 由於後端期望音頻，我們這裡用一個空音頻並傳送 text 模式？但我們後端目前只接受音頻。
-                // 所以我們改為直接呼叫一個獨立的評分接口，但我們為了節省時間，在後端函數中增加文字評分模式。
-                // 為了簡化，此處我們重新使用後端，但傳送一個假的音頻（空）並在後端檢測到空音頻時直接評分文字。
-                // 但更合適的是在後端增加一個 /score 接口，此處因時間關係，我們直接呼叫後端並傳送一個空音頻，並在後端判斷。
-                // 因為我們現在無法修改後端，我們可以暫時在後端代碼中增加判斷：如果 audioBase64 為空，則用 text 評分。
-                // 我們將在後端代碼中增加此功能。所以此處我們傳送空字串。
-                fetch(BACKEND_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        audioBase64: '',  // 空，後端將跳過識別，直接評分
-                        question: questionInfo,
-                        textAnswer: fullAnswer  // 傳遞文字答案
-                    })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    progressBar.style.width = '80%';
-                    if (data.score) {
-                        displayFixedScore(data.score);
-                    } else {
-                        throw new Error('評分結果缺失');
+                    let fullAnswer = '';
+                    subs.forEach((sq, idx) => {
+                        fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
+                    });
+                    const hasChinese = /[\u4e00-\u9fa5]/.test(fullAnswer);
+                    if (!hasChinese) {
+                        const grade = {
+                            total_score: 0,
+                            suggestion: t('englishDetected'),
+                            sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0 }))
+                        };
+                        displayFixedScore(grade);
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                        return;
                     }
-                    progressContainer.classList.add('hidden');
-                    subLocked = false;
-                    updateButtons();
-                })
-                .catch(err => {
-                    console.error('評分錯誤:', err);
-                    progressContainer.classList.add('hidden');
-                    subLocked = false;
-                    updateButtons();
-                });
-            };
+
+                    const questionInfo = {
+                        type: q.type,
+                        refAnswer: q.refAnswer || '',
+                        keywords: q.keywords || [],
+                        subQuestions: q.subQuestions || []
+                    };
+                    fetch(BACKEND_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            audioBase64: '',
+                            question: questionInfo,
+                            textAnswer: fullAnswer
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        progressBar.style.width = '80%';
+                        if (data.score) {
+                            displayFixedScore(data.score);
+                        } else {
+                            throw new Error('評分結果缺失');
+                        }
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                    })
+                    .catch(err => {
+                        console.error('評分錯誤:', err);
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                    });
+                };
+            }
 
             function displayFixedScore(grade) {
                 const resultDiv = document.getElementById('scoreResult');
@@ -1215,6 +1223,7 @@
                 document.getElementById('subFeedback').innerHTML = fbHtml;
             }
 
+            // 初始化按鈕狀態
             updateButtons();
         }
 
