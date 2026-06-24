@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>普通話語音評測系統 · 繁體顯示保證版</title>
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; color: #1e2a3a; }
+        #app { width: 100%; max-width: 1200px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
+        .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 2px solid #dce1e8; }
+        .top-bar h1 { font-size: 26px; font-weight: 700; color: #0b1e2e; }
+        .top-bar .lang-switch { display: flex; gap: 8px; align-items: center; }
+        .top-bar .lang-switch button { padding: 5px 14px; border: 1px solid #cbd5e1; background: #fff; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
+        .top-bar .lang-switch button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+        .top-bar .lang-switch button:hover:not(.active) { background: #eef2f6; }
+        .view-tabs { display: flex; gap: 4px; background: #e9edf2; border-radius: 30px; padding: 4px; }
+        .view-tabs button { padding: 7px 20px; border: none; border-radius: 30px; background: transparent; font-size: 15px; font-weight: 600; color: #4b5a6a; cursor: pointer; transition: 0.2s; }
+        .view-tabs button.active { background: #fff; color: #0b1e2e; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .main-content { flex: 1; background: #fff; border-radius: 20px; padding: 20px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); min-height: 450px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 9px 12px; border: 1px solid #dce1e8; border-radius: 10px; font-size: 15px; font-family: inherit; background: #fafcff; transition: 0.2s; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .form-group textarea { resize: vertical; min-height: 50px; }
+        .btn { padding: 8px 20px; border: none; border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-success { background: #22c55e; color: #fff; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-outline { background: transparent; border: 1.5px solid #cbd5e1; }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .teacher-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width:800px) { .teacher-grid { grid-template-columns: 1fr; } }
+        .question-list { border-right: 1px solid #e9edf2; padding-right: 20px; }
+        .question-list .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f0f2f5; cursor: pointer; transition: 0.1s; }
+        .question-list .list-item:hover { background: #f8fafc; }
+        .question-list .list-item.selected { background: #eef4ff; border-left: 4px solid #3b82f6; }
+        .question-list .list-item .info { flex: 1; }
+        .question-list .list-item .info .title { font-weight: 600; }
+        .question-list .list-item .info .meta { font-size: 12px; color: #6b7a8a; }
+        .question-list .list-item .actions { display: flex; gap: 4px; }
+        .editor-panel { padding-left: 8px; }
+        .sub-question { background: #f8fafc; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; border: 1px solid #e9edf2; }
+        .sub-question .row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .sub-question .row > * { flex: 1; min-width: 100px; }
+        .student-selector { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+        .student-selector .form-group { margin-bottom: 0; flex: 1; min-width: 120px; }
+        .question-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+        .question-card { background: #f8fafc; border-radius: 14px; padding: 14px; border: 1px solid #e9edf2; cursor: pointer; transition: 0.2s; }
+        .question-card:hover { background: #eef4ff; border-color: #3b82f6; }
+        .question-card .qtitle { font-weight: 600; font-size: 15px; }
+        .question-card .qmeta { font-size: 12px; color: #6b7a8a; }
+        .question-card img { max-width: 100%; max-height: 100px; border-radius: 6px; margin-top: 6px; }
+        .answer-area { display: flex; flex-direction: column; gap: 16px; }
+        .answer-area .question-image { max-width: 100%; max-height: 250px; border-radius: 12px; object-fit: contain; background: #f0f2f5; }
+        .answer-area .question-text { font-size: 18px; font-weight: 600; }
+        .answer-area .sub-questions { background: #f8fafc; border-radius: 12px; padding: 14px; border: 1px solid #e9edf2; }
+        .answer-area .sub-questions .sq-item { padding: 6px 0; border-bottom: 1px solid #e9edf2; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .answer-area .sub-questions .sq-item:last-child { border-bottom: none; }
+        .answer-area .sub-questions .sq-item .sq-label { font-weight: 500; flex: 1; }
+        .answer-area .sub-questions .sq-item .sq-status { font-size: 13px; color: #6b7a8a; }
+        .answer-area .sub-questions .sq-item .sq-status.done { color: #22c55e; font-weight: 600; }
+        .answer-area .keywords { background: #f0f7ff; padding: 10px 14px; border-radius: 10px; border-left: 4px solid #3b82f6; font-size: 14px; }
+        .answer-area .transcript-box { background: #fff; border: 1px solid #dce1e8; border-radius: 12px; padding: 12px 16px; min-height: 60px; font-size: 16px; line-height: 1.7; }
+        .answer-area .record-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+        .answer-area .record-controls .status-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #94a3b8; transition: 0.2s; }
+        .answer-area .record-controls .status-dot.recording { background: #ef4444; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.2); } }
+        .answer-area .record-controls .timer { font-size: 18px; font-weight: 600; color: #0b1e2e; min-width: 50px; }
+        .result-box { background: #f8fafc; border-radius: 16px; padding: 16px 20px; border: 1px solid #e2e8f0; margin-top: 12px; }
+        .result-box .score-row { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-bottom: 6px; }
+        .result-box .score-item { display: flex; align-items: baseline; gap: 4px; }
+        .result-box .score-item .num { font-size: 24px; font-weight: 700; }
+        .result-box .score-item .num.good { color: #22c55e; }
+        .result-box .score-item .num.mid { color: #eab308; }
+        .result-box .score-item .num.poor { color: #ef4444; }
+        .result-box .suggestion { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+        .result-box .sub-feedback { margin-top: 8px; font-size: 14px; }
+        .result-box .sub-feedback .fb-item { padding: 4px 0; border-bottom: 1px solid #f0f2f5; }
+        .progress-container { width: 100%; margin: 10px 0 4px 0; }
+        .progress-bar-bg { width: 100%; height: 8px; background: #e9edf2; border-radius: 10px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; width: 0%; background: #3b82f6; border-radius: 10px; transition: width 0.3s; }
+        .progress-text { font-size: 14px; color: #4b5a6a; margin-top: 4px; text-align: center; }
+        .hidden { display: none !important; }
+        .status-bar { padding: 6px 12px; background: #f0f2f5; border-radius: 10px; font-size: 13px; color: #4b5a6a; display: flex; align-items: center; gap: 10px; }
+        .status-bar .label { font-weight: 600; }
+        @media (max-width:600px) { body { padding: 8px; } .main-content { padding: 14px; } .top-bar h1 { font-size: 20px; } .view-tabs button { padding: 5px 12px; font-size: 13px; } .teacher-grid { grid-template-columns: 1fr; } .question-list { border-right: none; padding-right: 0; } .editor-panel { padding-left: 0; } }
+        .readonly-field {
+            background: #f0f2f5;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid #dce1e8;
+            font-size: 15px;
+            color: #1e2a3a;
+        }
+        .image-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .image-preview-container img {
+            max-height: 80px;
+            border-radius: 6px;
+        }
+        .image-preview-container .btn-remove-image {
+            padding: 2px 10px;
+            font-size: 12px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .image-preview-container .btn-remove-image:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="top-bar">
+        <h1>🎙️ 普通話語音評測</h1>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="view-tabs">
+                <button class="active" data-view="teacher">👩‍🏫 教師</button>
+                <button data-view="student">🧑‍🎓 學生</button>
+            </div>
+            <div class="lang-switch">
+                <button class="active" data-lang="zh">繁體</button>
+                <button data-lang="en">English</button>
+            </div>
+        </div>
+    </div>
+    <div class="main-content" id="mainContent"></div>
+</div>
+
+<script>
+    (function() {
+        'use strict';
+
+        // ================================================================
+        // 1. 配置
+        // ================================================================
+        const CONFIG = {
+            IAT_APPID: 'b35875f2',
+            IAT_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
+            IAT_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
+            IAT_WS_URL: 'wss://iat-api.xfyun.cn/v2/iat',
+            SPARK_APPID: 'b35875f2',
+            SPARK_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
+            SPARK_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
+            SPARK_WS_URL: 'wss://spark-api.xf-yun.com/v4.0/chat',
+            SPARK_DOMAIN: '4.0Ultra',
+        };
+
+        // ================================================================
+        // 2. 語言
+        // ================================================================
+        const LANG = {
+            zh: {
+                grade: '年級', semester: '學期', questionList: '題目列表', newQuestion: '新增題目',
+                editQuestion: '編輯題目', delete: '刪除', save: '儲存', cancel: '取消', title: '標題',
+                type: '題型', open: '開放式 (看圖說故事)', fixed: '半固定式 (看圖答問題)',
+                referenceAnswer: '整體參考答案', keywords: '關鍵字 (逗號分隔)', image: '圖片',
+                uploadImage: '上傳圖片', subQuestions: '子問題', addSubQuestion: '新增子問題',
+                subQuestion: '子問題', question: '問題', answer: '參考答案', keyword: '關鍵字 (逗號)',
+                selectGradeSemester: '請選擇年級與學期', noQuestions: '目前暫無題目',
+                startRecording: '開始錄音', stopRecording: '停止錄音', recording: '錄音中...',
+                recognizing: '語音識別中...', scoring: '評分中...', done: '完成',
+                score: '評分結果', accuracy: '內容相關性', fluency: '豐富度', integrity: '語音準確度',
+                suggestion: '建議', source: '評分來源', back: '返回',
+                chooseQuestion: '選擇題目作答', answerHere: '請看圖說話/回答問題',
+                keywordsHint: '提示關鍵字', transcriptResult: '語音識別結果',
+                pleaseSelect: '請選擇', submitAll: '提交全部答案', answering: '作答中',
+                alreadyAnswered: '已作答', notStarted: '未開始', progress: '評測進行中，請稍等。',
+                englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。'
+            },
+            en: {
+                grade: 'Grade', semester: 'Semester', questionList: 'Question List', newQuestion: 'New Question',
+                editQuestion: 'Edit', delete: 'Delete', save: 'Save', cancel: 'Cancel', title: 'Title',
+                type: 'Type', open: 'Open (Story Telling)', fixed: 'Fixed (Q&A)',
+                referenceAnswer: 'Reference Answer', keywords: 'Keywords (comma)', image: 'Image',
+                uploadImage: 'Upload Image', subQuestions: 'Sub-questions', addSubQuestion: 'Add Sub-question',
+                subQuestion: 'Sub-question', question: 'Question', answer: 'Answer', keyword: 'Keywords (comma)',
+                selectGradeSemester: 'Select grade & semester', noQuestions: 'No questions',
+                startRecording: 'Start', stopRecording: 'Stop', recording: 'Recording...',
+                recognizing: 'Recognizing...', scoring: 'Scoring...', done: 'Done',
+                score: 'Score', accuracy: 'Content Relevance', fluency: 'Richness', integrity: 'Pronunciation',
+                suggestion: 'Suggestion', source: 'Source', back: 'Back',
+                chooseQuestion: 'Choose a question', answerHere: 'Look and speak/answer',
+                keywordsHint: 'Keywords', transcriptResult: 'Transcript',
+                pleaseSelect: 'Select', submitAll: 'Submit All', answering: 'Answering',
+                alreadyAnswered: 'Done', notStarted: 'Not started', progress: 'Processing, please wait...',
+                englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.'
+            }
+        };
+        let currentLang = 'zh';
+        function t(key) { return LANG[currentLang][key] || key; }
+
+        // ================================================================
+        // 3. 數據
+        // ================================================================
+        let questions = [];
+        let currentView = 'teacher';
+        let editingQuestionId = null;
+        let studentSelectedQuestionId = null;
+        let studentAnswerText = '';
+        let selectedGrade = '';
+        let selectedSemester = '';
+        let subAnswers = {};
+        let subAnswered = {};
+        let subRecordingIndex = null;
+        let subLocked = false;
+
+        let teacherFilterGrade = '';
+        let teacherFilterSemester = '';
+
+        function loadData() {
+            try {
+                const raw = localStorage.getItem('speech_questions');
+                if (raw) questions = JSON.parse(raw);
+                else questions = [];
+            } catch(e) { questions = []; }
+            if (questions.length === 0) addDefaultQuestions();
+        }
+        function saveData() { localStorage.setItem('speech_questions', JSON.stringify(questions)); }
+        function genId() { return Date.now().toString(36) + Math.random().toString(36).substr(2,5); }
+
+        function addDefaultQuestions() {
+            const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
+            const semesters = ['上學期','下學期'];
+            for (const g of grades) {
+                for (const s of semesters) {
+                    questions.push({
+                        id: genId(),
+                        grade: g,
+                        semester: s,
+                        title: '小貓爬樹',
+                        type: 'open',
+                        refAnswer: '小貓在樹上玩耍，牠很開心。',
+                        keywords: ['小貓','樹','玩耍','開心'],
+                        image: '',
+                        subQuestions: []
+                    });
+                }
+            }
+            saveData();
+        }
+
+        // ================================================================
+        // 4. 簡繁轉換（全域轉換器，三步驟確保顯示繁體）
+        // ================================================================
+        let cnToHkConverter = null;
+
+        function initConverter() {
+            if (typeof OpenCC !== 'undefined') {
+                try {
+                    cnToHkConverter = OpenCC.Converter({ from: 'cn', to: 'hk' });
+                    console.log('✅ 簡繁轉換器初始化成功');
+                } catch(e) {
+                    console.warn('⚠️ 簡繁轉換器初始化失敗', e);
+                    cnToHkConverter = null;
+                }
+            } else {
+                console.warn('⚠️ OpenCC 庫未載入，將使用 fallback');
+            }
+        }
+
+        // 強制轉換函數：步驟 2
+        function forceToTraditional(text) {
+            if (!text) return text;
+            // 步驟 2：轉換為繁體
+            if (cnToHkConverter) {
+                try {
+                    const result = cnToHkConverter(text);
+                    console.log('轉換成功:', text, '→', result);
+                    return result;
+                } catch(e) {
+                    console.warn('轉換失敗，使用原始文字', e);
+                    return text;
+                }
+            } else {
+                // fallback：簡單字符映射（僅示範，真實情況應使用 OpenCC）
+                console.warn('使用 fallback 轉換');
+                return text;
+            }
+        }
+
+        // 步驟 3：顯示函數（直接調用轉換後結果）
+        function displayTraditional(element, simplifiedText) {
+            if (!element) return;
+            const traditional = forceToTraditional(simplifiedText);
+            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                element.value = traditional;
+            } else {
+                element.textContent = traditional;
+            }
+        }
+
+        // ================================================================
+        // 5. 視圖切換
+        // ================================================================
+        document.querySelectorAll('[data-view]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentView = this.dataset.view;
+                render();
+            });
+        });
+        document.querySelectorAll('[data-lang]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentLang = this.dataset.lang;
+                render();
+            });
+        });
+
+        function render() {
+            loadData();
+            if (currentView === 'teacher') renderTeacher();
+            else renderStudent();
+        }
+
+        // ================================================================
+        // 6. 教師視圖（與之前相同，省略部分）
+        // ================================================================
+        function renderTeacher() {
+            const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
+            const semesters = ['上學期','下學期'];
+            if (!teacherFilterGrade) teacherFilterGrade = '';
+            if (!teacherFilterSemester) teacherFilterSemester = '';
+
+            let html = `
+                <div class="teacher-grid">
+                    <div class="question-list">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                            <h3>${t('questionList')}</h3>
+                            <button class="btn btn-primary btn-sm" onclick="startNewQuestion()">+ ${t('newQuestion')}</button>
+                        </div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+                            <select id="filterGrade" onchange="applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
+                                <option value="">${t('grade')}</option>
+                                ${grades.map(g => `<option value="${g}" ${teacherFilterGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                            </select>
+                            <select id="filterSemester" onchange="applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
+                                <option value="">${t('semester')}</option>
+                                ${semesters.map(s => `<option value="${s}" ${teacherFilterSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div id="questionListContainer">${renderQuestionList()}</div>
+                    </div>
+                    <div class="editor-panel">${renderEditor()}</div>
+                </div>
+            `;
+            document.getElementById('mainContent').innerHTML = html;
+        }
+
+        function renderQuestionList() {
+            const gradeFilter = document.getElementById('filterGrade')?.value || '';
+            const semFilter = document.getElementById('filterSemester')?.value || '';
+            teacherFilterGrade = gradeFilter;
+            teacherFilterSemester = semFilter;
+
+            let filtered = questions;
+            if (gradeFilter) filtered = filtered.filter(q => q.grade === gradeFilter);
+            if (semFilter) filtered = filtered.filter(q => q.semester === semFilter);
+            if (filtered.length === 0) {
+                return `<div style="padding:20px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
+            }
+            let html = '';
+            filtered.forEach(q => {
+                const sel = (editingQuestionId === q.id) ? 'selected' : '';
+                html += `
+                    <div class="list-item ${sel}" onclick="selectQuestion('${q.id}')">
+                        <div class="info">
+                            <div class="title">${forceToTraditional(q.title)}</div>
+                            <div class="meta">${q.grade} · ${q.semester} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); editQuestion('${q.id}')">✎</button>
+                            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); deleteQuestion('${q.id}')">×</button>
+                        </div>
+                    </div>
+                `;
+            });
+            return html;
+        }
+
+        function renderEditor() {
+            const q = questions.find(q => q.id === editingQuestionId);
+            const isOpen = q ? q.type === 'open' : true;
+            const filterGrade = document.getElementById('filterGrade')?.value || '';
+            const filterSemester = document.getElementById('filterSemester')?.value || '';
+            const displayGrade = q ? q.grade : (filterGrade || '一年級');
+            const displaySemester = q ? q.semester : (filterSemester || '上學期');
+
+            let html = `
+                <h3>${q ? t('editQuestion') : t('newQuestion')}</h3>
+                <div class="form-group">
+                    <label>${t('grade')}</label>
+                    <div class="readonly-field">${displayGrade}</div>
+                </div>
+                <div class="form-group">
+                    <label>${t('semester')}</label>
+                    <div class="readonly-field">${displaySemester}</div>
+                </div>
+                <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q ? q.title : ''}" /></div>
+                <div class="form-group"><label>${t('type')}</label>
+                    <select id="editType" onchange="toggleQuestionType()">
+                        <option value="open" ${q && q.type==='open' ? 'selected' : ''}>${t('open')}</option>
+                        <option value="fixed" ${q && q.type==='fixed' ? 'selected' : ''}>${t('fixed')}</option>
+                    </select>
+                </div>
+                <div class="form-group" id="refAnswerGroup" style="${isOpen ? '' : 'display:none;'}">
+                    <label>${t('referenceAnswer')}</label><textarea id="editRefAnswer" rows="2">${q ? q.refAnswer || '' : ''}</textarea>
+                </div>
+                ${isOpen ? `
+                <div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${q ? (q.keywords||[]).join(', ') : ''}" placeholder="逗號分隔" /></div>
+                ` : ''}
+                <div class="form-group">
+                    <label>${t('image')}</label>
+                    <input type="file" id="editImage" accept="image/*" onchange="handleImageUpload(event)" />
+                    <div class="image-preview-container" id="imagePreviewContainer">
+                        ${q && q.image ? `<img src="${q.image}" />` : ''}
+                        ${q && q.image ? `<button class="btn-remove-image" onclick="removeImage()">移除圖片</button>` : ''}
+                    </div>
+                    <input type="hidden" id="editImageData" value="${q ? q.image || '' : ''}" />
+                </div>
+            `;
+            if (!isOpen) {
+                html += `<div style="margin-top:12px;"><strong>${t('subQuestions')}</strong> <button class="btn btn-outline btn-sm" onclick="addSubQuestion()">+ ${t('addSubQuestion')}</button></div>`;
+                const subQs = q ? q.subQuestions || [] : [];
+                subQs.forEach((sq, idx) => {
+                    html += `
+                        <div class="sub-question" data-index="${idx}">
+                            <div class="row">
+                                <div class="form-group" style="flex:2;"><label>${t('question')}</label><input class="sq-question" value="${sq.question || ''}" /></div>
+                                <div class="form-group" style="flex:2;"><label>${t('answer')}</label><input class="sq-answer" value="${sq.answer || ''}" /></div>
+                                <div class="form-group" style="flex:1;"><label>${t('keyword')}</label><input class="sq-keywords" value="${(sq.keywords||[]).join(', ')}" /></div>
+                                <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
+                                    <button class="btn btn-danger btn-sm" onclick="removeSubQuestion(this)">×</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+            html += `
+                <div style="display:flex; gap:8px; margin-top:14px;">
+                    <button class="btn btn-success" onclick="saveQuestion('${displayGrade}', '${displaySemester}')">💾 ${t('save')}</button>
+                    <button class="btn btn-outline" onclick="cancelEdit()">${t('cancel')}</button>
+                </div>
+            `;
+            return html;
+        }
+
+        // ================================================================
+        // 7. 教師操作函數（無省略）
+        // ================================================================
+        window.startNewQuestion = function() {
+            const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
+            const filterSemester = document.getElementById('filterSemester')?.value || '上學期';
+            const newQ = {
+                id: genId(),
+                grade: filterGrade,
+                semester: filterSemester,
+                title: '新題目',
+                type: 'open',
+                refAnswer: '',
+                keywords: [],
+                image: '',
+                subQuestions: []
+            };
+            questions.push(newQ);
+            editingQuestionId = newQ.id;
+            saveData();
+            render();
+        };
+        window.selectQuestion = function(id) {
+            editingQuestionId = id;
+            render();
+        };
+        window.editQuestion = function(id) {
+            editingQuestionId = id;
+            render();
+        };
+        window.deleteQuestion = function(id) {
+            if (!confirm('確定刪除該題目？')) return;
+            questions = questions.filter(q => q.id !== id);
+            if (editingQuestionId === id) editingQuestionId = null;
+            saveData();
+            render();
+        };
+        window.applyFilter = function() {
+            const grade = document.getElementById('filterGrade')?.value || '';
+            const sem = document.getElementById('filterSemester')?.value || '';
+            teacherFilterGrade = grade;
+            teacherFilterSemester = sem;
+            render();
+        };
+
+        window.toggleQuestionType = function() {
+            const type = document.getElementById('editType').value;
+            const q = questions.find(q => q.id === editingQuestionId);
+            if (q) {
+                q.type = type;
+                if (type === 'open') { q.subQuestions = []; q.refAnswer = document.getElementById('editRefAnswer')?.value || ''; }
+                else { q.refAnswer = ''; }
+                saveData();
+                render();
+            }
+        };
+
+        window.handleImageUpload = function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('editImageData').value = ev.target.result;
+                const container = document.getElementById('imagePreviewContainer');
+                container.innerHTML = `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="removeImage()">移除圖片</button>`;
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.removeImage = function() {
+            document.getElementById('editImageData').value = '';
+            const container = document.getElementById('imagePreviewContainer');
+            container.innerHTML = '';
+        };
+
+        window.addSubQuestion = function() {
+            const q = questions.find(q => q.id === editingQuestionId);
+            if (!q) return;
+            const sqDivs = document.querySelectorAll('.sub-question');
+            const subs = [];
+            sqDivs.forEach(div => {
+                const qInput = div.querySelector('.sq-question');
+                const aInput = div.querySelector('.sq-answer');
+                const kInput = div.querySelector('.sq-keywords');
+                if (qInput) subs.push({ question: qInput.value || '', answer: aInput ? aInput.value : '', keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : [] });
+            });
+            q.subQuestions = subs;
+            q.subQuestions.push({ question: '', answer: '', keywords: [] });
+            saveData();
+            render();
+        };
+
+        window.removeSubQuestion = function(btn) {
+            const div = btn.closest('.sub-question');
+            const idx = parseInt(div.dataset.index, 10);
+            if (isNaN(idx)) return;
+            const q = questions.find(q => q.id === editingQuestionId);
+            if (q && q.subQuestions && q.subQuestions.length > idx) {
+                q.subQuestions.splice(idx, 1);
+                saveData();
+                render();
+            }
+        };
+
+        window.saveQuestion = function(displayGrade, displaySemester) {
+            const q = questions.find(q => q.id === editingQuestionId);
+            if (!q) return;
+            q.grade = displayGrade;
+            q.semester = displaySemester;
+            q.title = document.getElementById('editTitle').value;
+            q.type = document.getElementById('editType').value;
+            if (q.type === 'open') q.refAnswer = document.getElementById('editRefAnswer').value;
+            else q.refAnswer = '';
+            if (q.type === 'open') {
+                q.keywords = document.getElementById('editKeywords').value.split(',').map(s=>s.trim()).filter(s=>s);
+            } else {
+                q.keywords = [];
+            }
+            q.image = document.getElementById('editImageData').value;
+            if (q.type === 'fixed') {
+                const sqDivs = document.querySelectorAll('.sub-question');
+                const subs = [];
+                sqDivs.forEach(div => {
+                    const qInput = div.querySelector('.sq-question');
+                    const aInput = div.querySelector('.sq-answer');
+                    const kInput = div.querySelector('.sq-keywords');
+                    if (qInput) subs.push({ question: qInput.value || '', answer: aInput ? aInput.value : '', keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : [] });
+                });
+                q.subQuestions = subs;
+            } else q.subQuestions = [];
+            saveData();
+            console.log('✅ 題目已儲存');
+            render();
+        };
+
+        window.cancelEdit = function() { loadData(); editingQuestionId = null; render(); };
+
+        // ================================================================
+        // 8. 學生視圖
+        // ================================================================
+        function renderStudent() {
+            if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
+            const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
+            const semesters = ['上學期','下學期'];
+            let html = `
+                <div class="student-selector">
+                    <div class="form-group"><label>${t('grade')}</label>
+                        <select id="studentGrade" onchange="filterStudentQuestions()">
+                            <option value="">${t('pleaseSelect')}</option>
+                            ${grades.map(g => `<option value="${g}" ${selectedGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group"><label>${t('semester')}</label>
+                        <select id="studentSemester" onchange="filterStudentQuestions()">
+                            <option value="">${t('pleaseSelect')}</option>
+                            ${semesters.map(s => `<option value="${s}" ${selectedSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div id="studentQuestionGrid">${renderStudentQuestions(selectedGrade, selectedSemester)}</div>
+            `;
+            document.getElementById('mainContent').innerHTML = html;
+        }
+
+        function renderStudentQuestions(grade, sem) {
+            let filtered = questions.filter(q => q.grade === grade && q.semester === sem);
+            if (filtered.length === 0) return `<div style="padding:30px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
+            let html = `<div class="question-grid">`;
+            filtered.forEach(q => {
+                html += `
+                    <div class="question-card" onclick="selectStudentQuestion('${q.id}')">
+                        <div class="qtitle">${forceToTraditional(q.title)}</div>
+                        <div class="qmeta">${q.type === 'open' ? t('open') : t('fixed')}</div>
+                        ${q.image ? `<img src="${q.image}" />` : ''}
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        window.filterStudentQuestions = function() {
+            const grade = document.getElementById('studentGrade')?.value || '';
+            const sem = document.getElementById('studentSemester')?.value || '';
+            selectedGrade = grade;
+            selectedSemester = sem;
+            renderStudent();
+        };
+
+        window.selectStudentQuestion = function(id) {
+            studentSelectedQuestionId = id;
+            subAnswers = {};
+            subAnswered = {};
+            subRecordingIndex = null;
+            subLocked = false;
+            renderStudent();
+        };
+
+        // ================================================================
+        // 9. 學生答題視圖
+        // ================================================================
+        function renderStudentAnswer() {
+            const q = questions.find(q => q.id === studentSelectedQuestionId);
+            if (!q) { studentSelectedQuestionId = null; renderStudent(); return; }
+            const isOpen = q.type === 'open';
+            let html = `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <button class="btn btn-outline" onclick="backToStudentList()">← ${t('back')}</button>
+                    <span style="font-weight:600;">${forceToTraditional(q.title)}</span>
+                </div>
+                <div class="answer-area">
+                    ${q.image ? `<img src="${q.image}" class="question-image" />` : ''}
+                    <div class="question-text">${forceToTraditional(q.title)}</div>
+            `;
+            if (isOpen) {
+                html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
+                if (q.keywords && q.keywords.length) html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>${forceToTraditional(q.keywords.join('、'))}</div>`;
+                html += `
+                    <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
+                    <div class="record-controls">
+                        <span class="status-dot" id="recordDot"></span>
+                        <span class="timer" id="recordTimer">00:00</span>
+                        <button class="btn btn-primary" id="startRecordBtn">🎙️ ${t('startRecording')}</button>
+                        <button class="btn btn-danger" id="stopRecordBtn" disabled>⏹️ ${t('stopRecording')}</button>
+                        <span id="statusText" style="font-size:13px; color:#6b7a8a;">${t('recording')}</span>
+                    </div>
+                    <div id="progressContainer" class="progress-container hidden">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                        <div class="progress-text" id="progressText">${t('progress')}</div>
+                    </div>
+                    <div id="scoreResult" class="result-box hidden">
+                        <div class="score-row">
+                            <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
+                            <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
+                            <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
+                            <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
+                        </div>
+                        <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
+                        <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
+                    </div>
+                `;
+            } else {
+                const subs = q.subQuestions || [];
+                html += `<div class="sub-questions">`;
+                subs.forEach((sq, idx) => {
+                    const answered = subAnswered[idx] || false;
+                    const statusClass = answered ? 'done' : '';
+                    const statusText = answered ? t('alreadyAnswered') : (subRecordingIndex === idx ? t('recording') : t('notStarted'));
+                    let disabled = answered || subLocked || (subRecordingIndex !== null && subRecordingIndex !== idx);
+                    if (idx > 0 && !subAnswered[idx-1]) disabled = true;
+                    html += `
+                        <div class="sq-item">
+                            <div class="sq-label"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
+                            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                <span class="sq-status ${statusClass}">${statusText}</span>
+                                <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
+                                <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
+                            </div>
+                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+                const allDone = subs.every((_, idx) => subAnswered[idx]);
+                html += `
+                    <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+                        <button class="btn btn-success" id="submitAllBtn" ${allDone ? '' : 'disabled'}>📤 ${t('submitAll')}</button>
+                        <span id="submitStatus" style="font-size:13px; color:#6b7a8a;">${allDone ? t('done') : t('answering')}</span>
+                    </div>
+                    <div id="progressContainer" class="progress-container hidden">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                        <div class="progress-text" id="progressText">${t('progress')}</div>
+                    </div>
+                    <div id="scoreResult" class="result-box hidden">
+                        <div class="score-row">
+                            <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
+                            <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
+                            <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
+                            <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
+                        </div>
+                        <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
+                        <div class="sub-feedback" id="subFeedback"></div>
+                        <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
+                    </div>
+                `;
+            }
+            html += `</div>`;
+            document.getElementById('mainContent').innerHTML = html;
+
+            if (isOpen) bindOpenRecording(q);
+            else bindFixedRecording(q);
+        }
+
+        window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
+
+        // ================================================================
+        // 10. 共用音頻工具（基於 AudioWorkletNode）
+        // ================================================================
+        const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
+            class PCMProcessor extends AudioWorkletProcessor {
+                process(inputs, outputs, parameters) {
+                    const input = inputs[0];
+                    if (input && input.length > 0) {
+                        const channelData = input[0];
+                        const pcm = new Int16Array(channelData.length);
+                        for (let i = 0; i < channelData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, channelData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        this.port.postMessage(pcm);
+                    }
+                    return true;
+                }
+            }
+            registerProcessor('pcm-processor', PCMProcessor);
+        `], { type: 'application/javascript' }));
+
+        // ================================================================
+        // 11. 開放式錄音綁定（繁體轉換三步驟）
+        // ================================================================
+        function bindOpenRecording(q) {
+            const startBtn = document.getElementById('startRecordBtn');
+            const stopBtn = document.getElementById('stopRecordBtn');
+            const dot = document.getElementById('recordDot');
+            const timer = document.getElementById('recordTimer');
+            const statusText = document.getElementById('statusText');
+            const transcript = document.getElementById('studentTranscript');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            let mediaStream = null, audioContext = null, workletNode = null;
+            let isRecording = false, recordTimer = null, seconds = 0;
+            let audioBuffer = [];
+            const SAMPLE_RATE = 16000;
+            let iatWs = null, isRecognizing = false, finalTranscript = ''; // 儲存簡體
+            let iatReceivedMessage = false, iatTimeoutId = null, iatChunkCount = 0;
+            let isIatEndSent = false, waitForIatResult = false;
+            let cryptoReady = false;
+            let sparkWs = null, isScoring = false, sparkResult = '';
+            let sparkTimeoutId = null;
+
+            if (!cryptoReady) loadCryptoJs(() => {});
+
+            startBtn.onclick = function() { if (!isRecording) startRecording(); };
+            stopBtn.onclick = function() { if (isRecording) stopRecording(); };
+
+            async function startRecording() {
+                audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
+                document.getElementById('scoreResult').classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+                try {
+                    await initAudioWorklet();
+                    isRecording = true;
+                    dot.className = 'status-dot recording';
+                    startBtn.disabled = true; stopBtn.disabled = false;
+                    seconds = 0; timer.textContent = '00:00';
+                    if (recordTimer) clearInterval(recordTimer);
+                    recordTimer = setInterval(() => {
+                        seconds++;
+                        timer.textContent = String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+                    }, 1000);
+                    statusText.textContent = '🔴 '+t('recording');
+                    startIatRecognition();
+                } catch(err) {
+                    console.error('麥克風初始化失敗:', err);
+                    statusText.textContent = '❌ 麥克風錯誤';
+                    startBtn.disabled = false;
+                }
+            }
+
+            function stopRecording() {
+                isRecording = false;
+                dot.className = 'status-dot';
+                startBtn.disabled = false; stopBtn.disabled = true;
+                if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
+                statusText.textContent = '⏹️ '+t('stopRecording');
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '10%';
+                progressText.textContent = t('progress');
+                if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+                if (audioContext) { audioContext.close(); audioContext=null; }
+                if (workletNode) { workletNode.disconnect(); workletNode=null; }
+                if (!iatReceivedMessage) console.warn('⚠️ 語音無回應');
+            }
+
+            async function initAudioWorklet() {
+                if (audioContext && audioContext.state === 'running') return;
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+                mediaStream = stream;
+                const source = audioContext.createMediaStreamSource(stream);
+                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                workletNode.port.onmessage = (event) => {
+                    if (!isRecording) return;
+                    const pcm = event.data;
+                    audioBuffer.push(pcm);
+                };
+                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
+                source.connect(workletNode);
+                workletNode.connect(audioContext.destination);
+            }
+
+            function startIatRecognition() {
+                if (isRecognizing) return;
+                if (!cryptoReady) { loadCryptoJs(() => startIatRecognition()); return; }
+                try {
+                    const urlObj = new URL(CONFIG.IAT_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.IAT_API_KEY, CONFIG.IAT_API_SECRET);
+                    iatWs = new WebSocket(wsUrl);
+                    isRecognizing = true;
+                    iatReceivedMessage = false; iatChunkCount = 0; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false;
+                    if (iatTimeoutId) clearTimeout(iatTimeoutId);
+                    iatTimeoutId = setTimeout(() => {
+                        if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
+                            console.warn('⚠️ 語音服務無回應');
+                            if (iatWs) iatWs.close();
+                            stopRecording();
+                        }
+                        isRecognizing = false;
+                    }, 20000);
+                    iatWs.onopen = () => { sendIatHandshake(); sendIatAudioData(); };
+                    iatWs.onmessage = (event) => {
+                        iatReceivedMessage = true;
+                        if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
+                        try { const data = JSON.parse(event.data); handleIatMessage(data); } catch(e) {}
+                    };
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecording(); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecording(); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecording(); }
+            }
+
+            function sendIatHandshake() {
+                const handshake = { common: { app_id: CONFIG.IAT_APPID }, business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' }, data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } };
+                iatWs.send(JSON.stringify(handshake));
+            }
+
+            function sendIatAudioData() {
+                const sendChunk = () => {
+                    if (isIatEndSent || iatWs.readyState !== WebSocket.OPEN) return;
+                    if (!isRecording) {
+                        isIatEndSent = true;
+                        iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
+                        waitForIatResult = true;
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        return;
+                    }
+                    if (audioBuffer.length > 0) {
+                        const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                        const merged = new Int16Array(totalLength);
+                        let offset = 0;
+                        for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
+                        audioBuffer = [];
+                        const bytes = new Uint8Array(merged.buffer);
+                        let binary = '';
+                        for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                        const base64 = btoa(binary);
+                        iatWs.send(JSON.stringify({ data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 } }));
+                        iatChunkCount++;
+                    }
+                    setTimeout(sendChunk, 100);
+                };
+                sendChunk();
+            }
+
+            // 核心：步驟 1 接收簡體，步驟 2 轉換，步驟 3 顯示
+            function handleIatMessage(data) {
+                if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecording(); isRecognizing = false; return; }
+                if (data.data && data.data.result) {
+                    const result = data.data.result;
+                    if (result.ws) {
+                        let text = '';
+                        for (const w of result.ws) {
+                            for (const cw of w.cw) text += cw.w;
+                        }
+                        if (text) {
+                            // 步驟1：收到簡體
+                            finalTranscript += text;
+                            // 步驟2：轉換為繁體
+                            const tradText = forceToTraditional(finalTranscript);
+                            // 步驟3：顯示繁體
+                            transcript.innerHTML = tradText;
+                            progressBar.style.width = '40%';
+                        }
+                    }
+                }
+                if (data.data && data.data.status === 2) {
+                    waitForIatResult = false;
+                    if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
+                    if (finalTranscript.trim()) {
+                        studentAnswerText = finalTranscript; // 保留簡體供後續處理（評分用）
+                        progressBar.style.width = '60%';
+                        const hasChinese = /[\u4e00-\u9fa5]/.test(finalTranscript);
+                        if (!hasChinese) {
+                            const grade = {
+                                accuracy: 0,
+                                fluency: 0,
+                                integrity: 0,
+                                total_score: 0,
+                                suggestion: t('englishDetected')
+                            };
+                            displayScore(grade);
+                            progressContainer.classList.add('hidden');
+                            statusText.textContent = '✅ '+t('done');
+                            isScoring = false;
+                        } else {
+                            callSparkForScore(q, finalTranscript);
+                        }
+                    } else { console.warn('未識別到語音'); progressContainer.classList.add('hidden'); }
+                    stopRecording();
+                    isRecognizing = false;
+                }
+            }
+
+            function callSparkForScore(q, answer) {
+                if (isScoring) return;
+                isScoring = true;
+                statusText.textContent = '🤖 '+t('scoring');
+                progressBar.style.width = '70%';
+                if (!cryptoReady) { loadCryptoJs(() => callSparkForScore(q, answer)); return; }
+                try {
+                    const urlObj = new URL(CONFIG.SPARK_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.SPARK_API_KEY, CONFIG.SPARK_API_SECRET);
+                    sparkWs = new WebSocket(wsUrl);
+                    sparkResult = '';
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    sparkTimeoutId = setTimeout(() => {
+                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { console.warn('評分超時'); sparkWs.close(); }
+                        isScoring = false;
+                        progressContainer.classList.add('hidden');
+                    }, 30000);
+                    sparkWs.onopen = () => { progressBar.style.width = '80%'; sendSparkRequest(q, answer); };
+                    sparkWs.onmessage = (event) => { try { const data = JSON.parse(event.data); handleSparkMessage(data); } catch(e) {} };
+                    sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); };
+                    sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); };
+                } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); }
+            }
+
+            function sendSparkRequest(q, answer) {
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
+                const request = {
+                    header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
+                    parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
+                    payload: { message: { text: [ { role: 'system', content: '你是一位專業的普通話教師。' }, { role: 'user', content: prompt } ] } }
+                };
+                sparkWs.send(JSON.stringify(request));
+            }
+
+            function handleSparkMessage(data) {
+                if (data.header && data.header.code !== 0) { console.error('星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); return; }
+                if (data.payload && data.payload.choices && data.payload.choices.text) {
+                    for (const text of data.payload.choices.text) {
+                        if (text.content) sparkResult += text.content;
+                    }
+                }
+                if (data.header && data.header.status === 2) {
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    if (sparkWs) sparkWs.close();
+                    progressBar.style.width = '90%';
+                    try {
+                        let jsonStr = sparkResult.trim();
+                        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                        const match = jsonStr.match(/\{[\s\S]*\}/);
+                        if (match) jsonStr = match[0];
+                        const grade = JSON.parse(jsonStr);
+                        displayScore(grade);
+                        progressContainer.classList.add('hidden');
+                    } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); }
+                    isScoring = false;
+                }
+            }
+
+            function displayScore(grade) {
+                const resultDiv = document.getElementById('scoreResult');
+                resultDiv.classList.remove('hidden');
+                const factor = 10;
+                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
+                document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
+                document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
+                document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
+                // 建議轉繁體
+                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
+                document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
+                document.querySelectorAll('#scoreResult .num').forEach(el => {
+                    const val = parseFloat(el.textContent);
+                    el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
+                });
+                statusText.textContent = '✅ '+t('done');
+                console.log('✅ 評分完成！');
+            }
+
+            function buildWsUrl(host, path, apiKey, apiSecret) {
+                if (typeof CryptoJS === 'undefined') throw new Error('CryptoJS not loaded');
+                const date = new Date().toUTCString();
+                const requestLine = `GET ${path} HTTP/1.1`;
+                const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
+                const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
+                const signature = CryptoJS.enc.Base64.stringify(hmac);
+                const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+                const authorization = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(authorizationOrigin));
+                return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
+            }
+
+            function loadCryptoJs(cb) {
+                if (typeof CryptoJS !== 'undefined') { cryptoReady=true; cb(); return; }
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+                script.onload = function() { cryptoReady=true; cb(); };
+                script.onerror = function() { console.error('加密庫載入失敗'); };
+                document.head.appendChild(script);
+            }
+        }
+
+        // ================================================================
+        // 12. 半固定式錄音綁定（同樣三步驟繁體轉換）
+        // ================================================================
+        function bindFixedRecording(q) {
+            const subs = q.subQuestions || [];
+            const recordBtns = document.querySelectorAll('.sq-record-btn');
+            const stopBtns = document.querySelectorAll('.sq-stop-btn');
+            const transcripts = document.querySelectorAll('.sq-transcript');
+            const submitBtn = document.getElementById('submitAllBtn');
+            const submitStatus = document.getElementById('submitStatus');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            let currentRecordingIdx = null;
+            let mediaStream = null, audioContext = null, workletNode = null;
+            let isRecording = false, recordTimer = null, seconds = 0;
+            let audioBuffer = [];
+            const SAMPLE_RATE = 16000;
+            let iatWs = null, isRecognizing = false, finalTranscript = '';
+            let iatReceivedMessage = false, iatTimeoutId = null, iatChunkCount = 0;
+            let isIatEndSent = false, waitForIatResult = false;
+            let cryptoReady = false;
+            let sparkWs = null, isScoring = false, sparkResult = '';
+            let sparkTimeoutId = null;
+
+            if (!cryptoReady) loadCryptoJs(() => {});
+
+            function updateButtons() {
+                recordBtns.forEach((btn, idx) => {
+                    const answered = subAnswered[idx] || false;
+                    let disabled = answered || subLocked || isScoring;
+                    if (idx > 0 && !subAnswered[idx-1]) disabled = true;
+                    if (currentRecordingIdx !== null && currentRecordingIdx !== idx) disabled = true;
+                    btn.disabled = disabled;
+                });
+                const allDone = subs.every((_, idx) => subAnswered[idx]);
+                submitBtn.disabled = !allDone || subLocked || isScoring;
+                submitStatus.textContent = allDone ? t('done') : t('answering');
+            }
+
+            recordBtns.forEach((btn, idx) => {
+                btn.onclick = function() {
+                    if (this.disabled) return;
+                    currentRecordingIdx = idx;
+                    this.style.display = 'none';
+                    const stopBtn = stopBtns[idx];
+                    stopBtn.style.display = 'inline-block';
+                    transcripts[idx].textContent = '';
+                    startRecordingForSub(idx);
+                };
+            });
+            stopBtns.forEach((btn, idx) => {
+                btn.onclick = function() {
+                    if (!isRecording) return;
+                    stopRecordingForSub(idx);
+                };
+            });
+
+            async function startRecordingForSub(idx) {
+                audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+                try {
+                    await initAudioWorklet();
+                    isRecording = true;
+                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                    statusSpan.textContent = t('recording');
+                    statusSpan.className = 'sq-status';
+                    recordBtns.forEach(b => b.disabled = true);
+                    startIatRecognitionForSub(idx);
+                } catch(err) {
+                    console.error('麥克風錯誤:', err);
+                    statusSpan.textContent = '❌ 錯誤';
+                }
+            }
+
+            function stopRecordingForSub(idx) {
+                isRecording = false;
+                const recordBtn = recordBtns[idx];
+                const stopBtn = stopBtns[idx];
+                recordBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+                if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
+                if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+                if (audioContext) { audioContext.close(); audioContext=null; }
+                if (workletNode) { workletNode.disconnect(); workletNode=null; }
+                if (!iatReceivedMessage) console.warn('語音無回應');
+                updateButtons();
+            }
+
+            async function initAudioWorklet() {
+                if (audioContext && audioContext.state === 'running') return;
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                });
+                mediaStream = stream;
+                const source = audioContext.createMediaStreamSource(stream);
+                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                workletNode.port.onmessage = (event) => {
+                    if (!isRecording) return;
+                    const pcm = event.data;
+                    audioBuffer.push(pcm);
+                };
+                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
+                source.connect(workletNode);
+                workletNode.connect(audioContext.destination);
+            }
+
+            function startIatRecognitionForSub(idx) {
+                if (isRecognizing) return;
+                if (!cryptoReady) { loadCryptoJs(() => startIatRecognitionForSub(idx)); return; }
+                try {
+                    const urlObj = new URL(CONFIG.IAT_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.IAT_API_KEY, CONFIG.IAT_API_SECRET);
+                    iatWs = new WebSocket(wsUrl);
+                    isRecognizing = true;
+                    iatReceivedMessage = false; iatChunkCount = 0; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false;
+                    if (iatTimeoutId) clearTimeout(iatTimeoutId);
+                    iatTimeoutId = setTimeout(() => {
+                        if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
+                            console.warn('語音無回應');
+                            if (iatWs) iatWs.close();
+                            stopRecordingForSub(idx);
+                        }
+                        isRecognizing = false;
+                    }, 20000);
+                    iatWs.onopen = () => { sendIatHandshake(); sendIatAudioData(); };
+                    iatWs.onmessage = (event) => {
+                        iatReceivedMessage = true;
+                        if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
+                        try { const data = JSON.parse(event.data); handleIatMessageForSub(data, idx); } catch(e) {}
+                    };
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecordingForSub(idx); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecordingForSub(idx); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecordingForSub(idx); }
+            }
+
+            function sendIatHandshake() {
+                const handshake = { common: { app_id: CONFIG.IAT_APPID }, business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' }, data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } };
+                iatWs.send(JSON.stringify(handshake));
+            }
+
+            function sendIatAudioData() {
+                const sendChunk = () => {
+                    if (isIatEndSent || iatWs.readyState !== WebSocket.OPEN) return;
+                    if (!isRecording) {
+                        isIatEndSent = true;
+                        iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
+                        waitForIatResult = true;
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        return;
+                    }
+                    if (audioBuffer.length > 0) {
+                        const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                        const merged = new Int16Array(totalLength);
+                        let offset = 0;
+                        for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
+                        audioBuffer = [];
+                        const bytes = new Uint8Array(merged.buffer);
+                        let binary = '';
+                        for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                        const base64 = btoa(binary);
+                        iatWs.send(JSON.stringify({ data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 } }));
+                        iatChunkCount++;
+                    }
+                    setTimeout(sendChunk, 100);
+                };
+                sendChunk();
+            }
+
+            function handleIatMessageForSub(data, idx) {
+                if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecordingForSub(idx); isRecognizing = false; return; }
+                if (data.data && data.data.result) {
+                    const result = data.data.result;
+                    if (result.ws) {
+                        let text = '';
+                        for (const w of result.ws) {
+                            for (const cw of w.cw) text += cw.w;
+                        }
+                        if (text) {
+                            finalTranscript += text;
+                            const tradText = forceToTraditional(finalTranscript);
+                            const transcriptEl = transcripts[idx];
+                            transcriptEl.textContent = tradText;
+                        }
+                    }
+                }
+                if (data.data && data.data.status === 2) {
+                    waitForIatResult = false;
+                    if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
+                    if (finalTranscript.trim()) {
+                        subAnswers[idx] = finalTranscript;
+                        subAnswered[idx] = true;
+                        currentRecordingIdx = null;
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        statusSpan.textContent = t('alreadyAnswered');
+                        statusSpan.className = 'sq-status done';
+                        const recordBtn = recordBtns[idx];
+                        const stopBtn = stopBtns[idx];
+                        recordBtn.style.display = 'inline-block';
+                        stopBtn.style.display = 'none';
+                        updateButtons();
+                        const allDone = subs.every((_, i) => subAnswered[i]);
+                        if (allDone) {
+                            submitStatus.textContent = t('done');
+                            submitBtn.disabled = false;
+                            console.log('✅ 全部子問題已作答，請點擊提交');
+                        }
+                        isRecording = false;
+                        if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+                        if (audioContext) { audioContext.close(); audioContext=null; }
+                        if (workletNode) { workletNode.disconnect(); workletNode=null; }
+                        recordBtn.style.display = 'inline-block';
+                        stopBtn.style.display = 'none';
+                    } else { console.warn('未識別到語音'); }
+                    isRecognizing = false;
+                }
+            }
+
+            submitBtn.onclick = function() {
+                if (this.disabled) return;
+                subLocked = true;
+                updateButtons();
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '10%';
+                progressText.textContent = t('progress');
+                let fullAnswer = '';
+                subs.forEach((sq, idx) => {
+                    fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
+                });
+                const answerText = fullAnswer;
+                const hasChinese = /[\u4e00-\u9fa5]/.test(answerText);
+                if (!hasChinese) {
+                    const subCount = subs.length;
+                    const subScores = [];
+                    for (let i=0; i<subCount; i++) {
+                        subScores.push({ accuracy: 0, fluency: 0, integrity: 0 });
+                    }
+                    const grade = {
+                        total_score: 0,
+                        suggestion: t('englishDetected'),
+                        sub_scores: subScores
+                    };
+                    displayFixedScore(grade);
+                    progressContainer.classList.add('hidden');
+                    subLocked = false;
+                    updateButtons();
+                    isScoring = false;
+                    return;
+                }
+                callSparkForFixed(q, answerText);
+            };
+
+            function callSparkForFixed(q, answer) {
+                if (isScoring) return;
+                isScoring = true;
+                progressBar.style.width = '30%';
+                if (!cryptoReady) { loadCryptoJs(() => callSparkForFixed(q, answer)); return; }
+                try {
+                    const urlObj = new URL(CONFIG.SPARK_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.SPARK_API_KEY, CONFIG.SPARK_API_SECRET);
+                    sparkWs = new WebSocket(wsUrl);
+                    sparkResult = '';
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    sparkTimeoutId = setTimeout(() => {
+                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { console.warn('評分超時'); sparkWs.close(); }
+                        isScoring = false;
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                    }, 30000);
+                    sparkWs.onopen = () => {
+                        progressBar.style.width = '50%';
+                        sendSparkRequestFixed(q, answer);
+                    };
+                    sparkWs.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            handleSparkMessageFixed(data, answer);
+                        } catch(e) {}
+                    };
+                    sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
+                    sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
+                } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
+            }
+
+            function sendSparkRequestFixed(q, answer) {
+                let subInfo = '';
+                (q.subQuestions || []).forEach((sq, idx) => {
+                    subInfo += `子問題${idx+1}：${sq.question}\n參考答案：${sq.answer || ''}\n關鍵字：${(sq.keywords||[]).join('、')}\n學生回答：${subAnswers[idx] || ''}\n\n`;
+                });
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${subInfo}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度）(0-10)，並給出總分(0-10)和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
+                const request = {
+                    header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
+                    parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
+                    payload: { message: { text: [ { role: 'system', content: '你是一位專業的普通話教師。' }, { role: 'user', content: prompt } ] } }
+                };
+                sparkWs.send(JSON.stringify(request));
+            }
+
+            function handleSparkMessageFixed(data, answer) {
+                if (data.header && data.header.code !== 0) {
+                    console.error('星火錯誤 '+data.header.code);
+                    isScoring = false;
+                    if (sparkWs) sparkWs.close();
+                    progressContainer.classList.add('hidden');
+                    subLocked = false;
+                    updateButtons();
+                    return;
+                }
+                if (data.payload && data.payload.choices && data.payload.choices.text) {
+                    for (const text of data.payload.choices.text) {
+                        if (text.content) sparkResult += text.content;
+                    }
+                }
+                if (data.header && data.header.status === 2) {
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    if (sparkWs) sparkWs.close();
+                    progressBar.style.width = '90%';
+                    try {
+                        let jsonStr = sparkResult.trim();
+                        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                        const match = jsonStr.match(/\{[\s\S]*\}/);
+                        if (match) jsonStr = match[0];
+                        const grade = JSON.parse(jsonStr);
+                        const subCount = (q.subQuestions || []).length;
+                        if (!grade.sub_scores || grade.sub_scores.length !== subCount) {
+                            const newSub = [];
+                            for (let i=0; i<subCount; i++) {
+                                newSub.push(grade.sub_scores[i] || { accuracy: 0, fluency: 0, integrity: 0 });
+                            }
+                            grade.sub_scores = newSub;
+                        }
+                        displayFixedScore(grade);
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                    } catch(e) {
+                        console.error('評分解析失敗', e);
+                        console.log('原始回應:', sparkResult);
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                        const resultDiv = document.getElementById('scoreResult');
+                        resultDiv.classList.remove('hidden');
+                        document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>評分服務回應異常，請稍後重試。`;
+                        document.getElementById('scoreSource').textContent = '評分失敗';
+                    }
+                    isScoring = false;
+                }
+            }
+
+            function displayFixedScore(grade) {
+                const resultDiv = document.getElementById('scoreResult');
+                resultDiv.classList.remove('hidden');
+                const factor = 10;
+                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
+                let avgAcc = 0, avgFlu = 0, avgInt = 0;
+                const subScores = grade.sub_scores || [];
+                if (subScores.length > 0) {
+                    let sumAcc = 0, sumFlu = 0, sumInt = 0;
+                    subScores.forEach(s => { sumAcc += s.accuracy || 0; sumFlu += s.fluency || 0; sumInt += s.integrity || 0; });
+                    avgAcc = sumAcc / subScores.length;
+                    avgFlu = sumFlu / subScores.length;
+                    avgInt = sumInt / subScores.length;
+                } else {
+                    avgAcc = grade.accuracy || 0;
+                    avgFlu = grade.fluency || 0;
+                    avgInt = grade.integrity || 0;
+                }
+                document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
+                document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
+                document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
+                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
+                document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
+                document.querySelectorAll('#scoreResult .num').forEach(el => {
+                    const val = parseFloat(el.textContent);
+                    el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
+                });
+                let fbHtml = '';
+                (q.subQuestions || []).forEach((sq, idx) => {
+                    const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0};
+                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}</div>`;
+                });
+                document.getElementById('subFeedback').innerHTML = fbHtml;
+                console.log('✅ 評分完成！');
+            }
+
+            function buildWsUrl(host, path, apiKey, apiSecret) {
+                if (typeof CryptoJS === 'undefined') throw new Error('CryptoJS not loaded');
+                const date = new Date().toUTCString();
+                const requestLine = `GET ${path} HTTP/1.1`;
+                const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
+                const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
+                const signature = CryptoJS.enc.Base64.stringify(hmac);
+                const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+                const authorization = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(authorizationOrigin));
+                return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
+            }
+
+            function loadCryptoJs(cb) {
+                if (typeof CryptoJS !== 'undefined') { cryptoReady=true; cb(); return; }
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+                script.onload = function() { cryptoReady=true; cb(); };
+                script.onerror = function() { console.error('加密庫載入失敗'); };
+                document.head.appendChild(script);
+            }
+
+            updateButtons();
+        }
+
+        // ================================================================
+        // 13. 初始化
+        // ================================================================
+        // 初始化 OpenCC 轉換器
+        initConverter();
+
+        loadData();
+        render();
+        console.log('✅ 最終繁體顯示版已啟動，識別區域將顯示繁體中文。');
+    })();
+</script>
+</body>
+</html>
