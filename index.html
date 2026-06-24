@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · 最終修正版</title>
+    <title>普通話語音評測系統 · AudioWorklet 版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -255,7 +255,7 @@
         }
 
         // ================================================================
-        // 4. 簡繁轉換（直接創建新轉換器，確保有效）
+        // 4. 簡繁轉換（每次都建立新轉換器）
         // ================================================================
         function toTraditional(text) {
             if (!text) return text;
@@ -297,7 +297,7 @@
         }
 
         // ================================================================
-        // 6. 教師視圖
+        // 6. 教師視圖（省略部分與先前相同，但保留完整）
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
@@ -430,7 +430,7 @@
         }
 
         // ================================================================
-        // 7. 教師操作函數
+        // 7. 教師操作函數（無省略）
         // ================================================================
         window.startNewQuestion = function() {
             const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -725,7 +725,30 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（顯示繁體 + 滿分100）
+        // 10. 共用音頻工具（基於 AudioWorkletNode）
+        // ================================================================
+        const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
+            class PCMProcessor extends AudioWorkletProcessor {
+                process(inputs, outputs, parameters) {
+                    const input = inputs[0];
+                    if (input && input.length > 0) {
+                        const channelData = input[0];
+                        // 將 Float32Array 轉為 Int16Array 並發送
+                        const pcm = new Int16Array(channelData.length);
+                        for (let i = 0; i < channelData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, channelData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        this.port.postMessage(pcm);
+                    }
+                    return true;
+                }
+            }
+            registerProcessor('pcm-processor', PCMProcessor);
+        `], { type: 'application/javascript' }));
+
+        // ================================================================
+        // 11. 開放式錄音綁定（使用 AudioWorkletNode）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -738,7 +761,7 @@
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
 
-            let mediaStream = null, audioContext = null, scriptProcessor = null;
+            let mediaStream = null, audioContext = null, workletNode = null;
             let isRecording = false, recordTimer = null, seconds = 0;
             let audioBuffer = [];
             const SAMPLE_RATE = 16000;
@@ -754,13 +777,13 @@
             startBtn.onclick = function() { if (!isRecording) startRecording(); };
             stopBtn.onclick = function() { if (isRecording) stopRecording(); };
 
-            function startRecording() {
+            async function startRecording() {
                 audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
                 document.getElementById('scoreResult').classList.add('hidden');
                 progressContainer.classList.add('hidden');
                 progressBar.style.width = '0%';
-                initAudio((err) => {
-                    if (err) { console.error('麥克風錯誤:', err); return; }
+                try {
+                    await initAudioWorklet();
                     isRecording = true;
                     dot.className = 'status-dot recording';
                     startBtn.disabled = true; stopBtn.disabled = false;
@@ -772,7 +795,11 @@
                     }, 1000);
                     statusText.textContent = '🔴 '+t('recording');
                     startIatRecognition();
-                });
+                } catch(err) {
+                    console.error('麥克風初始化失敗:', err);
+                    statusText.textContent = '❌ 麥克風錯誤';
+                    startBtn.disabled = false;
+                }
             }
 
             function stopRecording() {
@@ -786,32 +813,36 @@
                 progressText.textContent = t('progress');
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
-                if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
+                if (workletNode) { workletNode.disconnect(); workletNode=null; }
                 if (!iatReceivedMessage) console.warn('⚠️ 語音無回應');
             }
 
-            function initAudio(cb) {
-                navigator.mediaDevices.getUserMedia({
+            async function initAudioWorklet() {
+                if (audioContext && audioContext.state === 'running') {
+                    // 如果已存在，直接使用
+                    return;
+                }
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                if (audioContext.sampleRate !== SAMPLE_RATE) {
+                    console.warn('採樣率不符，實際:', audioContext.sampleRate);
+                }
+                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                const stream = await navigator.mediaDevices.getUserMedia({
                     audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                }).then(stream => {
-                    mediaStream = stream;
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                    const source = audioContext.createMediaStreamSource(stream);
-                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-                    scriptProcessor.onaudioprocess = (event) => {
-                        if (!isRecording) return;
-                        const inputData = event.inputBuffer.getChannelData(0);
-                        const pcm = new Int16Array(inputData.length);
-                        for (let i=0; i<inputData.length; i++) {
-                            const s = Math.max(-1, Math.min(1, inputData[i]));
-                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                        }
-                        audioBuffer.push(pcm);
-                    };
-                    source.connect(scriptProcessor);
-                    scriptProcessor.connect(audioContext.destination);
-                    cb(null);
-                }).catch(err => cb(err));
+                });
+                mediaStream = stream;
+                const source = audioContext.createMediaStreamSource(stream);
+                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                workletNode.port.onmessage = (event) => {
+                    if (!isRecording) return;
+                    const pcm = event.data; // Int16Array
+                    audioBuffer.push(pcm);
+                };
+                workletNode.onprocessorerror = (err) => {
+                    console.error('AudioWorklet 處理器錯誤:', err);
+                };
+                source.connect(workletNode);
+                workletNode.connect(audioContext.destination);
             }
 
             function startIatRecognition() {
@@ -982,7 +1013,6 @@
             function displayScore(grade) {
                 const resultDiv = document.getElementById('scoreResult');
                 resultDiv.classList.remove('hidden');
-                // 星火返回 0-10，乘以10轉為100分制
                 const factor = 10;
                 document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
                 document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
@@ -1021,7 +1051,7 @@
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（顯示繁體 + 滿分100）
+        // 12. 半固定式錄音綁定（同樣使用 AudioWorkletNode）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -1035,7 +1065,7 @@
             const progressText = document.getElementById('progressText');
 
             let currentRecordingIdx = null;
-            let mediaStream = null, audioContext = null, scriptProcessor = null;
+            let mediaStream = null, audioContext = null, workletNode = null;
             let isRecording = false, recordTimer = null, seconds = 0;
             let audioBuffer = [];
             const SAMPLE_RATE = 16000;
@@ -1079,19 +1109,22 @@
                 };
             });
 
-            function startRecordingForSub(idx) {
+            async function startRecordingForSub(idx) {
                 audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
                 progressContainer.classList.add('hidden');
                 progressBar.style.width = '0%';
-                initAudio((err) => {
-                    if (err) { console.error('麥克風錯誤:', err); return; }
+                try {
+                    await initAudioWorklet();
                     isRecording = true;
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
                     statusSpan.textContent = t('recording');
                     statusSpan.className = 'sq-status';
                     recordBtns.forEach(b => b.disabled = true);
                     startIatRecognitionForSub(idx);
-                });
+                } catch(err) {
+                    console.error('麥克風錯誤:', err);
+                    statusSpan.textContent = '❌ 錯誤';
+                }
             }
 
             function stopRecordingForSub(idx) {
@@ -1103,33 +1136,29 @@
                 if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
-                if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
+                if (workletNode) { workletNode.disconnect(); workletNode=null; }
                 if (!iatReceivedMessage) console.warn('語音無回應');
                 updateButtons();
             }
 
-            function initAudio(cb) {
-                navigator.mediaDevices.getUserMedia({
+            async function initAudioWorklet() {
+                if (audioContext && audioContext.state === 'running') return;
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                const stream = await navigator.mediaDevices.getUserMedia({
                     audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                }).then(stream => {
-                    mediaStream = stream;
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                    const source = audioContext.createMediaStreamSource(stream);
-                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-                    scriptProcessor.onaudioprocess = (event) => {
-                        if (!isRecording) return;
-                        const inputData = event.inputBuffer.getChannelData(0);
-                        const pcm = new Int16Array(inputData.length);
-                        for (let i=0; i<inputData.length; i++) {
-                            const s = Math.max(-1, Math.min(1, inputData[i]));
-                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                        }
-                        audioBuffer.push(pcm);
-                    };
-                    source.connect(scriptProcessor);
-                    scriptProcessor.connect(audioContext.destination);
-                    cb(null);
-                }).catch(err => cb(err));
+                });
+                mediaStream = stream;
+                const source = audioContext.createMediaStreamSource(stream);
+                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                workletNode.port.onmessage = (event) => {
+                    if (!isRecording) return;
+                    const pcm = event.data;
+                    audioBuffer.push(pcm);
+                };
+                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
+                source.connect(workletNode);
+                workletNode.connect(audioContext.destination);
             }
 
             function startIatRecognitionForSub(idx) {
@@ -1205,7 +1234,6 @@
                         }
                         if (text) {
                             finalTranscript += text;
-                            // 強制轉繁體顯示
                             const transcriptEl = transcripts[idx];
                             transcriptEl.textContent = toTraditional(finalTranscript);
                         }
@@ -1235,7 +1263,7 @@
                         isRecording = false;
                         if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                         if (audioContext) { audioContext.close(); audioContext=null; }
-                        if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
+                        if (workletNode) { workletNode.disconnect(); workletNode=null; }
                         recordBtn.style.display = 'inline-block';
                         stopBtn.style.display = 'none';
                     } else { console.warn('未識別到語音'); }
@@ -1437,11 +1465,11 @@
         }
 
         // ================================================================
-        // 12. 初始化
+        // 13. 初始化
         // ================================================================
         loadData();
         render();
-        console.log('✅ 最終修正版已啟動，顯示繁體且評分為100分制。');
+        console.log('✅ AudioWorklet 版已啟動，識別區域顯示繁體，評分為100分制。');
     })();
 </script>
 </body>
