@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · 完整修正版</title>
+    <title>普通話語音評測系統 · 最終修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -641,7 +641,7 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（完整無省略）
+        // 10. 開放式錄音綁定（完整）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -927,7 +927,7 @@
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（完整無省略）
+        // 11. 半固定式錄音綁定（修正即時更新與評分顯示）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -954,8 +954,11 @@
 
             if (!cryptoReady) loadCryptoJs(() => {});
 
+            // 更新按鈕狀態的函數，即時反映 subAnswered 變化
             function updateButtons() {
-                recordBtns.forEach((btn, idx) => {
+                // 重新獲取按鈕，確保是最新的 DOM
+                const btns = document.querySelectorAll('.sq-record-btn');
+                btns.forEach((btn, idx) => {
                     const answered = subAnswered[idx] || false;
                     let disabled = answered || subLocked || isScoring;
                     if (idx > 0 && !subAnswered[idx-1]) disabled = true;
@@ -963,10 +966,16 @@
                     btn.disabled = disabled;
                 });
                 const allDone = subs.every((_, idx) => subAnswered[idx]);
-                submitBtn.disabled = !allDone || subLocked || isScoring;
-                submitStatus.textContent = allDone ? t('done') : t('answering');
+                if (submitBtn) {
+                    submitBtn.disabled = !allDone || subLocked || isScoring;
+                }
+                if (submitStatus) {
+                    submitStatus.textContent = allDone ? t('done') : t('answering');
+                }
+                console.log('updateButtons: subAnswered=', subAnswered);
             }
 
+            // 綁定錄音按鈕
             recordBtns.forEach((btn, idx) => {
                 btn.onclick = function() {
                     if (this.disabled) return;
@@ -1120,33 +1129,38 @@
                     waitForIatResult = false;
                     if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
                     if (finalTranscript.trim()) {
+                        // 儲存答案
                         subAnswers[idx] = finalTranscript;
                         subAnswered[idx] = true;
+                        // 更新狀態顯示
                         const statusSpan = document.querySelectorAll('.sq-status')[idx];
                         statusSpan.textContent = t('alreadyAnswered');
                         statusSpan.className = 'sq-status done';
+                        // 隱藏停止按鈕
                         const recordBtn = recordBtns[idx];
                         const stopBtn = stopBtns[idx];
                         recordBtn.style.display = 'inline-block';
                         stopBtn.style.display = 'none';
+                        // 立即更新所有按鈕狀態（解鎖下一題）
                         updateButtons();
+                        // 檢查全部完成
                         const allDone = subs.every((_, i) => subAnswered[i]);
                         if (allDone) {
-                            submitStatus.textContent = t('done');
-                            submitBtn.disabled = false;
+                            if (submitStatus) submitStatus.textContent = t('done');
+                            if (submitBtn) submitBtn.disabled = false;
                             console.log('✅ 全部子問題已作答，請點擊提交');
                         }
+                        // 釋放音頻資源
                         isRecording = false;
                         if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                         if (audioContext) { audioContext.close(); audioContext=null; }
                         if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
-                        recordBtn.style.display = 'inline-block';
-                        stopBtn.style.display = 'none';
                     } else { console.warn('未識別到語音'); }
                     isRecognizing = false;
                 }
             }
 
+            // 提交全部答案
             submitBtn.onclick = function() {
                 if (this.disabled) return;
                 subLocked = true;
@@ -1236,8 +1250,10 @@
 
             function displayFixedScore(grade) {
                 const resultDiv = document.getElementById('scoreResult');
-                resultDiv.classList.remove('hidden');
+                resultDiv.classList.remove('hidden');  // 顯示評分框
+                // 總分
                 document.getElementById('totalScore').textContent = Math.round(grade.total_score || 0);
+                // 計算各維度平均分（顯示在頂部）
                 let avgAcc = 0, avgFlu = 0, avgInt = 0;
                 const subScores = grade.sub_scores || [];
                 if (subScores.length > 0) {
@@ -1246,20 +1262,28 @@
                     avgAcc = sumAcc / subScores.length;
                     avgFlu = sumFlu / subScores.length;
                     avgInt = sumInt / subScores.length;
-                } else { avgAcc = grade.accuracy || 0; avgFlu = grade.fluency || 0; avgInt = grade.integrity || 0; }
+                } else {
+                    avgAcc = grade.accuracy || 0;
+                    avgFlu = grade.fluency || 0;
+                    avgInt = grade.integrity || 0;
+                }
                 document.getElementById('accScore').textContent = Math.round(avgAcc);
                 document.getElementById('fluencyScore').textContent = Math.round(avgFlu);
                 document.getElementById('integrityScore').textContent = Math.round(avgInt);
+                // 總體建議
                 document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
                 document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
+                // 為分數添加顏色
                 document.querySelectorAll('#scoreResult .num').forEach(el => {
                     const val = parseFloat(el.textContent);
                     el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
                 });
+                // 子題反饋（顯示每個子題的建議或分數）
                 let fbHtml = '';
                 (q.subQuestions || []).forEach((sq, idx) => {
                     const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0};
-                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>內容:${s.accuracy||0} 豐富:${s.fluency||0} 語音:${s.integrity||0}</div>`;
+                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>`;
+                    fbHtml += `內容:${s.accuracy||0} 豐富:${s.fluency||0} 語音:${s.integrity||0}</div>`;
                 });
                 document.getElementById('subFeedback').innerHTML = fbHtml;
                 console.log('✅ 評分完成！');
@@ -1286,6 +1310,7 @@
                 document.head.appendChild(script);
             }
 
+            // 初始更新按鈕狀態
             updateButtons();
         }
 
@@ -1295,7 +1320,7 @@
         initOpenCC();
         loadData();
         render();
-        console.log('✅ 完整修正版已啟動，所有功能皆已包含。');
+        console.log('✅ 最終修正版已啟動，所有功能完整。');
     })();
 </script>
 </body>
