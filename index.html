@@ -91,6 +91,14 @@
         .status-bar { padding: 6px 12px; background: #f0f2f5; border-radius: 10px; font-size: 13px; color: #4b5a6a; display: flex; align-items: center; gap: 10px; }
         .status-bar .label { font-weight: 600; }
         @media (max-width:600px) { body { padding: 8px; } .main-content { padding: 14px; } .top-bar h1 { font-size: 20px; } .view-tabs button { padding: 5px 12px; font-size: 13px; } .teacher-grid { grid-template-columns: 1fr; } .question-list { border-right: none; padding-right: 0; } .editor-panel { padding-left: 0; } }
+        .readonly-field {
+            background: #f0f2f5;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid #dce1e8;
+            font-size: 15px;
+            color: #1e2a3a;
+        }
     </style>
 </head>
 <body>
@@ -323,39 +331,48 @@
 
         function renderEditor() {
             const q = questions.find(q => q.id === editingQuestionId);
-            if (!q) return `<div style="padding:30px; text-align:center; color:#8a9aa8;">${t('selectGradeSemester')}</div>`;
-            const isOpen = q.type === 'open';
+            const isOpen = q ? q.type === 'open' : true;
+            // 取得當前篩選的年級與學期（用於新增）
+            const filterGrade = document.getElementById('filterGrade')?.value || '';
+            const filterSemester = document.getElementById('filterSemester')?.value || '';
+            // 如果是編輯已有題目，使用題目本身的年級與學期；否則使用篩選條件
+            const displayGrade = q ? q.grade : (filterGrade || '一年級');
+            const displaySemester = q ? q.semester : (filterSemester || '上學期');
+
             let html = `
-                <h3>${editingQuestionId ? t('editQuestion') : t('newQuestion')}</h3>
-                <div class="form-group"><label>${t('grade')}</label>
-                    <select id="editGrade">${['一年級','二年級','三年級','四年級','五年級','六年級'].map(g => `<option value="${g}" ${q.grade===g?'selected':''}>${g}</option>`).join('')}</select>
+                <h3>${q ? t('editQuestion') : t('newQuestion')}</h3>
+                <div class="form-group">
+                    <label>${t('grade')}</label>
+                    <div class="readonly-field">${displayGrade}</div>
                 </div>
-                <div class="form-group"><label>${t('semester')}</label>
-                    <select id="editSemester">${['上學期','下學期'].map(s => `<option value="${s}" ${q.semester===s?'selected':''}>${s}</option>`).join('')}</select>
+                <div class="form-group">
+                    <label>${t('semester')}</label>
+                    <div class="readonly-field">${displaySemester}</div>
                 </div>
-                <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q.title}" /></div>
+                <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q ? q.title : ''}" /></div>
                 <div class="form-group"><label>${t('type')}</label>
                     <select id="editType" onchange="toggleQuestionType()">
-                        <option value="open" ${q.type==='open'?'selected':''}>${t('open')}</option>
-                        <option value="fixed" ${q.type==='fixed'?'selected':''}>${t('fixed')}</option>
+                        <option value="open" ${q && q.type==='open' ? 'selected' : ''}>${t('open')}</option>
+                        <option value="fixed" ${q && q.type==='fixed' ? 'selected' : ''}>${t('fixed')}</option>
                     </select>
                 </div>
                 <div class="form-group" id="refAnswerGroup" style="${isOpen ? '' : 'display:none;'}">
-                    <label>${t('referenceAnswer')}</label><textarea id="editRefAnswer" rows="2">${q.refAnswer || ''}</textarea>
+                    <label>${t('referenceAnswer')}</label><textarea id="editRefAnswer" rows="2">${q ? q.refAnswer || '' : ''}</textarea>
                 </div>
                 ${isOpen ? `
-                <div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${(q.keywords||[]).join(', ')}" placeholder="逗號分隔" /></div>
+                <div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${q ? (q.keywords||[]).join(', ') : ''}" placeholder="逗號分隔" /></div>
                 ` : ''}
                 <div class="form-group">
                     <label>${t('image')}</label>
                     <input type="file" id="editImage" accept="image/*" onchange="handleImageUpload(event)" />
-                    ${q.image ? `<div style="margin-top:6px;"><img src="${q.image}" style="max-height:80px; border-radius:6px;" /></div>` : ''}
-                    <input type="hidden" id="editImageData" value="${q.image || ''}" />
+                    ${q && q.image ? `<div style="margin-top:6px;"><img src="${q.image}" style="max-height:80px; border-radius:6px;" /></div>` : ''}
+                    <input type="hidden" id="editImageData" value="${q ? q.image || '' : ''}" />
                 </div>
             `;
             if (!isOpen) {
                 html += `<div style="margin-top:12px;"><strong>${t('subQuestions')}</strong> <button class="btn btn-outline btn-sm" onclick="addSubQuestion()">+ ${t('addSubQuestion')}</button></div>`;
-                (q.subQuestions || []).forEach((sq, idx) => {
+                const subQs = q ? q.subQuestions || [] : [];
+                subQs.forEach((sq, idx) => {
                     html += `
                         <div class="sub-question" data-index="${idx}">
                             <div class="row">
@@ -372,7 +389,7 @@
             }
             html += `
                 <div style="display:flex; gap:8px; margin-top:14px;">
-                    <button class="btn btn-success" onclick="saveQuestion()">💾 ${t('save')}</button>
+                    <button class="btn btn-success" onclick="saveQuestion('${displayGrade}', '${displaySemester}')">💾 ${t('save')}</button>
                     <button class="btn btn-outline" onclick="cancelEdit()">${t('cancel')}</button>
                 </div>
             `;
@@ -380,10 +397,23 @@
         }
 
         // ================================================================
-        // 7. 教師操作函數
+        // 7. 教師操作函數（修改以支援固定年級/學期）
         // ================================================================
         window.startNewQuestion = function() {
-            const newQ = { id: genId(), grade: '一年級', semester: '上學期', title: '新題目', type: 'open', refAnswer: '', keywords: [], image: '', subQuestions: [] };
+            // 使用當前篩選條件作為預設年級/學期
+            const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
+            const filterSemester = document.getElementById('filterSemester')?.value || '上學期';
+            const newQ = {
+                id: genId(),
+                grade: filterGrade,
+                semester: filterSemester,
+                title: '新題目',
+                type: 'open',
+                refAnswer: '',
+                keywords: [],
+                image: '',
+                subQuestions: []
+            };
             questions.push(newQ);
             editingQuestionId = newQ.id;
             saveData();
@@ -455,11 +485,11 @@
             }
         };
 
-        window.saveQuestion = function() {
+        window.saveQuestion = function(displayGrade, displaySemester) {
             const q = questions.find(q => q.id === editingQuestionId);
             if (!q) return;
-            q.grade = document.getElementById('editGrade').value;
-            q.semester = document.getElementById('editSemester').value;
+            q.grade = displayGrade;
+            q.semester = displaySemester;
             q.title = document.getElementById('editTitle').value;
             q.type = document.getElementById('editType').value;
             if (q.type === 'open') q.refAnswer = document.getElementById('editRefAnswer').value;
@@ -550,7 +580,7 @@
         };
 
         // ================================================================
-        // 9. 學生答題視圖
+        // 9. 學生答題視圖（同前，但確保繁簡轉換）
         // ================================================================
         function renderStudentAnswer() {
             const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -809,6 +839,7 @@
                         }
                         if (text) {
                             finalTranscript += text;
+                            // 轉繁體顯示
                             transcript.innerHTML = toTraditional(finalTranscript);
                             progressBar.style.width = '40%';
                         }
@@ -820,10 +851,8 @@
                     if (finalTranscript.trim()) {
                         studentAnswerText = finalTranscript;
                         progressBar.style.width = '60%';
-                        // 檢測是否為英文
                         const hasChinese = /[\u4e00-\u9fa5]/.test(finalTranscript);
                         if (!hasChinese) {
-                            // 直接生成評分，不呼叫星火
                             const grade = {
                                 accuracy: 0,
                                 fluency: 0,
@@ -1126,6 +1155,7 @@
                         }
                         if (text) {
                             finalTranscript += text;
+                            // 轉繁體顯示
                             const transcriptEl = transcripts[idx];
                             transcriptEl.textContent = toTraditional(finalTranscript);
                         }
@@ -1163,7 +1193,6 @@
                 }
             }
 
-            // 提交全部答案
             submitBtn.onclick = function() {
                 if (this.disabled) return;
                 subLocked = true;
@@ -1176,10 +1205,8 @@
                     fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
                 });
                 const answerText = fullAnswer;
-                // 檢測是否有中文字
                 const hasChinese = /[\u4e00-\u9fa5]/.test(answerText);
                 if (!hasChinese) {
-                    // 直接生成全0評分，不呼叫星火
                     const subCount = subs.length;
                     const subScores = [];
                     for (let i=0; i<subCount; i++) {
@@ -1272,10 +1299,8 @@
                         const match = jsonStr.match(/\{[\s\S]*\}/);
                         if (match) jsonStr = match[0];
                         const grade = JSON.parse(jsonStr);
-                        // 確保 sub_scores 長度正確
                         const subCount = (q.subQuestions || []).length;
                         if (!grade.sub_scores || grade.sub_scores.length !== subCount) {
-                            // 補齊
                             const newSub = [];
                             for (let i=0; i<subCount; i++) {
                                 newSub.push(grade.sub_scores[i] || { accuracy: 0, fluency: 0, integrity: 0 });
@@ -1292,7 +1317,6 @@
                         progressContainer.classList.add('hidden');
                         subLocked = false;
                         updateButtons();
-                        // 顯示錯誤提示
                         const resultDiv = document.getElementById('scoreResult');
                         resultDiv.classList.remove('hidden');
                         document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>評分服務回應異常，請稍後重試。`;
