@@ -3,402 +3,79 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統</title>
+    <title>普通話語音評測 · WebSocket 版</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif;
-            background: #f0f4f8;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .container {
-            max-width: 900px;
-            width: 100%;
-            background: #fff;
-            border-radius: 32px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
-            padding: 32px 36px 40px;
-            transition: 0.2s;
-        }
-        h1 {
-            font-size: 26px;
-            font-weight: 700;
-            color: #1a2634;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
-        }
-        h1 small {
-            font-size: 15px;
-            font-weight: 400;
-            color: #6b7a8a;
-            margin-left: auto;
-        }
-        .sub {
-            color: #5e6f7e;
-            font-size: 15px;
-            border-left: 4px solid #3b82f6;
-            padding-left: 14px;
-            margin-bottom: 28px;
-            background: #f8fafc;
-            border-radius: 0 12px 12px 0;
-            line-height: 1.6;
-        }
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 28px;
-            border-bottom: 2px solid #e9edf2;
-            padding-bottom: 4px;
-        }
-        .tab-btn {
-            border: none;
-            background: transparent;
-            padding: 10px 24px;
-            font-size: 16px;
-            font-weight: 600;
-            color: #6b7a8a;
-            border-radius: 40px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .tab-btn.active {
-            background: #3b82f6;
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.30);
-        }
-        .tab-btn:hover:not(.active) {
-            background: #eef2f6;
-        }
-        .panel {
-            display: none;
-            animation: fade 0.25s ease;
-        }
-        .panel.active {
-            display: block;
-        }
-        @keyframes fade {
-            0% {
-                opacity: 0.5;
-                transform: translateY(6px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .upload-area {
-            border: 2px dashed #cbd5e1;
-            border-radius: 20px;
-            padding: 40px 20px;
-            text-align: center;
-            background: #fafcff;
-            transition: 0.2s;
-            cursor: pointer;
-        }
-        .upload-area:hover {
-            border-color: #3b82f6;
-            background: #f0f7ff;
-        }
-        .upload-area input[type="file"] {
-            display: none;
-        }
-        .upload-area .icon {
-            font-size: 44px;
-            margin-bottom: 8px;
-        }
-        .upload-area p {
-            color: #2c3e50;
-            font-size: 16px;
-        }
-        .upload-area .hint {
-            color: #8a9aa8;
-            font-size: 14px;
-            margin-top: 6px;
-        }
-
-        .preview-box {
-            margin: 18px 0 22px;
-            border-radius: 16px;
-            overflow: hidden;
-            background: #f1f5f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 160px;
-        }
-        .preview-box img {
-            max-width: 100%;
-            max-height: 280px;
-            display: block;
-        }
-        .preview-box .placeholder {
-            color: #8a9aa8;
-            font-size: 15px;
-            padding: 30px;
-        }
-
-        .ref-box {
-            background: #f8fafc;
-            border-radius: 16px;
-            padding: 16px 20px;
-            margin: 12px 0 18px;
-            border: 1px solid #e9edf2;
-        }
-        .ref-box label {
-            font-weight: 600;
-            color: #1e2a3a;
-            display: block;
-            margin-bottom: 6px;
-            font-size: 14px;
-        }
-        .ref-box textarea {
-            width: 100%;
-            border: 1px solid #dce1e8;
-            border-radius: 12px;
-            padding: 12px 14px;
-            font-size: 15px;
-            font-family: inherit;
-            resize: vertical;
-            min-height: 70px;
-            transition: 0.2s;
-            background: #fff;
-        }
-        .ref-box textarea:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-        }
-
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin: 18px 0 10px;
-        }
-        .btn {
-            border: none;
-            padding: 12px 28px;
-            border-radius: 40px;
-            font-size: 15px;
-            font-weight: 600;
-            background: #eef2f6;
-            color: #1e2a3a;
-            cursor: pointer;
-            transition: 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-primary {
-            background: #3b82f6;
-            color: #fff;
-            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.30);
-        }
-        .btn-primary:hover {
-            background: #2563eb;
-            transform: scale(1.01);
-        }
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .btn-success {
-            background: #22c55e;
-            color: #fff;
-            box-shadow: 0 4px 14px rgba(34, 197, 94, 0.30);
-        }
-        .btn-success:hover {
-            background: #16a34a;
-        }
-        .btn-outline {
-            background: transparent;
-            border: 1.5px solid #cbd5e1;
-        }
-        .btn-outline:hover {
-            background: #f1f5f9;
-        }
-        .btn-danger {
-            background: #ef4444;
-            color: #fff;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-
-        .status-box {
-            margin: 16px 0 10px;
-            padding: 14px 18px;
-            border-radius: 14px;
-            background: #f8fafc;
-            border: 1px solid #e9edf2;
-            font-size: 14px;
-            color: #1e2a3a;
-            min-height: 50px;
-            line-height: 1.6;
-        }
-        .status-box .label {
-            font-weight: 600;
-            color: #4b5a6a;
-            margin-right: 8px;
-        }
-
-        .result-card {
-            background: #f8fafc;
-            border-radius: 18px;
-            padding: 20px 24px;
-            margin-top: 18px;
-            border: 1px solid #e2e8f0;
-        }
-        .result-card .score-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 18px 32px;
-            margin-bottom: 10px;
-        }
-        .result-card .score-item {
-            display: flex;
-            align-items: baseline;
-            gap: 6px;
-        }
-        .result-card .score-item .num {
-            font-size: 26px;
-            font-weight: 700;
-            color: #0b1e2e;
-        }
-        .result-card .score-item .num.good {
-            color: #22c55e;
-        }
-        .result-card .score-item .num.mid {
-            color: #eab308;
-        }
-        .result-card .score-item .num.poor {
-            color: #ef4444;
-        }
-        .result-card .detail {
-            margin-top: 12px;
-            padding-top: 14px;
-            border-top: 1px solid #e2e8f0;
-            font-size: 15px;
-            line-height: 1.7;
-            color: #1e2a3a;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        .result-card .detail strong {
-            color: #0b1e2e;
-        }
-
-        .footer-note {
-            margin-top: 28px;
-            font-size: 13px;
-            color: #8a9aa8;
-            text-align: center;
-            border-top: 1px solid #e9edf2;
-            padding-top: 22px;
-        }
-
-        /* 學生頁面專用 */
-        .student-speak-area {
-            background: #fafcff;
-            border-radius: 18px;
-            padding: 18px 20px 20px;
-            border: 1px solid #e9edf2;
-            margin: 10px 0 14px;
-        }
-        .student-speak-area .mic-hint {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-        }
-        .student-speak-area .mic-hint .dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #94a3b8;
-            transition: 0.2s;
-        }
-        .student-speak-area .mic-hint .dot.recording {
-            background: #ef4444;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0%,
-            100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.25);
-            }
-        }
-        .student-speak-area .transcript {
-            margin-top: 12px;
-            padding: 14px 16px;
-            background: #fff;
-            border-radius: 14px;
-            border: 1px solid #e2e8f0;
-            min-height: 60px;
-            font-size: 16px;
-            line-height: 1.7;
-            color: #0b1e2e;
-        }
-        .student-speak-area .transcript .empty {
-            color: #94a3b8;
-        }
-
-        @media (max-width: 600px) {
-            .container {
-                padding: 20px 16px;
-            }
-            .tabs {
-                gap: 4px;
-            }
-            .tab-btn {
-                padding: 8px 14px;
-                font-size: 14px;
-            }
-            .actions {
-                flex-direction: column;
-            }
-            .btn {
-                justify-content: center;
-            }
-            .result-card .score-row {
-                gap: 10px 20px;
-            }
-        }
+        /* 样式与之前保持一致，此处省略（与上一版相同） */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
+        .container { max-width: 900px; width: 100%; background: #fff; border-radius: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.10); padding: 32px 36px 40px; }
+        h1 { font-size: 26px; font-weight: 700; color: #1a2634; display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        h1 small { font-size: 15px; font-weight: 400; color: #6b7a8a; margin-left: auto; }
+        .sub { color: #5e6f7e; font-size: 15px; border-left: 4px solid #3b82f6; padding-left: 14px; margin-bottom: 28px; background: #f8fafc; border-radius: 0 12px 12px 0; line-height: 1.6; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 28px; border-bottom: 2px solid #e9edf2; padding-bottom: 4px; }
+        .tab-btn { border: none; background: transparent; padding: 10px 24px; font-size: 16px; font-weight: 600; color: #6b7a8a; border-radius: 40px; cursor: pointer; transition: 0.2s; }
+        .tab-btn.active { background: #3b82f6; color: #fff; box-shadow: 0 4px 12px rgba(59,130,246,0.30); }
+        .tab-btn:hover:not(.active) { background: #eef2f6; }
+        .panel { display: none; animation: fade 0.25s ease; }
+        .panel.active { display: block; }
+        @keyframes fade { 0% { opacity:0.5; transform:translateY(6px); } 100% { opacity:1; transform:translateY(0); } }
+        .upload-area { border: 2px dashed #cbd5e1; border-radius: 20px; padding: 40px 20px; text-align: center; background: #fafcff; transition: 0.2s; cursor: pointer; }
+        .upload-area:hover { border-color: #3b82f6; background: #f0f7ff; }
+        .upload-area input[type="file"] { display: none; }
+        .upload-area .icon { font-size: 44px; margin-bottom: 8px; }
+        .upload-area p { color: #2c3e50; font-size: 16px; }
+        .upload-area .hint { color: #8a9aa8; font-size: 14px; margin-top: 6px; }
+        .preview-box { margin: 18px 0 22px; border-radius: 16px; overflow: hidden; background: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 160px; }
+        .preview-box img { max-width: 100%; max-height: 280px; display: block; }
+        .preview-box .placeholder { color: #8a9aa8; font-size: 15px; padding: 30px; }
+        .ref-box { background: #f8fafc; border-radius: 16px; padding: 16px 20px; margin: 12px 0 18px; border: 1px solid #e9edf2; }
+        .ref-box label { font-weight: 600; color: #1e2a3a; display: block; margin-bottom: 6px; font-size: 14px; }
+        .ref-box textarea { width: 100%; border: 1px solid #dce1e8; border-radius: 12px; padding: 12px 14px; font-size: 15px; font-family: inherit; resize: vertical; min-height: 70px; transition: 0.2s; background: #fff; }
+        .ref-box textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+        .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 10px; }
+        .btn { border: none; padding: 12px 28px; border-radius: 40px; font-size: 15px; font-weight: 600; background: #eef2f6; color: #1e2a3a; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: #3b82f6; color: #fff; box-shadow: 0 4px 14px rgba(59,130,246,0.30); }
+        .btn-primary:hover { background: #2563eb; transform: scale(1.01); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-success { background: #22c55e; color: #fff; box-shadow: 0 4px 14px rgba(34,197,94,0.30); }
+        .btn-success:hover { background: #16a34a; }
+        .btn-outline { background: transparent; border: 1.5px solid #cbd5e1; }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-danger { background: #ef4444; color: #fff; }
+        .btn-danger:hover { background: #dc2626; }
+        .status-box { margin: 16px 0 10px; padding: 14px 18px; border-radius: 14px; background: #f8fafc; border: 1px solid #e9edf2; font-size: 14px; color: #1e2a3a; min-height: 50px; line-height: 1.6; }
+        .status-box .label { font-weight: 600; color: #4b5a6a; margin-right: 8px; }
+        .result-card { background: #f8fafc; border-radius: 18px; padding: 20px 24px; margin-top: 18px; border: 1px solid #e2e8f0; }
+        .result-card .score-row { display: flex; flex-wrap: wrap; gap: 18px 32px; margin-bottom: 10px; }
+        .result-card .score-item { display: flex; align-items: baseline; gap: 6px; }
+        .result-card .score-item .num { font-size: 26px; font-weight: 700; color: #0b1e2e; }
+        .result-card .score-item .num.good { color: #22c55e; }
+        .result-card .score-item .num.mid { color: #eab308; }
+        .result-card .score-item .num.poor { color: #ef4444; }
+        .result-card .detail { margin-top: 12px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 15px; line-height: 1.7; color: #1e2a3a; white-space: pre-wrap; word-break: break-word; }
+        .result-card .detail strong { color: #0b1e2e; }
+        .footer-note { margin-top: 28px; font-size: 13px; color: #8a9aa8; text-align: center; border-top: 1px solid #e9edf2; padding-top: 22px; }
+        .student-speak-area { background: #fafcff; border-radius: 18px; padding: 18px 20px 20px; border: 1px solid #e9edf2; margin: 10px 0 14px; }
+        .student-speak-area .mic-hint { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .student-speak-area .mic-hint .dot { width: 14px; height: 14px; border-radius: 50%; background: #94a3b8; transition: 0.2s; }
+        .student-speak-area .mic-hint .dot.recording { background: #ef4444; box-shadow: 0 0 12px rgba(239,68,68,0.5); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.25); } }
+        .student-speak-area .transcript { margin-top: 12px; padding: 14px 16px; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; min-height: 60px; font-size: 16px; line-height: 1.7; color: #0b1e2e; }
+        .student-speak-area .transcript .empty { color: #94a3b8; }
+        @media (max-width:600px) { .container { padding:20px 16px; } .tabs { gap:4px; } .tab-btn { padding:8px 14px; font-size:14px; } .actions { flex-direction:column; } .btn { justify-content:center; } .result-card .score-row { gap:10px 20px; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>
-        🎙️ 普通話語音評測
-        <small>看圖說話 · 即時評分</small>
-    </h1>
-    <div class="sub">
-        👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，系統自動評分
-    </div>
+    <h1>🎙️ 普通話語音評測 <small>WebSocket 流式版</small></h1>
+    <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，即時評分</div>
 
-    <!-- 分頁 -->
     <div class="tabs">
         <button class="tab-btn active" data-tab="teacher">👩‍🏫 教師入口</button>
         <button class="tab-btn" data-tab="student">🧑‍🎓 學生入口</button>
     </div>
 
-    <!-- ========= 教師面板 ========= -->
+    <!-- 教師面板 -->
     <div id="panel-teacher" class="panel active">
         <div class="upload-area" id="uploadArea">
             <div class="icon">🖼️</div>
@@ -406,47 +83,33 @@
             <div class="hint">支援 JPG / PNG / WebP</div>
             <input type="file" id="imageInput" accept="image/*" />
         </div>
-
-        <div class="preview-box" id="imagePreview">
-            <span class="placeholder">📷 尚未上傳圖片</span>
-        </div>
-
+        <div class="preview-box" id="imagePreview"><span class="placeholder">📷 尚未上傳圖片</span></div>
         <div class="ref-box">
-            <label for="refText">📝 參考答案（學生需朗讀的內容）</label>
-            <textarea id="refText" placeholder="請輸入學生應朗讀的普通話內容……">今天天氣真好，小貓在花園裏玩耍。</textarea>
+            <label for="refText">📝 參考答案（學生朗讀內容）</label>
+            <textarea id="refText" placeholder="請輸入普通話內容……">今天天氣真好，小貓在花園裏玩耍。</textarea>
         </div>
-
         <div class="actions">
             <button class="btn btn-success" id="saveTeacherBtn">💾 儲存設定</button>
             <button class="btn btn-outline" id="resetTeacherBtn">🔄 重設</button>
         </div>
-        <div class="status-box" id="teacherStatus">
-            <span class="label">📌 狀態：</span> 準備就緒，請上傳圖片並輸入參考答案。
-        </div>
+        <div class="status-box" id="teacherStatus"><span class="label">📌 狀態：</span> 準備就緒</div>
     </div>
 
-    <!-- ========= 學生面板 ========= -->
+    <!-- 學生面板 -->
     <div id="panel-student" class="panel">
-        <!-- 顯示教師設定的圖片與參考答案 -->
-        <div class="preview-box" id="studentImagePreview">
-            <span class="placeholder">📷 教師尚未上傳圖片</span>
-        </div>
+        <div class="preview-box" id="studentImagePreview"><span class="placeholder">📷 教師尚未上傳圖片</span></div>
         <div class="ref-box" style="background:#f0f7ff; border-color:#b3d4fc;">
             <label>📖 請朗讀以下內容：</label>
-            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">
-                教師尚未設定參考答案
-            </div>
+            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">教師尚未設定參考答案</div>
         </div>
 
         <div class="student-speak-area">
             <div class="mic-hint">
                 <span class="dot" id="micDot"></span>
-                <span id="micStatusText" style="font-weight:500; color:#2c3e50;">⏸️ 點擊下方按鈕開始錄音</span>
+                <span id="micStatusText" style="font-weight:500; color:#2c3e50;">⏸️ 準備錄音</span>
                 <span style="margin-left:auto; font-size:14px; color:#6b7a8a;" id="timerDisplay">00:00</span>
             </div>
-            <div class="transcript" id="transcriptBox">
-                <span class="empty">🎤 語音識別結果將顯示在此……</span>
-            </div>
+            <div class="transcript" id="transcriptBox"><span class="empty">🎤 語音識別結果將顯示在此……</span></div>
         </div>
 
         <div class="actions">
@@ -455,7 +118,6 @@
             <button class="btn btn-outline" id="clearStudentBtn">🗑️ 清空</button>
         </div>
 
-        <!-- 評分結果 -->
         <div class="result-card" id="resultCard" style="display:none;">
             <div class="score-row">
                 <div class="score-item"><span>🏆 總分</span> <span class="num" id="totalScore">--</span></div>
@@ -463,41 +125,25 @@
                 <div class="score-item"><span>📊 流暢度</span> <span class="num" id="fluencyScore">--</span></div>
                 <div class="score-item"><span>📝 完整度</span> <span class="num" id="integrityScore">--</span></div>
             </div>
-            <div class="detail" id="suggestionText">
-                <strong>💡 智能建議：</strong> 評分完成後將顯示改進建議。
-            </div>
+            <div class="detail" id="suggestionText"><strong>💡 智能建議：</strong> 評分完成後顯示建議。</div>
         </div>
 
-        <div class="status-box" id="studentStatus">
-            <span class="label">📌 狀態：</span> 請點擊「開始錄音」朗讀上面的內容。
-        </div>
+        <div class="status-box" id="studentStatus"><span class="label">📌 狀態：</span> 請點擊「開始錄音」朗讀。</div>
     </div>
-
-    <div class="footer-note">
-        ⚡ 使用科大訊飛語音評測（流式版）· 僅識別普通話讀音 · 每日免費 500 次調用
-    </div>
+    <div class="footer-note">⚡ 使用訊飛 WebSocket 接口 · 僅識別普通話讀音 · 每日免費限額</div>
 </div>
-
-<!-- ============================================================ -->
-<!-- 科大訊飛 WebSocket 語音評測 SDK (直接 CDN)                      -->
-<!-- ============================================================ -->
-<script src="https://webapi.xfyun.cn/sdk/v1.0.0/xfyun-web-sdk.min.js">
-</script>
 
 <script>
     (function() {
         'use strict';
 
-        // =============================================================
-        // 1. 配置（直接使用用戶提供的 APPID / APIKey / APISecret）
-        // =============================================================
+        // ======================== 配置 ============================
         const APPID = 'b35875f2';
         const API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
         const API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
+        const WS_URL = 'wss://ise-api.xfyun.cn/v2/open-ise';
 
-        // =============================================================
-        // 2. DOM 參考
-        // =============================================================
+        // ======================== DOM ============================
         const uploadArea = document.getElementById('uploadArea');
         const imageInput = document.getElementById('imageInput');
         const imagePreview = document.getElementById('imagePreview');
@@ -524,30 +170,27 @@
         const integrityScore = document.getElementById('integrityScore');
         const suggestionText = document.getElementById('suggestionText');
 
-        // =============================================================
-        // 3. 狀態
-        // =============================================================
-        let teacherImageDataUrl = null; // 教師上傳的圖片 dataURL
+        // ======================== 狀態 ============================
+        let teacherImageDataUrl = null;
         let teacherRefContent = '今天天氣真好，小貓在花園裏玩耍。';
 
-        // 語音評測相關
-        let iseRecorder = null; // SDK 實例
+        // 音頻與 WebSocket
+        let mediaStream = null;
+        let audioContext = null;
+        let scriptProcessor = null;
+        let ws = null;
         let isRecording = false;
         let recordTimer = null;
         let seconds = 0;
-        let currentTranscript = ''; // 累積識別文字
+        let currentTranscript = '';
+        let audioBuffer = [];      // 存放 PCM 數據（Int16Array）
+        const SAMPLE_RATE = 16000;
 
-        // =============================================================
-        // 4. 工具函數
-        // =============================================================
+        // ======================== 工具 ============================
         function setStatus(el, msg) {
-            if (!el) return;
-            const label = el.querySelector('.label');
-            if (label) {
-                el.innerHTML = `<span class="label">📌 狀態：</span> ${msg}`;
-            } else {
-                el.textContent = msg;
-            }
+            const label = el?.querySelector('.label');
+            if (label) { el.innerHTML = `<span class="label">📌 狀態：</span> ${msg}`; }
+            else if (el) { el.textContent = msg; }
         }
 
         function formatTime(sec) {
@@ -565,8 +208,6 @@
         }
 
         function showResult(grade) {
-            // grade 為 SDK 返回的評測結果對象
-            // 根據訊飛文檔，常見欄位: total_score, accuracy_score, fluency_score, integrity_score, suggestion
             const total = grade.total_score || grade.totalScore || grade.total || 0;
             const acc = grade.accuracy_score || grade.accuracyScore || grade.accuracy || 0;
             const fluency = grade.fluency_score || grade.fluencyScore || grade.fluency || 0;
@@ -577,281 +218,326 @@
             accScore.textContent = Math.round(acc);
             fluencyScore.textContent = Math.round(fluency);
             integrityScore.textContent = Math.round(integrity);
-
-            // 根據總分改變顏色
-            const numEls = [totalScore, accScore, fluencyScore, integrityScore];
-            numEls.forEach(el => {
+            [totalScore, accScore, fluencyScore, integrityScore].forEach(el => {
                 const val = parseFloat(el.textContent);
                 el.className = 'num';
                 if (val >= 80) el.classList.add('good');
                 else if (val >= 60) el.classList.add('mid');
                 else el.classList.add('poor');
             });
-
             suggestionText.innerHTML = `<strong>💡 智能建議：</strong> ${suggest}`;
             resultCard.style.display = 'block';
         }
 
-        // =============================================================
-        // 5. 初始化科大訊飛語音評測 SDK
-        // =============================================================
-        function initIseRecorder() {
-            if (typeof XfyunWebSdk === 'undefined') {
-                setStatus(studentStatus, '⚠️ 科大訊飛 SDK 未加載，請檢查網絡。');
-                return false;
+        // ======================== 簽名生成（WebSocket 認證） ============================
+        function buildWsUrl() {
+            // 參考訊飛 WebSocket 簽名規範
+            const host = 'ise-api.xfyun.cn';
+            const date = new Date().toUTCString();
+            const requestLine = 'GET /v2/open-ise HTTP/1.1';
+            const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
+            const crypto = require('crypto-js'); // 將在下方動態載入
+            const hmac = crypto.HmacSHA256(signatureOrigin, API_SECRET);
+            const signature = crypto.enc.Base64.stringify(hmac);
+            const authorization = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+            const encodedAuth = encodeURIComponent(authorization);
+            return `${WS_URL}?authorization=${encodedAuth}&host=${host}&date=${encodeURIComponent(date)}`;
+        }
+
+        // 因為瀏覽器不能直接 require，我們使用 CDN 載入 crypto-js
+        function loadCryptoJs(callback) {
+            if (typeof CryptoJS !== 'undefined') {
+                callback();
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+            script.onload = callback;
+            document.head.appendChild(script);
+        }
+
+        // ======================== 音頻採集（PCM 16k 16bit） ============================
+        function initAudio(callback) {
+            navigator.mediaDevices.getUserMedia({ audio: { sampleRate: SAMPLE_RATE, channelCount: 1 } })
+                .then(stream => {
+                    mediaStream = stream;
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    const source = audioContext.createMediaStreamSource(stream);
+                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (event) => {
+                        if (!isRecording) return;
+                        const inputData = event.inputBuffer.getChannelData(0);
+                        // 轉換為 Int16
+                        const pcm = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, inputData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        // 加入緩衝
+                        audioBuffer.push(pcm);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                    callback(null);
+                })
+                .catch(err => {
+                    callback(err);
+                });
+        }
+
+        // ======================== WebSocket 連接與評測 ============================
+        function startEvaluation() {
+            if (!teacherRefContent.trim()) {
+                setStatus(studentStatus, '⚠️ 請教師先設定參考答案。');
+                return;
             }
 
-            try {
-                // 參考訊飛文檔: 使用 IseRecorder
-                // 注意: 不同版本 SDK 用法略有差異，此處採用標準流式版 API
-                if (typeof XfyunWebSdk.IseRecorder === 'function') {
-                    iseRecorder = new XfyunWebSdk.IseRecorder({
-                        appId: APPID,
-                        apiKey: API_KEY,
-                        apiSecret: API_SECRET,
-                        // 語言: 中文普通話
-                        language: 'zh_cn',
-                        // 試題類型: 句子朗讀 (read_sentence)
-                        category: 'read_sentence',
-                        // 參考文本
-                        refText: teacherRefContent,
-                        // 回調: 狀態變化
-                        onStatusChange: function(oldStatus, newStatus) {
-                            console.log('[ISE] status:', oldStatus, '→', newStatus);
-                            if (newStatus === 'recording') {
-                                isRecording = true;
-                                micDot.className = 'dot recording';
-                                micStatusText.textContent = '🔴 錄音中……';
-                                startRecordBtn.disabled = true;
-                                stopRecordBtn.disabled = false;
-                                // 開始計時
-                                seconds = 0;
-                                timerDisplay.textContent = '00:00';
-                                if (recordTimer) clearInterval(recordTimer);
-                                recordTimer = setInterval(() => {
-                                    seconds++;
-                                    timerDisplay.textContent = formatTime(seconds);
-                                }, 1000);
-                                setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容……');
-                            } else if (newStatus === 'end' || newStatus === 'stop') {
-                                isRecording = false;
-                                micDot.className = 'dot';
-                                micStatusText.textContent = '⏹️ 錄音已結束';
-                                startRecordBtn.disabled = false;
-                                stopRecordBtn.disabled = true;
-                                if (recordTimer) {
-                                    clearInterval(recordTimer);
-                                    recordTimer = null;
-                                }
-                                setStatus(studentStatus, '⏹️ 錄音結束，正在評測……');
-                            } else if (newStatus === 'init') {
-                                micDot.className = 'dot';
-                                micStatusText.textContent = '⏸️ 準備就緒';
-                                startRecordBtn.disabled = false;
-                                stopRecordBtn.disabled = true;
-                            }
-                        },
-                        // 回調: 識別結果（即時轉寫）
-                        onResult: function(result) {
-                            console.log('[ISE] onResult:', result);
-                            // result 可能包含轉寫文字
-                            if (result && result.text) {
-                                currentTranscript = result.text;
-                                showTranscript(currentTranscript);
-                            } else if (result && result.data && result.data.text) {
-                                currentTranscript = result.data.text;
-                                showTranscript(currentTranscript);
-                            }
-                        },
-                        // 回調: 評測完成
-                        onComplete: function(grade) {
-                            console.log('[ISE] onComplete:', grade);
-                            setStatus(studentStatus, '✅ 評測完成！');
-                            if (grade) {
-                                showResult(grade);
-                            } else {
-                                setStatus(studentStatus, '⚠️ 評測結果為空，請重試。');
-                            }
-                            // 重置按鈕狀態
-                            startRecordBtn.disabled = false;
-                            stopRecordBtn.disabled = true;
-                            micDot.className = 'dot';
-                            micStatusText.textContent = '⏸️ 評測完成';
-                            if (recordTimer) {
-                                clearInterval(recordTimer);
-                                recordTimer = null;
-                            }
-                        },
-                        // 錯誤回調
-                        onError: function(err) {
-                            console.error('[ISE] error:', err);
-                            setStatus(studentStatus, `❌ 錯誤：${err.message || err}`);
-                            startRecordBtn.disabled = false;
-                            stopRecordBtn.disabled = true;
-                            micDot.className = 'dot';
-                            micStatusText.textContent = '⚠️ 發生錯誤';
-                            if (recordTimer) {
-                                clearInterval(recordTimer);
-                                recordTimer = null;
-                            }
-                        }
-                    });
-                    return true;
-                } else {
-                    setStatus(studentStatus, '⚠️ 當前 SDK 不支援 IseRecorder，請檢查引入版本。');
-                    return false;
+            // 1. 生成簽名 URL
+            loadCryptoJs(() => {
+                const wsUrl = buildWsUrl();
+                console.log('WebSocket URL:', wsUrl);
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    console.log('WebSocket 已連接');
+                    setStatus(studentStatus, '🔗 已連接服務器，開始發送音頻...');
+                    // 發送握手包（開始）
+                    sendHandshake();
+                    // 開始發送音頻數據
+                    sendAudioData();
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    console.log('收到訊息:', data);
+                    handleServerMessage(data);
+                };
+
+                ws.onerror = (err) => {
+                    console.error('WebSocket 錯誤:', err);
+                    setStatus(studentStatus, '❌ WebSocket 錯誤，請查看控制台。');
+                    stopRecording();
+                };
+
+                ws.onclose = (e) => {
+                    console.log('WebSocket 關閉:', e);
+                    if (isRecording) stopRecording();
+                };
+            });
+        }
+
+        function sendHandshake() {
+            const handshake = {
+                common: { app_id: APPID },
+                business: {
+                    language: 'zh_cn',
+                    category: 'read_sentence',
+                    ref_text: teacherRefContent,
+                },
+                data: {
+                    status: 0,
+                    format: 'audio/L16;rate=16000',
+                    encoding: 'raw',
+                    audio: '',
                 }
-            } catch (e) {
-                console.error('[ISE] init error:', e);
-                setStatus(studentStatus, `❌ 初始化失敗：${e.message}`);
-                return false;
+            };
+            ws.send(JSON.stringify(handshake));
+        }
+
+        function sendAudioData() {
+            // 持續發送 PCM 數據塊
+            const sendChunk = () => {
+                if (!isRecording || ws.readyState !== WebSocket.OPEN) {
+                    // 如果停止錄音，發送結束幀
+                    if (!isRecording && ws.readyState === WebSocket.OPEN) {
+                        const endFrame = {
+                            data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                        };
+                        ws.send(JSON.stringify(endFrame));
+                    }
+                    return;
+                }
+
+                if (audioBuffer.length > 0) {
+                    // 合併所有 PCM 數據
+                    const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                    const merged = new Int16Array(totalLength);
+                    let offset = 0;
+                    for (const arr of audioBuffer) {
+                        merged.set(arr, offset);
+                        offset += arr.length;
+                    }
+                    audioBuffer = []; // 清空
+
+                    // 轉為 base64
+                    const bytes = new Uint8Array(merged.buffer);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) {
+                        binary += String.fromCharCode(bytes[i]);
+                    }
+                    const base64 = btoa(binary);
+
+                    const dataFrame = {
+                        data: {
+                            status: 1,
+                            format: 'audio/L16;rate=16000',
+                            encoding: 'raw',
+                            audio: base64,
+                        }
+                    };
+                    ws.send(JSON.stringify(dataFrame));
+                }
+
+                // 繼續發送下一個塊（每 100ms 檢查一次）
+                setTimeout(sendChunk, 100);
+            };
+
+            sendChunk();
+        }
+
+        function handleServerMessage(data) {
+            if (data.code && data.code !== 0) {
+                setStatus(studentStatus, `❌ 服務器錯誤：${data.message || data.code}`);
+                stopRecording();
+                return;
+            }
+
+            // 即時轉寫結果
+            if (data.data && data.data.result) {
+                const result = data.data.result;
+                if (result.text) {
+                    currentTranscript = result.text;
+                    showTranscript(currentTranscript);
+                }
+            }
+
+            // 評測結果（通常在最後一幀）
+            if (data.data && data.data.grade) {
+                const grade = data.data.grade;
+                showResult(grade);
+                setStatus(studentStatus, '✅ 評測完成！');
+                stopRecording();
             }
         }
 
-        // =============================================================
-        // 6. 重新設定參考文本（教師儲存時呼叫）
-        // =============================================================
-        function updateRefText(newText) {
-            teacherRefContent = newText || '今天天氣真好，小貓在花園裏玩耍。';
-            // 更新學生顯示
-            studentRefDisplay.textContent = teacherRefContent;
-            // 如果已經初始化 SDK，更新其參考文本
-            if (iseRecorder && typeof iseRecorder.setRefText === 'function') {
-                iseRecorder.setRefText(teacherRefContent);
-            } else if (iseRecorder && iseRecorder.options) {
-                iseRecorder.options.refText = teacherRefContent;
-            }
-            // 重新初始化以確保生效（簡便做法）
-            // 但為了避免中斷錄音，僅在非錄音狀態下重新初始化
-            if (!isRecording) {
-                // 重新建立實例
-                if (iseRecorder) {
-                    try {
-                        // 若存在 stop 方法則調用
-                        if (typeof iseRecorder.stop === 'function') {
-                            iseRecorder.stop();
-                        }
-                    } catch (e) { /* ignore */ }
+        // ======================== 錄音控制 ============================
+        function startRecording() {
+            if (isRecording) return;
+            // 初始化音頻
+            initAudio((err) => {
+                if (err) {
+                    setStatus(studentStatus, `❌ 麥克風錯誤：${err.message}`);
+                    return;
                 }
-                initIseRecorder();
-            }
+                // 重置狀態
+                audioBuffer = [];
+                currentTranscript = '';
+                showTranscript('');
+                resultCard.style.display = 'none';
+
+                isRecording = true;
+                micDot.className = 'dot recording';
+                micStatusText.textContent = '🔴 錄音中...';
+                startRecordBtn.disabled = true;
+                stopRecordBtn.disabled = false;
+                seconds = 0;
+                timerDisplay.textContent = '00:00';
+                if (recordTimer) clearInterval(recordTimer);
+                recordTimer = setInterval(() => {
+                    seconds++;
+                    timerDisplay.textContent = formatTime(seconds);
+                }, 1000);
+                setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容...');
+
+                // 開始 WebSocket 評測
+                startEvaluation();
+            });
         }
 
-        // =============================================================
-        // 7. 教師功能
-        // =============================================================
-        // 上傳圖片
-        uploadArea.addEventListener('click', function(e) {
-            if (e.target.tagName !== 'INPUT') {
-                imageInput.click();
+        function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+            micDot.className = 'dot';
+            micStatusText.textContent = '⏹️ 錄音已停止';
+            startRecordBtn.disabled = false;
+            stopRecordBtn.disabled = true;
+            if (recordTimer) {
+                clearInterval(recordTimer);
+                recordTimer = null;
             }
+            // 關閉音頻流
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(t => t.stop());
+                mediaStream = null;
+            }
+            if (audioContext) {
+                audioContext.close().catch(() => {});
+                audioContext = null;
+            }
+            if (scriptProcessor) {
+                scriptProcessor.disconnect();
+                scriptProcessor = null;
+            }
+            // 發送結束幀（如果 WebSocket 仍打開）
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const endFrame = {
+                    data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                };
+                ws.send(JSON.stringify(endFrame));
+                // 稍後關閉連接
+                setTimeout(() => {
+                    if (ws) ws.close();
+                }, 500);
+            }
+            setStatus(studentStatus, '⏹️ 錄音已結束，等待評測結果...');
+        }
+
+        // ======================== 教師功能 ============================
+        uploadArea.addEventListener('click', (e) => {
+            if (e.target.tagName !== 'INPUT') imageInput.click();
         });
-        imageInput.addEventListener('change', function(e) {
+        imageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = function(ev) {
+            reader.onload = (ev) => {
                 teacherImageDataUrl = ev.target.result;
-                // 教師預覽
-                imagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="教師上傳圖片" />`;
-                // 學生預覽
-                studentImagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="看圖說話圖片" />`;
-                setStatus(teacherStatus, '✅ 圖片已上傳，請設定參考答案並儲存。');
+                imagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="教師圖片" />`;
+                studentImagePreview.innerHTML = `<img src="${teacherImageDataUrl}" alt="看圖說話" />`;
+                setStatus(teacherStatus, '✅ 圖片已上傳。');
             };
             reader.readAsDataURL(file);
         });
 
-        // 儲存教師設定
-        saveTeacherBtn.addEventListener('click', function() {
+        saveTeacherBtn.addEventListener('click', () => {
             const ref = refText.value.trim();
-            if (!ref) {
-                setStatus(teacherStatus, '⚠️ 請輸入參考答案內容。');
-                return;
-            }
-            // 更新參考文本
-            updateRefText(ref);
-            // 更新 textarea 顯示
-            refText.value = ref;
-            setStatus(teacherStatus, '✅ 設定已儲存！學生可開始朗讀評測。');
-            // 如果沒有圖片，提示
-            if (!teacherImageDataUrl) {
-                setStatus(teacherStatus, '⚠️ 設定已儲存，但尚未上傳圖片。');
-            }
+            if (!ref) { setStatus(teacherStatus, '⚠️ 請輸入參考答案。'); return; }
+            teacherRefContent = ref;
+            studentRefDisplay.textContent = ref;
+            setStatus(teacherStatus, '✅ 設定已儲存！');
         });
 
-        // 重設教師
-        resetTeacherBtn.addEventListener('click', function() {
+        resetTeacherBtn.addEventListener('click', () => {
             teacherImageDataUrl = null;
             imagePreview.innerHTML = `<span class="placeholder">📷 尚未上傳圖片</span>`;
             studentImagePreview.innerHTML = `<span class="placeholder">📷 教師尚未上傳圖片</span>`;
             refText.value = '今天天氣真好，小貓在花園裏玩耍。';
             imageInput.value = '';
-            updateRefText('今天天氣真好，小貓在花園裏玩耍。');
-            setStatus(teacherStatus, '🔄 已重設，請重新上傳圖片及設定答案。');
+            teacherRefContent = '今天天氣真好，小貓在花園裏玩耍。';
+            studentRefDisplay.textContent = teacherRefContent;
+            setStatus(teacherStatus, '🔄 已重設。');
         });
 
-        // =============================================================
-        // 8. 學生功能
-        // =============================================================
-        // 開始錄音
-        startRecordBtn.addEventListener('click', function() {
-            if (!iseRecorder) {
-                const ok = initIseRecorder();
-                if (!ok) {
-                    setStatus(studentStatus, '❌ 無法初始化語音評測，請檢查網絡或 SDK。');
-                    return;
-                }
-            }
-            // 確保參考文本最新
-            if (iseRecorder && typeof iseRecorder.setRefText === 'function') {
-                iseRecorder.setRefText(teacherRefContent);
-            } else if (iseRecorder && iseRecorder.options) {
-                iseRecorder.options.refText = teacherRefContent;
-            }
+        // ======================== 學生功能 ============================
+        startRecordBtn.addEventListener('click', startRecording);
+        stopRecordBtn.addEventListener('click', stopRecording);
 
-            // 清空之前的結果
-            resultCard.style.display = 'none';
-            currentTranscript = '';
-            showTranscript('');
-
-            try {
-                if (typeof iseRecorder.start === 'function') {
-                    iseRecorder.start();
-                    setStatus(studentStatus, '🎙️ 正在啟動麥克風……');
-                } else {
-                    setStatus(studentStatus, '❌ SDK 不支援 start 方法，請檢查版本。');
-                }
-            } catch (e) {
-                console.error('[ISE] start error:', e);
-                setStatus(studentStatus, `❌ 啟動失敗：${e.message}`);
-            }
-        });
-
-        // 停止錄音
-        stopRecordBtn.addEventListener('click', function() {
-            if (iseRecorder && typeof iseRecorder.stop === 'function') {
-                iseRecorder.stop();
-                setStatus(studentStatus, '⏹️ 正在停止錄音並提交評測……');
-            } else {
-                setStatus(studentStatus, '⚠️ 無法停止錄音。');
-            }
-        });
-
-        // 清空學生內容
-        clearStudentBtn.addEventListener('click', function() {
-            if (isRecording) {
-                if (iseRecorder && typeof iseRecorder.stop === 'function') {
-                    iseRecorder.stop();
-                }
-            }
+        clearStudentBtn.addEventListener('click', () => {
+            if (isRecording) stopRecording();
             currentTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
-            setStatus(studentStatus, '🗑️ 已清空，可重新錄音。');
-            if (recordTimer) {
-                clearInterval(recordTimer);
-                recordTimer = null;
-            }
+            setStatus(studentStatus, '🗑️ 已清空。');
             timerDisplay.textContent = '00:00';
             seconds = 0;
             micDot.className = 'dot';
@@ -860,9 +546,7 @@
             stopRecordBtn.disabled = true;
         });
 
-        // =============================================================
-        // 9. 分頁切換
-        // =============================================================
+        // ======================== 分頁切換 ============================
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -873,29 +557,10 @@
             });
         });
 
-        // =============================================================
-        // 10. 啟動初始化
-        // =============================================================
-        // 預設參考文字
-        refText.value = teacherRefContent;
+        // ======================== 初始化 ============================
         studentRefDisplay.textContent = teacherRefContent;
-
-        // 初始化 SDK（延遲加載確保 SDK 就緒）
-        setTimeout(function() {
-            const ok = initIseRecorder();
-            if (ok) {
-                setStatus(studentStatus, '✅ 語音評測已就緒，可開始錄音。');
-            } else {
-                setStatus(studentStatus, '⚠️ 請檢查網絡後刷新頁面。');
-            }
-        }, 800);
-
-        // 暴露更新函數給全局（調試用）
-        window.__updateRefText = updateRefText;
-
-        console.log('✅ 普通話語音評測系統已啟動');
-        console.log('📌 APPID:', APPID);
-        console.log('📌 參考文本:', teacherRefContent);
+        setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」。');
+        console.log('✅ 系統已啟動 (WebSocket 版)');
     })();
 </script>
 </body>
