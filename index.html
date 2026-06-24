@@ -232,39 +232,30 @@
         .result-box .suggestion { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
         .result-box .sub-feedback { margin-top: 8px; font-size: 14px; }
         .result-box .sub-feedback .fb-item { padding: 4px 0; border-bottom: 1px solid #f0f2f5; }
-        .progress-bar-container {
+        .progress-container {
             width: 100%;
-            height: 6px;
+            margin: 10px 0 4px 0;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
             background: #e9edf2;
             border-radius: 10px;
             overflow: hidden;
-            margin: 8px 0;
         }
-        .progress-bar-container .progress-bar {
+        .progress-bar-fill {
             height: 100%;
             width: 0%;
             background: #3b82f6;
             border-radius: 10px;
             transition: width 0.3s;
         }
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1e2a3a;
-            color: #fff;
-            padding: 10px 24px;
-            border-radius: 40px;
+        .progress-text {
             font-size: 14px;
-            font-weight: 500;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
-            z-index: 999;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
+            color: #4b5a6a;
+            margin-top: 4px;
+            text-align: center;
         }
-        .toast.show { opacity: 1; }
         .hidden { display: none !important; }
         .status-bar {
             padding: 6px 12px;
@@ -304,7 +295,6 @@
         </div>
     </div>
     <div class="main-content" id="mainContent"></div>
-    <div id="toast" class="toast"></div>
 </div>
 
 <script>
@@ -345,7 +335,7 @@
                 chooseQuestion: '選擇題目作答', answerHere: '請看圖說話/回答問題',
                 keywordsHint: '提示關鍵字', transcriptResult: '語音識別結果',
                 pleaseSelect: '請選擇', submitAll: '提交全部答案', answering: '作答中',
-                alreadyAnswered: '已作答', notStarted: '未開始', progress: '處理中...',
+                alreadyAnswered: '已作答', notStarted: '未開始', progress: '評測進行中，請稍等。',
                 englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。'
             },
             en: {
@@ -363,7 +353,7 @@
                 chooseQuestion: 'Choose a question', answerHere: 'Look and speak/answer',
                 keywordsHint: 'Keywords', transcriptResult: 'Transcript',
                 pleaseSelect: 'Select', submitAll: 'Submit All', answering: 'Answering',
-                alreadyAnswered: 'Done', notStarted: 'Not started', progress: 'Processing...',
+                alreadyAnswered: 'Done', notStarted: 'Not started', progress: 'Processing, please wait...',
                 englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.'
             }
         };
@@ -433,19 +423,7 @@
         }
 
         // ================================================================
-        // 5. Toast
-        // ================================================================
-        const toastEl = document.getElementById('toast');
-        let toastTimer = null;
-        function showToast(msg) {
-            toastEl.textContent = msg;
-            toastEl.classList.add('show');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
-        }
-
-        // ================================================================
-        // 6. 視圖切換
+        // 5. 視圖切換
         // ================================================================
         document.querySelectorAll('[data-view]').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -471,7 +449,7 @@
         }
 
         // ================================================================
-        // 7. 教師視圖
+        // 6. 教師視圖
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
@@ -568,7 +546,9 @@
                                 <div class="form-group" style="flex:2;"><label>${t('question')}</label><input class="sq-question" value="${sq.question || ''}" /></div>
                                 <div class="form-group" style="flex:2;"><label>${t('answer')}</label><input class="sq-answer" value="${sq.answer || ''}" /></div>
                                 <div class="form-group" style="flex:1;"><label>${t('keyword')}</label><input class="sq-keywords" value="${(sq.keywords||[]).join(', ')}" /></div>
-                                <div style="display:flex; align-items:flex-end; padding-bottom:4px;"><button class="btn btn-danger btn-sm" onclick="removeSubQuestion(this)">×</button></div>
+                                <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
+                                    <button class="btn btn-danger btn-sm" onclick="removeSubQuestion(this)">×</button>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -584,7 +564,7 @@
         }
 
         // ================================================================
-        // 8. 教師操作函數
+        // 7. 教師操作函數
         // ================================================================
         window.startNewQuestion = function() {
             const newQ = { id: genId(), grade: '一年級', semester: '上學期', title: '新題目', type: 'open', refAnswer: '', keywords: [], image: '', subQuestions: [] };
@@ -633,6 +613,7 @@
         window.addSubQuestion = function() {
             const q = questions.find(q => q.id === editingQuestionId);
             if (!q) return;
+            // 先保存當前子問題內容
             const sqDivs = document.querySelectorAll('.sub-question');
             const subs = [];
             sqDivs.forEach(div => {
@@ -651,7 +632,11 @@
             const div = btn.closest('.sub-question');
             const idx = Array.from(div.parentElement.children).indexOf(div);
             const q = questions.find(q => q.id === editingQuestionId);
-            if (q && q.subQuestions) { q.subQuestions.splice(idx, 1); saveData(); render(); }
+            if (q && q.subQuestions) {
+                q.subQuestions.splice(idx, 1);
+                saveData();
+                render();
+            }
         };
 
         window.saveQuestion = function() {
@@ -677,14 +662,15 @@
                 q.subQuestions = subs;
             } else q.subQuestions = [];
             saveData();
-            showToast('✅ 題目已儲存');
+            // 不使用 toast
+            console.log('✅ 題目已儲存');
             render();
         };
 
         window.cancelEdit = function() { loadData(); editingQuestionId = null; render(); };
 
         // ================================================================
-        // 9. 學生視圖
+        // 8. 學生視圖
         // ================================================================
         function renderStudent() {
             if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -745,7 +731,7 @@
         };
 
         // ================================================================
-        // 10. 學生答題視圖
+        // 9. 學生答題視圖
         // ================================================================
         function renderStudentAnswer() {
             const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -772,7 +758,10 @@
                         <button class="btn btn-danger" id="stopRecordBtn" disabled>⏹️ ${t('stopRecording')}</button>
                         <span id="statusText" style="font-size:13px; color:#6b7a8a;">${t('recording')}</span>
                     </div>
-                    <div id="progressContainer" class="progress-bar-container hidden"><div class="progress-bar" id="progressBar"></div></div>
+                    <div id="progressContainer" class="progress-container hidden">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                        <div class="progress-text" id="progressText">${t('progress')}</div>
+                    </div>
                     <div id="scoreResult" class="result-box hidden">
                         <div class="score-row">
                             <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
@@ -801,7 +790,7 @@
                                 <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
                                 <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
                             </div>
-                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;"></div>
+                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? toTraditional(subAnswers[idx]) : ''}</div>
                         </div>
                     `;
                 });
@@ -812,7 +801,10 @@
                         <button class="btn btn-success" id="submitAllBtn" ${allDone ? '' : 'disabled'}>📤 ${t('submitAll')}</button>
                         <span id="submitStatus" style="font-size:13px; color:#6b7a8a;">${allDone ? t('done') : t('answering')}</span>
                     </div>
-                    <div id="progressContainer" class="progress-bar-container hidden"><div class="progress-bar" id="progressBar"></div></div>
+                    <div id="progressContainer" class="progress-container hidden">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                        <div class="progress-text" id="progressText">${t('progress')}</div>
+                    </div>
                     <div id="scoreResult" class="result-box hidden">
                         <div class="score-row">
                             <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
@@ -836,7 +828,7 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 11. 開放式錄音綁定（完整）
+        // 10. 開放式錄音綁定（修改進度條顯示時機）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -847,6 +839,7 @@
             const transcript = document.getElementById('studentTranscript');
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
 
             let mediaStream = null, audioContext = null, scriptProcessor = null;
             let isRecording = false, recordTimer = null, seconds = 0;
@@ -867,10 +860,11 @@
             function startRecording() {
                 audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
                 document.getElementById('scoreResult').classList.add('hidden');
+                // 隱藏進度條（開始錄音時隱藏）
                 progressContainer.classList.add('hidden');
                 progressBar.style.width = '0%';
                 initAudio((err) => {
-                    if (err) { showToast('❌ '+err.message); return; }
+                    if (err) { console.error('麥克風錯誤:', err); return; }
                     isRecording = true;
                     dot.className = 'status-dot recording';
                     startBtn.disabled = true; stopBtn.disabled = false;
@@ -891,10 +885,14 @@
                 startBtn.disabled = false; stopBtn.disabled = true;
                 if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
                 statusText.textContent = '⏹️ '+t('stopRecording');
+                // 立即顯示進度條
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '10%';
+                progressText.textContent = t('progress');
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
                 if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
-                if (!iatReceivedMessage) showToast('⚠️ 語音無回應');
+                if (!iatReceivedMessage) console.warn('⚠️ 語音無回應');
             }
 
             function initAudio(cb) {
@@ -933,7 +931,7 @@
                     if (iatTimeoutId) clearTimeout(iatTimeoutId);
                     iatTimeoutId = setTimeout(() => {
                         if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
-                            showToast('⚠️ 語音服務無回應');
+                            console.warn('⚠️ 語音服務無回應');
                             if (iatWs) iatWs.close();
                             stopRecording();
                         }
@@ -945,9 +943,9 @@
                         if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
                         try { const data = JSON.parse(event.data); handleIatMessage(data); } catch(e) {}
                     };
-                    iatWs.onerror = () => { showToast('❌ 語音錯誤'); stopRecording(); isRecognizing = false; };
-                    iatWs.onclose = () => { if (!iatReceivedMessage) showToast('⚠️ 語音連線失敗'); if (isRecording) stopRecording(); isRecognizing = false; };
-                } catch(e) { showToast('❌ 語音初始化失敗'); stopRecording(); }
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecording(); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecording(); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecording(); }
             }
 
             function sendIatHandshake() {
@@ -962,7 +960,7 @@
                         isIatEndSent = true;
                         iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
                         waitForIatResult = true;
-                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { showToast('⚠️ 語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
                         return;
                     }
                     if (audioBuffer.length > 0) {
@@ -984,7 +982,7 @@
             }
 
             function handleIatMessage(data) {
-                if (data.code && data.code !== 0) { showToast('❌ 語音錯誤 '+data.code); stopRecording(); isRecognizing = false; return; }
+                if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecording(); isRecognizing = false; return; }
                 if (data.data && data.data.result) {
                     const result = data.data.result;
                     if (result.ws) {
@@ -995,6 +993,8 @@
                         if (text) {
                             finalTranscript += text;
                             transcript.innerHTML = toTraditional(finalTranscript);
+                            // 更新進度條
+                            progressBar.style.width = '40%';
                         }
                     }
                 }
@@ -1003,10 +1003,9 @@
                     if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
                     if (finalTranscript.trim()) {
                         studentAnswerText = finalTranscript;
-                        progressContainer.classList.remove('hidden');
-                        progressBar.style.width = '20%';
+                        progressBar.style.width = '60%';
                         callSparkForScore(q, finalTranscript);
-                    } else { showToast('⚠️ 未識別到語音'); }
+                    } else { console.warn('未識別到語音'); progressContainer.classList.add('hidden'); }
                     stopRecording();
                     isRecognizing = false;
                 }
@@ -1016,7 +1015,7 @@
                 if (isScoring) return;
                 isScoring = true;
                 statusText.textContent = '🤖 '+t('scoring');
-                progressBar.style.width = '40%';
+                progressBar.style.width = '70%';
                 if (!cryptoReady) { loadCryptoJs(() => callSparkForScore(q, answer)); return; }
                 try {
                     const urlObj = new URL(CONFIG.SPARK_WS_URL);
@@ -1025,15 +1024,15 @@
                     sparkResult = '';
                     if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
                     sparkTimeoutId = setTimeout(() => {
-                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { showToast('⚠️ 評分超時'); sparkWs.close(); }
+                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { console.warn('評分超時'); sparkWs.close(); }
                         isScoring = false;
                         progressContainer.classList.add('hidden');
                     }, 30000);
-                    sparkWs.onopen = () => { progressBar.style.width = '60%'; sendSparkRequest(q, answer); };
+                    sparkWs.onopen = () => { progressBar.style.width = '80%'; sendSparkRequest(q, answer); };
                     sparkWs.onmessage = (event) => { try { const data = JSON.parse(event.data); handleSparkMessage(data); } catch(e) {} };
-                    sparkWs.onerror = () => { showToast('❌ 評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); };
-                    sparkWs.onclose = () => { if (!sparkResult) showToast('⚠️ 評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); };
-                } catch(e) { showToast('❌ 評分初始化失敗'); isScoring = false; progressContainer.classList.add('hidden'); }
+                    sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); };
+                    sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); };
+                } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); }
             }
 
             function sendSparkRequest(q, answer) {
@@ -1053,7 +1052,7 @@
             }
 
             function handleSparkMessage(data) {
-                if (data.header && data.header.code !== 0) { showToast('❌ 星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); return; }
+                if (data.header && data.header.code !== 0) { console.error('星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); return; }
                 if (data.payload && data.payload.choices && data.payload.choices.text) {
                     for (const text of data.payload.choices.text) {
                         if (text.content) sparkResult += text.content;
@@ -1073,7 +1072,7 @@
                         if (!hasChinese) { grade.accuracy = 0; grade.fluency = 0; grade.integrity = 0; grade.total_score = 0; grade.suggestion = t('englishDetected'); }
                         displayScore(grade);
                         progressContainer.classList.add('hidden');
-                    } catch(e) { showToast('⚠️ 評分解析失敗'); progressContainer.classList.add('hidden'); }
+                    } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); }
                     isScoring = false;
                 }
             }
@@ -1092,7 +1091,7 @@
                     el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
                 });
                 statusText.textContent = '✅ '+t('done');
-                showToast('✅ 評分完成！');
+                console.log('✅ 評分完成！');
             }
 
             function buildWsUrl(host, path, apiKey, apiSecret) {
@@ -1112,13 +1111,13 @@
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
                 script.onload = function() { cryptoReady=true; cb(); };
-                script.onerror = function() { showToast('❌ 加密庫載入失敗'); };
+                script.onerror = function() { console.error('加密庫載入失敗'); };
                 document.head.appendChild(script);
             }
         }
 
         // ================================================================
-        // 12. 半固定式錄音綁定（完整）
+        // 11. 半固定式錄音綁定（修改子問題順序解鎖）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -1129,6 +1128,7 @@
             const submitStatus = document.getElementById('submitStatus');
             const progressContainer = document.getElementById('progressContainer');
             const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
 
             let currentRecordingIdx = null;
             let mediaStream = null, audioContext = null, scriptProcessor = null;
@@ -1177,10 +1177,11 @@
 
             function startRecordingForSub(idx) {
                 audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
+                // 隱藏進度條
                 progressContainer.classList.add('hidden');
                 progressBar.style.width = '0%';
                 initAudio((err) => {
-                    if (err) { showToast('❌ '+err.message); return; }
+                    if (err) { console.error('麥克風錯誤:', err); return; }
                     isRecording = true;
                     const statusSpan = document.querySelectorAll('.sq-status')[idx];
                     statusSpan.textContent = t('recording');
@@ -1200,7 +1201,8 @@
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
                 if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
-                if (!iatReceivedMessage) showToast('⚠️ 語音無回應');
+                if (!iatReceivedMessage) console.warn('語音無回應');
+                // 不顯示進度條（子問題識別完成後才解鎖下一題）
                 const statusSpan = document.querySelectorAll('.sq-status')[idx];
                 statusSpan.textContent = t('notStarted');
                 updateButtons();
@@ -1242,7 +1244,7 @@
                     if (iatTimeoutId) clearTimeout(iatTimeoutId);
                     iatTimeoutId = setTimeout(() => {
                         if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
-                            showToast('⚠️ 語音無回應');
+                            console.warn('語音無回應');
                             if (iatWs) iatWs.close();
                             stopRecordingForSub(idx);
                         }
@@ -1254,9 +1256,9 @@
                         if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
                         try { const data = JSON.parse(event.data); handleIatMessageForSub(data, idx); } catch(e) {}
                     };
-                    iatWs.onerror = () => { showToast('❌ 語音錯誤'); stopRecordingForSub(idx); isRecognizing = false; };
-                    iatWs.onclose = () => { if (!iatReceivedMessage) showToast('⚠️ 語音連線失敗'); if (isRecording) stopRecordingForSub(idx); isRecognizing = false; };
-                } catch(e) { showToast('❌ 語音初始化失敗'); stopRecordingForSub(idx); }
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecordingForSub(idx); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecordingForSub(idx); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecordingForSub(idx); }
             }
 
             function sendIatHandshake() {
@@ -1271,7 +1273,7 @@
                         isIatEndSent = true;
                         iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
                         waitForIatResult = true;
-                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { showToast('⚠️ 語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
                         return;
                     }
                     if (audioBuffer.length > 0) {
@@ -1293,7 +1295,7 @@
             }
 
             function handleIatMessageForSub(data, idx) {
-                if (data.code && data.code !== 0) { showToast('❌ 語音錯誤 '+data.code); stopRecordingForSub(idx); isRecognizing = false; return; }
+                if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecordingForSub(idx); isRecognizing = false; return; }
                 if (data.data && data.data.result) {
                     const result = data.data.result;
                     if (result.ws) {
@@ -1314,6 +1316,7 @@
                     if (finalTranscript.trim()) {
                         subAnswers[idx] = finalTranscript;
                         subAnswered[idx] = true;
+                        // 保留識別文字在 transcript 中
                         const statusSpan = document.querySelectorAll('.sq-status')[idx];
                         statusSpan.textContent = t('alreadyAnswered');
                         statusSpan.className = 'sq-status done';
@@ -1321,10 +1324,16 @@
                         const stopBtn = stopBtns[idx];
                         recordBtn.style.display = 'inline-block';
                         stopBtn.style.display = 'none';
+                        // 解鎖下一題（若有）
                         const allDone = subs.every((_, i) => subAnswered[i]);
-                        if (allDone) { submitStatus.textContent = t('done'); submitBtn.disabled = false; showToast('✅ 全部子問題已作答，請點擊提交'); }
-                        else updateButtons();
-                    } else { showToast('⚠️ 未識別到語音'); }
+                        if (allDone) {
+                            submitStatus.textContent = t('done');
+                            submitBtn.disabled = false;
+                            console.log('✅ 全部子問題已作答，請點擊提交');
+                        } else {
+                            updateButtons(); // 啟用下一題
+                        }
+                    } else { console.warn('未識別到語音'); }
                     stopRecordingForSub(idx);
                     isRecognizing = false;
                 }
@@ -1336,6 +1345,7 @@
                 updateButtons();
                 progressContainer.classList.remove('hidden');
                 progressBar.style.width = '10%';
+                progressText.textContent = t('progress');
                 let fullAnswer = '';
                 subs.forEach((sq, idx) => {
                     fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
@@ -1355,7 +1365,7 @@
                     sparkResult = '';
                     if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
                     sparkTimeoutId = setTimeout(() => {
-                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { showToast('⚠️ 評分超時'); sparkWs.close(); }
+                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { console.warn('評分超時'); sparkWs.close(); }
                         isScoring = false;
                         progressContainer.classList.add('hidden');
                         subLocked = false;
@@ -1363,9 +1373,9 @@
                     }, 30000);
                     sparkWs.onopen = () => { progressBar.style.width = '50%'; sendSparkRequestFixed(q, answer); };
                     sparkWs.onmessage = (event) => { try { const data = JSON.parse(event.data); handleSparkMessageFixed(data); } catch(e) {} };
-                    sparkWs.onerror = () => { showToast('❌ 評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
-                    sparkWs.onclose = () => { if (!sparkResult) showToast('⚠️ 評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
-                } catch(e) { showToast('❌ 評分初始化失敗'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
+                    sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
+                    sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
+                } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
             }
 
             function sendSparkRequestFixed(q, answer) {
@@ -1389,7 +1399,7 @@
             }
 
             function handleSparkMessageFixed(data) {
-                if (data.header && data.header.code !== 0) { showToast('❌ 星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); return; }
+                if (data.header && data.header.code !== 0) { console.error('星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); return; }
                 if (data.payload && data.payload.choices && data.payload.choices.text) {
                     for (const text of data.payload.choices.text) {
                         if (text.content) sparkResult += text.content;
@@ -1411,7 +1421,7 @@
                         progressContainer.classList.add('hidden');
                         subLocked = false;
                         updateButtons();
-                    } catch(e) { showToast('⚠️ 評分解析失敗'); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
+                    } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
                     isScoring = false;
                 }
             }
@@ -1444,7 +1454,7 @@
                     fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>內容:${s.accuracy||0} 豐富:${s.fluency||0} 語音:${s.integrity||0}</div>`;
                 });
                 document.getElementById('subFeedback').innerHTML = fbHtml;
-                showToast('✅ 評分完成！');
+                console.log('✅ 評分完成！');
             }
 
             function buildWsUrl(host, path, apiKey, apiSecret) {
@@ -1464,7 +1474,7 @@
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
                 script.onload = function() { cryptoReady=true; cb(); };
-                script.onerror = function() { showToast('❌ 加密庫載入失敗'); };
+                script.onerror = function() { console.error('加密庫載入失敗'); };
                 document.head.appendChild(script);
             }
 
@@ -1472,7 +1482,7 @@
         }
 
         // ================================================================
-        // 13. 初始化
+        // 12. 初始化
         // ================================================================
         initOpenCC();
         loadData();
