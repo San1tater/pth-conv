@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 訊飛聽寫 + 星火評分</title>
+    <title>普通話語音評測 · 訊飛聽寫 + 星火 4.0Ultra</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -71,7 +71,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>訊飛聽寫 + 星火 4.0Ultra 評分</small></h1>
+    <h1>🎙️ 普通話語音評測 <small>訊飛聽寫 + 星火 4.0Ultra</small></h1>
     <div class="sub">👩‍🏫 教師上傳圖片及主題描述 ｜ 🧑‍🎓 學生錄音，訊飛轉文字，星火大模型評分</div>
 
     <div class="tabs">
@@ -145,20 +145,18 @@
         'use strict';
 
         // ================================================================
-        // 1. 配置區（使用您提供的訊飛憑證）
+        // 1. 配置區
         // ================================================================
         const CONFIG = {
-            // 語音聽寫
             IAT_APPID: 'b35875f2',
             IAT_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             IAT_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
             IAT_WS_URL: 'wss://iat-api.xfyun.cn/v2/iat',
-            // 星火大模型 (4.0Ultra)
             SPARK_APPID: 'b35875f2',
             SPARK_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             SPARK_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
-            SPARK_WS_URL: 'wss://spark-api.xf-yun.com/v4.0/chat', // 4.0 Ultra
-            SPARK_DOMAIN: '4.0Ultra', // 修正為正確的 domain
+            SPARK_WS_URL: 'wss://spark-api.xf-yun.com/v4.0/chat',
+            SPARK_DOMAIN: '4.0Ultra',
         };
 
         // ================================================================
@@ -197,7 +195,6 @@
         let teacherImageDataUrl = null;
         let teacherRefContent = '今天天氣真好，小貓在花園裏玩耍。';
 
-        // 音頻錄製相關
         let mediaStream = null;
         let audioContext = null;
         let scriptProcessor = null;
@@ -207,10 +204,9 @@
         let audioBuffer = [];
         const SAMPLE_RATE = 16000;
 
-        // 語音聽寫 WebSocket 相關
         let iatWs = null;
         let isRecognizing = false;
-        let finalTranscript = '';
+        let finalTranscript = '';          // 累積完整結果
         let iatReceivedMessage = false;
         let iatTimeoutId = null;
         let iatChunkCount = 0;
@@ -218,7 +214,6 @@
         let isIatEndSent = false;
         let waitForIatResult = false;
 
-        // 星火評分 WebSocket 相關
         let sparkWs = null;
         let isScoring = false;
         let sparkResult = '';
@@ -311,7 +306,7 @@
         }
 
         // ================================================================
-        // 6. 通用簽名函數 (for 語音聽寫 & 星火大模型)
+        // 6. 通用簽名函數
         // ================================================================
         function buildWsUrl(host, path, apiKey, apiSecret) {
             if (typeof CryptoJS === 'undefined') {
@@ -332,7 +327,7 @@
         }
 
         // ================================================================
-        // 7. 音頻採集 (PCM 16k 16bit)
+        // 7. 音頻採集
         // ================================================================
         function initAudio(callback) {
             navigator.mediaDevices.getUserMedia({
@@ -370,7 +365,7 @@
         }
 
         // ================================================================
-        // 8. 語音聽寫 (與之前相同，保留)
+        // 8. 語音聽寫 (修正累積邏輯)
         // ================================================================
         function startIatRecognition() {
             if (isRecognizing) {
@@ -400,7 +395,7 @@
                 isRecognizing = true;
                 iatReceivedMessage = false;
                 iatChunkCount = 0;
-                finalTranscript = '';
+                finalTranscript = '';   // 清空累積
                 isIatEndSent = false;
                 waitForIatResult = false;
 
@@ -541,7 +536,8 @@
                         }
                     }
                     if (text) {
-                        finalTranscript = text;
+                        // 累積而不是覆蓋（注意：每次返回的是增量，直接追加）
+                        finalTranscript += text;
                         showTranscript(finalTranscript);
                         log(`即時轉寫: "${finalTranscript}"`);
                     }
@@ -555,7 +551,6 @@
                 if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
 
                 if (finalTranscript.trim()) {
-                    // 語音識別完成，開始呼叫星火評分
                     callSparkForScore(finalTranscript);
                 } else {
                     setStatus(studentStatus, '⚠️ 未能識別到有效語音，請重新錄音。');
@@ -566,7 +561,7 @@
         }
 
         // ================================================================
-        // 9. 星火大模型評分 (Spark 4.0Ultra)
+        // 9. 星火大模型評分 (優化解析)
         // ================================================================
         function callSparkForScore(studentAnswer) {
             if (isScoring) return;
@@ -646,7 +641,6 @@
         }
 
         function sendSparkRequest(studentAnswer) {
-            // 構建評分 Prompt
             const systemPrompt = `你是一位專業的普通話語言教師。請根據以下資訊，對學生的看圖說話回答進行評分。
 
 【主題描述】
@@ -671,7 +665,6 @@ ${studentAnswer}
 
 只回覆 JSON，不要有其他內容。`;
 
-            // 星火大模型 v4.0/chat 請求格式
             const request = {
                 header: {
                     app_id: CONFIG.SPARK_APPID,
@@ -679,7 +672,7 @@ ${studentAnswer}
                 },
                 parameter: {
                     chat: {
-                        domain: CONFIG.SPARK_DOMAIN, // 4.0Ultra
+                        domain: CONFIG.SPARK_DOMAIN,
                         temperature: 0.3,
                         max_tokens: 1024,
                         top_k: 5
@@ -729,13 +722,19 @@ ${studentAnswer}
 
                 try {
                     let jsonStr = sparkResult.trim();
+                    // 移除可能存在的 Markdown 代碼塊
                     jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                    // 嘗試提取 JSON 對象（如果包含額外文字）
+                    const match = jsonStr.match(/\{[\s\S]*\}/);
+                    if (match) {
+                        jsonStr = match[0];
+                    }
                     const grade = JSON.parse(jsonStr);
                     showResult(grade);
                     setStatus(studentStatus, '✅ 星火評分完成！');
                 } catch (e) {
                     log(`解析星火 JSON 失敗: ${e.message}`, 'error');
-                    log(`原始回應: ${sparkResult.substring(0, 200)}...`);
+                    log(`原始回應: ${sparkResult.substring(0, 300)}...`);
                     setStatus(studentStatus, '⚠️ 星火回應格式異常，請重試。');
                     showResult({
                         accuracy: 0,
@@ -927,8 +926,7 @@ ${studentAnswer}
             }
         });
 
-        console.log('✅ 訊飛聽寫 + 星火 4.0Ultra 評分版已啟動');
-        console.log(`📌 星火模型: 4.0Ultra (${CONFIG.SPARK_WS_URL})`);
+        console.log('✅ 語音累積修正版已啟動');
     })();
 </script>
 </body>
