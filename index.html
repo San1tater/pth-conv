@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>普通話語音評測 · 語音轉文字 + DeepSeek 評分</title>
     <style>
-        /* ===== 樣式與之前相同，此處省略以節省篇幅 ===== */
+        /* ===== 樣式 ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
         .container { max-width: 960px; width: 100%; background: #fff; border-radius: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.10); padding: 32px 36px 40px; }
@@ -143,15 +143,15 @@
         'use strict';
 
         // ================================================================
-        // 1. 配置區（請務必填入你的 API 憑證）
+        // 1. 配置區（已填入 DeepSeek API Key）
         // ================================================================
         const CONFIG = {
             // 訊飛語音聽寫（流式版）WebAPI 憑證
             XUNFEI_APPID: 'b35875f2',
             XUNFEI_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             XUNFEI_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
-            // DeepSeek API 憑證（請到 platform.deepseek.com 申請）
-            DEEPSEEK_API_KEY: 'sk-your-deepseek-api-key-here', // <-- 請替換為你的 DeepSeek API Key
+            // DeepSeek API 憑證（已填入）
+            DEEPSEEK_API_KEY: 'sk-1b549674ca454f55b440b778e2cc122b',
         };
 
         // ================================================================
@@ -449,17 +449,16 @@
         // 9. 訊飛語音聽寫 - 發送數據
         // ================================================================
         function sendXunfeiHandshake() {
-            // 語音聽寫（流式版）的握手協議
             const handshake = {
                 common: {
                     app_id: CONFIG.XUNFEI_APPID
                 },
                 business: {
-                    language: 'zh_cn',   // 中文
-                    domain: 'iat',       // 語音聽寫
-                    accent: 'mandarin',  // 普通話
-                    vad: 'eos',          // 靜音檢測
-                    dwa: 'wpgs'          // 動態權重
+                    language: 'zh_cn',
+                    domain: 'iat',
+                    accent: 'mandarin',
+                    vad: 'eos',
+                    dwa: 'wpgs'
                 },
                 data: {
                     status: 0,
@@ -475,7 +474,6 @@
 
         function sendAudioDataToXunfei() {
             const sendChunk = () => {
-                // 如果停止錄音或連接關閉，發送結束幀
                 if (!isRecording || ws.readyState !== WebSocket.OPEN) {
                     if (!isRecording && ws.readyState === WebSocket.OPEN) {
                         const endFrame = {
@@ -493,7 +491,6 @@
                 }
 
                 if (audioBuffer.length > 0) {
-                    // 合併 PCM 數據
                     const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
                     const merged = new Int16Array(totalLength);
                     let offset = 0;
@@ -503,7 +500,6 @@
                     }
                     audioBuffer = [];
 
-                    // 轉為 Base64
                     const bytes = new Uint8Array(merged.buffer);
                     let binary = '';
                     for (let i = 0; i < bytes.length; i++) {
@@ -535,7 +531,6 @@
         // 10. 訊飛語音聽寫 - 處理返回消息
         // ================================================================
         function handleXunfeiMessage(data) {
-            // 檢查錯誤碼
             if (data.code && data.code !== 0) {
                 const msg = `服務器錯誤 (${data.code})：${data.message || '未知錯誤'}`;
                 log(`❌ ${msg}`, 'error');
@@ -545,10 +540,8 @@
                 return;
             }
 
-            // 獲取識別結果
             if (data.data && data.data.result) {
                 const result = data.data.result;
-                // 處理 WS 格式的結果
                 if (result.ws) {
                     let text = '';
                     for (const w of result.ws) {
@@ -564,13 +557,11 @@
                 }
             }
 
-            // 檢查是否為最後一幀 (status === 2)
             if (data.data && data.data.status === 2) {
                 log('收到最後一幀，識別完成', 'success');
                 setStatus(studentStatus, '✅ 語音識別完成！');
                 if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 
-                // 識別完成後，調用 DeepSeek 進行評分
                 if (finalTranscript.trim()) {
                     callDeepSeekForScore(finalTranscript);
                 } else {
@@ -641,7 +632,6 @@ ${studentAnswer}
                 const content = data.choices[0].message.content;
                 log(`DeepSeek 回應: ${content.substring(0, 100)}...`, 'success');
 
-                // 解析 JSON
                 const grade = JSON.parse(content);
                 showResult(grade);
                 setStatus(studentStatus, '✅ 評分完成！');
@@ -649,7 +639,6 @@ ${studentAnswer}
             } catch (error) {
                 log(`DeepSeek API 調用失敗: ${error.message}`, 'error');
                 setStatus(studentStatus, `❌ 評分失敗：${error.message}`);
-                // 顯示一個默認評分，避免完全空白
                 showResult({
                     accuracy: 0,
                     fluency: 0,
@@ -724,7 +713,6 @@ ${studentAnswer}
                 recordTimer = null;
             }
 
-            // 釋放音頻資源
             if (mediaStream) {
                 mediaStream.getTracks().forEach(t => t.stop());
                 mediaStream = null;
@@ -738,7 +726,6 @@ ${studentAnswer}
                 scriptProcessor = null;
             }
 
-            // 如果 WebSocket 仍打開，發送結束幀
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const endFrame = {
                     data: {
@@ -847,7 +834,6 @@ ${studentAnswer}
         setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」看圖說話。');
         log('系統初始化完成');
 
-        // 預加載 CryptoJS
         loadCryptoJs((err) => {
             if (err) {
                 log(`⚠️ ${err.message}`, 'error');
@@ -858,7 +844,7 @@ ${studentAnswer}
         });
 
         console.log('✅ 語音轉文字 + DeepSeek 評分版已啟動');
-        console.log('📌 請在 CONFIG 中設定 DeepSeek API Key');
+        console.log('📌 DeepSeek API Key 已設定');
     })();
 </script>
 </body>
