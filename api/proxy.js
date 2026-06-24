@@ -2,7 +2,7 @@
 const crypto = require('crypto');
 const WebSocket = require('ws');
 
-// 從環境變數讀取金鑰
+// 環境變數（由 Vercel 注入）
 const APPID = process.env.XUNFEI_APPID;
 const API_KEY = process.env.XUNFEI_API_KEY;
 const API_SECRET = process.env.XUNFEI_API_SECRET;
@@ -22,11 +22,11 @@ function buildWsUrl(host, path, apiKey, apiSecret) {
     return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
 }
 
-// 語音識別（僅當 audioBase64 非空）
+// 語音識別
 function recognizeAudio(audioBase64) {
     return new Promise((resolve, reject) => {
         if (!audioBase64) {
-            resolve('');  // 無音頻，返回空
+            resolve('');
             return;
         }
         const urlObj = new URL(IAT_URL);
@@ -94,7 +94,7 @@ function recognizeAudio(audioBase64) {
     });
 }
 
-// 星火評分（文字模式）
+// 星火評分
 function scoreAnswer(questionInfo, answerText) {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(SPARK_URL);
@@ -107,8 +107,6 @@ function scoreAnswer(questionInfo, answerText) {
         if (questionInfo.type === 'open') {
             prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${questionInfo.refAnswer || ''}\n關鍵字：${(questionInfo.keywords||[]).join('、')}\n學生回答：${answerText}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
         } else {
-            // 半固定式：需要對每個子問題分別評分，但我們接收的 answerText 是合併的，需要拆分或整體評分。
-            // 簡單起見，我們整體評分，並給出子分數（模擬）
             prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${questionInfo.subQuestions.map((sq, i) => `子問題${i+1}：${sq.question}  參考答案：${sq.answer||''}  關鍵字：${(sq.keywords||[]).join('、')}`).join('\n')}\n學生回答：${answerText}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度）(0-10)，並給出總分(0-10)和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
         }
 
@@ -156,8 +154,19 @@ function scoreAnswer(questionInfo, answerText) {
     });
 }
 
-// Vercel 入口
+// Vercel 入口（已加入 CORS 標頭）
 module.exports = async (req, res) => {
+    // ==== 設定 CORS 標頭 ====
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // 處理預檢請求 (OPTIONS)
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
         return;
@@ -170,12 +179,12 @@ module.exports = async (req, res) => {
             return;
         }
 
-        // 語音識別（若有音頻）
+        // 語音識別
         let transcript = '';
         if (audioBase64) {
             transcript = await recognizeAudio(audioBase64);
         } else if (textAnswer) {
-            transcript = textAnswer;  // 直接使用傳入的文字
+            transcript = textAnswer;
         }
 
         // 評分
