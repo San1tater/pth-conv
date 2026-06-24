@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 最終修正版</title>
+    <title>普通話語音評測 · 語音轉文字 + DeepSeek 評分</title>
     <style>
+        /* ===== 樣式與之前相同，此處省略以節省篇幅 ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
         .container { max-width: 960px; width: 100%; background: #fff; border-radius: 32px; box-shadow: 0 20px 60px rgba(0,0,0,0.10); padding: 32px 36px 40px; }
@@ -69,15 +70,15 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>最終修正版</small></h1>
-    <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，即時評分</div>
+    <h1>🎙️ 普通話語音評測 <small>語音轉文字 + DeepSeek 評分</small></h1>
+    <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音，語音轉文字後由 AI 評分</div>
 
     <div class="tabs">
         <button class="tab-btn active" data-tab="teacher">👩‍🏫 教師入口</button>
         <button class="tab-btn" data-tab="student">🧑‍🎓 學生入口</button>
     </div>
 
-    <!-- 教師面板 -->
+    <!-- ===== 教師面板 ===== -->
     <div id="panel-teacher" class="panel active">
         <div class="upload-area" id="uploadArea">
             <div class="icon">🖼️</div>
@@ -87,8 +88,8 @@
         </div>
         <div class="preview-box" id="imagePreview"><span class="placeholder">📷 尚未上傳圖片</span></div>
         <div class="ref-box">
-            <label for="refText">📝 參考答案（學生朗讀內容）</label>
-            <textarea id="refText" placeholder="請輸入普通話內容……">今天天氣真好，小貓在花園裏玩耍。</textarea>
+            <label for="refText">📝 參考答案（學生應表達的內容）</label>
+            <textarea id="refText" placeholder="請輸入參考答案……">今天天氣真好，小貓在花園裏玩耍。</textarea>
         </div>
         <div class="actions">
             <button class="btn btn-success" id="saveTeacherBtn">💾 儲存設定</button>
@@ -97,12 +98,12 @@
         <div class="status-box" id="teacherStatus"><span class="label">📌 狀態：</span> 準備就緒</div>
     </div>
 
-    <!-- 學生面板 -->
+    <!-- ===== 學生面板 ===== -->
     <div id="panel-student" class="panel">
         <div class="preview-box" id="studentImagePreview"><span class="placeholder">📷 教師尚未上傳圖片</span></div>
         <div class="ref-box" style="background:#f0f7ff; border-color:#b3d4fc;">
-            <label>📖 請朗讀以下內容：</label>
-            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">教師尚未設定參考答案</div>
+            <label>📖 請看圖說話，描述你所看到的內容：</label>
+            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">教師尚未設定題目</div>
         </div>
 
         <div class="student-speak-area">
@@ -121,32 +122,41 @@
             <button class="btn btn-outline" id="clearStudentBtn">🗑️ 清空</button>
         </div>
 
+        <!-- ===== 評分結果 ===== -->
         <div class="result-card" id="resultCard" style="display:none;">
             <div class="score-row">
                 <div class="score-item"><span>🏆 總分</span> <span class="num" id="totalScore">--</span></div>
-                <div class="score-item"><span>🎯 準確度</span> <span class="num" id="accScore">--</span></div>
-                <div class="score-item"><span>📊 流暢度</span> <span class="num" id="fluencyScore">--</span></div>
-                <div class="score-item"><span>📝 完整度</span> <span class="num" id="integrityScore">--</span></div>
+                <div class="score-item"><span>🎯 內容準確度</span> <span class="num" id="accScore">--</span></div>
+                <div class="score-item"><span>📊 表達流暢度</span> <span class="num" id="fluencyScore">--</span></div>
+                <div class="score-item"><span>📝 完整性</span> <span class="num" id="integrityScore">--</span></div>
             </div>
             <div class="detail" id="suggestionText"><strong>💡 智能建議：</strong> 評分完成後顯示建議。</div>
         </div>
 
-        <div class="status-box" id="studentStatus"><span class="label">📌 狀態：</span> 請點擊「開始錄音」朗讀。</div>
+        <div class="status-box" id="studentStatus"><span class="label">📌 狀態：</span> 請點擊「開始錄音」看圖說話。</div>
     </div>
-    <div class="footer-note">⚡ 使用訊飛 WebSocket 接口 · 僅識別普通話讀音 · 每日免費限額</div>
+    <div class="footer-note">⚡ 語音轉文字：訊飛語音聽寫 (每日500次免費) ｜ 評分：DeepSeek API</div>
 </div>
 
 <script>
     (function() {
         'use strict';
 
-        // ======================== 配置 ============================
-        const APPID = 'b35875f2';
-        const API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
-        const API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
-        const WS_URL = 'wss://ise-api.xfyun.cn/v2/open-ise';
+        // ================================================================
+        // 1. 配置區（請務必填入你的 API 憑證）
+        // ================================================================
+        const CONFIG = {
+            // 訊飛語音聽寫（流式版）WebAPI 憑證
+            XUNFEI_APPID: 'b35875f2',
+            XUNFEI_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
+            XUNFEI_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
+            // DeepSeek API 憑證（請到 platform.deepseek.com 申請）
+            DEEPSEEK_API_KEY: 'sk-your-deepseek-api-key-here', // <-- 請替換為你的 DeepSeek API Key
+        };
 
-        // ======================== DOM ============================
+        // ================================================================
+        // 2. DOM 元素
+        // ================================================================
         const uploadArea = document.getElementById('uploadArea');
         const imageInput = document.getElementById('imageInput');
         const imagePreview = document.getElementById('imagePreview');
@@ -174,27 +184,36 @@
         const integrityScore = document.getElementById('integrityScore');
         const suggestionText = document.getElementById('suggestionText');
 
-        // ======================== 狀態 ============================
+        // ================================================================
+        // 3. 狀態變量
+        // ================================================================
         let teacherImageDataUrl = null;
         let teacherRefContent = '今天天氣真好，小貓在花園裏玩耍。';
 
+        // 音頻錄製相關
         let mediaStream = null;
         let audioContext = null;
         let scriptProcessor = null;
-        let ws = null;
         let isRecording = false;
         let recordTimer = null;
         let seconds = 0;
-        let currentTranscript = '';
-        let audioBuffer = [];
+        let audioBuffer = [];           // 存放 PCM 數據 (Int16Array)
         const SAMPLE_RATE = 16000;
-        let cryptoReady = false;
-        let isEvaluating = false;
-        let chunkCount = 0;
+
+        // 訊飛語音聽寫 WebSocket 相關
+        let ws = null;
+        let isRecognizing = false;
+        let finalTranscript = '';       // 最終識別結果
         let receivedAnyMessage = false;
         let timeoutId = null;
+        let chunkCount = 0;
 
-        // ======================== 日誌 ============================
+        // 加密庫就緒標誌
+        let cryptoReady = false;
+
+        // ================================================================
+        // 4. 日誌與工具函數
+        // ================================================================
         function log(msg, type = 'info') {
             const time = new Date().toLocaleTimeString();
             const prefix = `[${time}] `;
@@ -206,7 +225,6 @@
             console.log(`[LOG] ${msg}`);
         }
 
-        // ======================== 工具 ============================
         function setStatus(el, msg) {
             if (!el) return;
             const label = el.querySelector('.label');
@@ -232,16 +250,17 @@
         }
 
         function showResult(grade) {
-            const total = grade.total_score || grade.totalScore || grade.total || 0;
-            const acc = grade.accuracy_score || grade.accuracyScore || grade.accuracy || 0;
-            const fluency = grade.fluency_score || grade.fluencyScore || grade.fluency || 0;
-            const integrity = grade.integrity_score || grade.integrityScore || grade.integrity || 0;
+            const total = grade.total_score || grade.total || 0;
+            const acc = grade.accuracy_score || grade.accuracy || 0;
+            const fluency = grade.fluency_score || grade.fluency || 0;
+            const integrity = grade.integrity_score || grade.integrity || 0;
             const suggest = grade.suggestion || grade.advice || '繼續練習，加油！';
 
             totalScore.textContent = Math.round(total);
             accScore.textContent = Math.round(acc);
             fluencyScore.textContent = Math.round(fluency);
             integrityScore.textContent = Math.round(integrity);
+
             [totalScore, accScore, fluencyScore, integrityScore].forEach(el => {
                 const val = parseFloat(el.textContent);
                 el.className = 'num';
@@ -249,11 +268,14 @@
                 else if (val >= 60) el.classList.add('mid');
                 else el.classList.add('poor');
             });
+
             suggestionText.innerHTML = `<strong>💡 智能建議：</strong> ${suggest}`;
             resultCard.style.display = 'block';
         }
 
-        // ======================== 加載 CryptoJS ============================
+        // ================================================================
+        // 5. 加載 CryptoJS（用於訊飛簽名）
+        // ================================================================
         function loadCryptoJs(callback) {
             if (typeof CryptoJS !== 'undefined') {
                 cryptoReady = true;
@@ -274,79 +296,70 @@
             document.head.appendChild(script);
         }
 
-        // ======================== 簽名 ============================
-        function buildWsUrl() {
+        // ================================================================
+        // 6. 訊飛語音聽寫 - 簽名與 WebSocket 連接
+        // ================================================================
+        function buildXunfeiWsUrl() {
             if (typeof CryptoJS === 'undefined') {
                 throw new Error('CryptoJS 未定義，請確保加密庫已載入。');
             }
-            const host = 'ise-api.xfyun.cn';
+            const host = 'iat-api.xfyun.cn';
             const date = new Date().toUTCString();
-            const requestLine = 'GET /v2/open-ise HTTP/1.1';
+            const requestLine = 'GET /v2/iat HTTP/1.1';
             const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
-            log(`簽名原始字串:\n${signatureOrigin}`);
-            const hmac = CryptoJS.HmacSHA256(signatureOrigin, API_SECRET);
+            const hmac = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.XUNFEI_API_SECRET);
             const signature = CryptoJS.enc.Base64.stringify(hmac);
-            log(`signature (base64): ${signature}`);
-            const authorization = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-            log(`authorization: ${authorization}`);
+            const authorization =
+                `api_key="${CONFIG.XUNFEI_API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
             const encodedAuth = encodeURIComponent(authorization);
             const encodedDate = encodeURIComponent(date);
-            const url = `${WS_URL}?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
-            log(`最終 URL (前100字): ${url.substring(0, 100)}...`);
-            return url;
+            return `wss://${host}/v2/iat?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
         }
 
-        // ======================== 音頻採集 ============================
+        // ================================================================
+        // 7. 音頻採集（PCM 16k 16bit 單聲道）
+        // ================================================================
         function initAudio(callback) {
             navigator.mediaDevices.getUserMedia({
-                audio: {
-                    sampleRate: SAMPLE_RATE,
-                    channelCount: 1,
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                }
-            })
-            .then(stream => {
-                mediaStream = stream;
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                log(`音頻上下文採樣率: ${audioContext.sampleRate}Hz`);
-                if (audioContext.sampleRate !== SAMPLE_RATE) {
-                    log(`⚠️ 警告: 實際採樣率 ${audioContext.sampleRate} 不等於要求的 ${SAMPLE_RATE}，可能導致識別失敗。`, 'error');
-                }
-                const source = audioContext.createMediaStreamSource(stream);
-                scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-                scriptProcessor.onaudioprocess = (event) => {
-                    if (!isRecording) return;
-                    const inputData = event.inputBuffer.getChannelData(0);
-                    const pcm = new Int16Array(inputData.length);
-                    for (let i = 0; i < inputData.length; i++) {
-                        const s = Math.max(-1, Math.min(1, inputData[i]));
-                        pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    audio: {
+                        sampleRate: SAMPLE_RATE,
+                        channelCount: 1,
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
                     }
-                    audioBuffer.push(pcm);
-                };
-                source.connect(scriptProcessor);
-                scriptProcessor.connect(audioContext.destination);
-                callback(null);
-            })
-            .catch(err => {
-                callback(err);
-            });
+                })
+                .then(stream => {
+                    mediaStream = stream;
+                    audioContext = new(window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    log(`音頻上下文採樣率: ${audioContext.sampleRate}Hz`);
+                    const source = audioContext.createMediaStreamSource(stream);
+                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (event) => {
+                        if (!isRecording) return;
+                        const inputData = event.inputBuffer.getChannelData(0);
+                        const pcm = new Int16Array(inputData.length);
+                        for (let i = 0; i < inputData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, inputData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        audioBuffer.push(pcm);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                    callback(null);
+                })
+                .catch(err => {
+                    callback(err);
+                });
         }
 
-        // ======================== WebSocket 評測（修正握手幀） ============================
-        function startEvaluation() {
-            if (isEvaluating) {
-                log('⚠️ 已有評測進行中，忽略重複調用。', 'error');
-                return;
-            }
-            isEvaluating = true;
-
-            if (!teacherRefContent.trim()) {
-                setStatus(studentStatus, '⚠️ 請教師先設定參考答案。');
-                log('錯誤: 參考答案為空', 'error');
-                isEvaluating = false;
+        // ================================================================
+        // 8. 訊飛語音聽寫 - 開始識別
+        // ================================================================
+        function startXunfeiRecognition() {
+            if (isRecognizing) {
+                log('⚠️ 已有識別進行中', 'error');
                 return;
             }
 
@@ -357,111 +370,112 @@
                     if (err) {
                         setStatus(studentStatus, `❌ ${err.message}`);
                         log(`錯誤: ${err.message}`, 'error');
-                        isEvaluating = false;
                         return;
                     }
-                    startEvaluation();
+                    startXunfeiRecognition();
                 });
                 return;
             }
 
             try {
-                const wsUrl = buildWsUrl();
-                log(`WebSocket URL 生成成功 (長度: ${wsUrl.length})`);
+                const wsUrl = buildXunfeiWsUrl();
+                log(`WebSocket URL 生成成功`);
                 ws = new WebSocket(wsUrl);
+                isRecognizing = true;
                 receivedAnyMessage = false;
                 chunkCount = 0;
+                finalTranscript = '';
 
-                // 超時檢測 (15秒無任何消息)
+                // 超時檢測
                 if (timeoutId) clearTimeout(timeoutId);
                 timeoutId = setTimeout(() => {
                     if (!receivedAnyMessage && ws && ws.readyState === WebSocket.OPEN) {
-                        log('⚠️ 超過15秒未收到服務器任何回應，可能認證失敗或服務異常。', 'error');
-                        setStatus(studentStatus, '⚠️ 服務器無回應，請檢查簽名和網絡。');
+                        log('⚠️ 超過15秒未收到服務器回應', 'error');
+                        setStatus(studentStatus, '⚠️ 服務器無回應，請檢查網絡。');
                         if (ws) ws.close();
                         stopRecording();
                     }
-                    isEvaluating = false;
+                    isRecognizing = false;
                 }, 15000);
 
                 ws.onopen = () => {
                     log('WebSocket 已連接，發送握手幀...', 'success');
-                    setStatus(studentStatus, '🔗 已連接服務器，發送握手...');
-                    sendHandshake();
-                    // 開始發送音頻數據
-                    sendAudioData();
+                    setStatus(studentStatus, '🔗 已連接服務器，識別中...');
+                    sendXunfeiHandshake();
+                    sendAudioDataToXunfei();
                 };
 
                 ws.onmessage = (event) => {
                     receivedAnyMessage = true;
-                    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+                    if (timeoutId) { clearTimeout(timeoutId);
+                        timeoutId = null; }
                     try {
                         const data = JSON.parse(event.data);
-                        log(`收到服務器消息: ${JSON.stringify(data).substring(0, 200)}...`);
-                        handleServerMessage(data);
+                        log(`收到服務器消息`);
+                        handleXunfeiMessage(data);
                     } catch (e) {
                         log(`解析訊息失敗: ${e.message}`, 'error');
-                        setStatus(studentStatus, '⚠️ 服務器回應格式異常。');
                     }
                 };
 
                 ws.onerror = (err) => {
                     log(`WebSocket 錯誤: ${err.type || 'unknown'}`, 'error');
-                    setStatus(studentStatus, '❌ WebSocket 錯誤，請查看控制台。');
-                    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+                    setStatus(studentStatus, '❌ WebSocket 錯誤');
+                    if (timeoutId) { clearTimeout(timeoutId);
+                        timeoutId = null; }
                     stopRecording();
-                    isEvaluating = false;
+                    isRecognizing = false;
                 };
 
                 ws.onclose = (e) => {
-                    log(`WebSocket 關閉: code=${e.code}, reason=${e.reason || 'none'}`, e.code === 1006 ? 'error' : 'info');
+                    log(`WebSocket 關閉: code=${e.code}`, e.code === 1006 ? 'error' : 'info');
                     if (!receivedAnyMessage) {
-                        setStatus(studentStatus, `⚠️ 連接關閉 (code ${e.code})，未收到任何數據，可能認證失敗。`);
+                        setStatus(studentStatus, '⚠️ 連接關閉，未收到數據。');
                     }
                     if (isRecording) stopRecording();
-                    if (!resultCard.style.display || resultCard.style.display === 'none') {
-                        if (!receivedAnyMessage) {
-                            setStatus(studentStatus, '⚠️ 連接中斷，請檢查簽名和服務狀態。');
-                        }
-                    }
-                    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
-                    isEvaluating = false;
+                    if (timeoutId) { clearTimeout(timeoutId);
+                        timeoutId = null; }
+                    isRecognizing = false;
                 };
             } catch (e) {
                 log(`建立 WebSocket 失敗: ${e.message}`, 'error');
                 setStatus(studentStatus, `❌ 建立連接失敗：${e.message}`);
                 stopRecording();
-                isEvaluating = false;
+                isRecognizing = false;
             }
         }
 
-        // ========== 修正：加入 cmd: "ssb" 與 method 字段 ==========
-        function sendHandshake() {
+        // ================================================================
+        // 9. 訊飛語音聽寫 - 發送數據
+        // ================================================================
+        function sendXunfeiHandshake() {
+            // 語音聽寫（流式版）的握手協議
             const handshake = {
                 common: {
-                    app_id: APPID
+                    app_id: CONFIG.XUNFEI_APPID
                 },
                 business: {
-                    cmd: "ssb",                  // 必須
-                    method: "read_sentence",     // 依據官方文檔
-                    category: "read_sentence",   // 兼容
-                    language: "zh_cn",
-                    ref_text: teacherRefContent
+                    language: 'zh_cn',   // 中文
+                    domain: 'iat',       // 語音聽寫
+                    accent: 'mandarin',  // 普通話
+                    vad: 'eos',          // 靜音檢測
+                    dwa: 'wpgs'          // 動態權重
                 },
                 data: {
                     status: 0,
-                    format: "audio/L16;rate=16000",
-                    encoding: "raw",
-                    audio: ""
+                    format: 'audio/L16;rate=16000',
+                    encoding: 'raw',
+                    audio: ''
                 }
             };
             const msg = JSON.stringify(handshake);
-            log(`發送握手幀: ${msg.substring(0, 200)}...`);
+            log(`發送握手幀`);
             ws.send(msg);
         }
 
-        function sendAudioData() {
+        function sendAudioDataToXunfei() {
             const sendChunk = () => {
+                // 如果停止錄音或連接關閉，發送結束幀
                 if (!isRecording || ws.readyState !== WebSocket.OPEN) {
                     if (!isRecording && ws.readyState === WebSocket.OPEN) {
                         const endFrame = {
@@ -479,6 +493,7 @@
                 }
 
                 if (audioBuffer.length > 0) {
+                    // 合併 PCM 數據
                     const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
                     const merged = new Int16Array(totalLength);
                     let offset = 0;
@@ -488,6 +503,7 @@
                     }
                     audioBuffer = [];
 
+                    // 轉為 Base64
                     const bytes = new Uint8Array(merged.buffer);
                     let binary = '';
                     for (let i = 0; i < bytes.length; i++) {
@@ -515,49 +531,154 @@
             sendChunk();
         }
 
-        function handleServerMessage(data) {
+        // ================================================================
+        // 10. 訊飛語音聽寫 - 處理返回消息
+        // ================================================================
+        function handleXunfeiMessage(data) {
             // 檢查錯誤碼
             if (data.code && data.code !== 0) {
                 const msg = `服務器錯誤 (${data.code})：${data.message || '未知錯誤'}`;
                 log(`❌ ${msg}`, 'error');
                 setStatus(studentStatus, `❌ ${msg}`);
                 stopRecording();
-                isEvaluating = false;
+                isRecognizing = false;
                 return;
             }
 
-            // 即時轉寫結果
+            // 獲取識別結果
             if (data.data && data.data.result) {
                 const result = data.data.result;
-                if (result.text) {
-                    currentTranscript = result.text;
-                    showTranscript(currentTranscript);
-                    log(`即時轉寫: "${currentTranscript}"`);
+                // 處理 WS 格式的結果
+                if (result.ws) {
+                    let text = '';
+                    for (const w of result.ws) {
+                        for (const cw of w.cw) {
+                            text += cw.w;
+                        }
+                    }
+                    if (text) {
+                        finalTranscript = text;
+                        showTranscript(finalTranscript);
+                        log(`即時轉寫: "${finalTranscript}"`);
+                    }
                 }
             }
 
-            // 評測結果（最後一幀）
-            if (data.data && data.data.grade) {
-                const grade = data.data.grade;
-                log('收到評測結果，顯示分數...', 'success');
-                showResult(grade);
-                setStatus(studentStatus, '✅ 評測完成！');
+            // 檢查是否為最後一幀 (status === 2)
+            if (data.data && data.data.status === 2) {
+                log('收到最後一幀，識別完成', 'success');
+                setStatus(studentStatus, '✅ 語音識別完成！');
                 if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+
+                // 識別完成後，調用 DeepSeek 進行評分
+                if (finalTranscript.trim()) {
+                    callDeepSeekForScore(finalTranscript);
+                } else {
+                    setStatus(studentStatus, '⚠️ 未能識別到有效語音，請重新錄音。');
+                }
                 stopRecording();
-                isEvaluating = false;
+                isRecognizing = false;
             }
         }
 
-        // ======================== 錄音控制 ============================
+        // ================================================================
+        // 11. DeepSeek API - 評分與建議
+        // ================================================================
+        async function callDeepSeekForScore(studentAnswer) {
+            setStatus(studentStatus, '🤖 正在呼叫 AI 進行評分...');
+            log('呼叫 DeepSeek API 進行評分...');
+
+            const prompt = `
+你是一位專業的普通話語言教師。請根據以下資訊，對學生的看圖說話回答進行評分。
+
+【圖片主題描述】
+${teacherRefContent}
+
+【學生的回答】
+${studentAnswer}
+
+請從以下三個維度進行評分（每個維度滿分 100 分）：
+1. 內容準確度 (accuracy)：回答是否準確描述了圖片內容，是否與主題相關。
+2. 表達流暢度 (fluency)：語言表達是否流暢自然，是否有明顯的停頓或重複。
+3. 完整性 (integrity)：回答是否完整，是否涵蓋了圖片的主要元素。
+
+請以 JSON 格式回覆，包含以下字段：
+{
+    "accuracy": 分數,
+    "fluency": 分數,
+    "integrity": 分數,
+    "total_score": 總分（三個維度的平均分，四捨五入到整數）,
+    "suggestion": "具體的改進建議（50-100字，用繁體中文）"
+}
+
+只回覆 JSON，不要有其他內容。
+`;
+
+            try {
+                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${CONFIG.DEEPSEEK_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: 'deepseek-chat',
+                        messages: [
+                            { role: 'system', content: '你是一位專業的普通話語言教師，擅長評估學生的口語表達能力。' },
+                            { role: 'user', content: prompt }
+                        ],
+                        temperature: 0.3,
+                        max_tokens: 500
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`DeepSeek API 錯誤 (${response.status}): ${errorText}`);
+                }
+
+                const data = await response.json();
+                const content = data.choices[0].message.content;
+                log(`DeepSeek 回應: ${content.substring(0, 100)}...`, 'success');
+
+                // 解析 JSON
+                const grade = JSON.parse(content);
+                showResult(grade);
+                setStatus(studentStatus, '✅ 評分完成！');
+
+            } catch (error) {
+                log(`DeepSeek API 調用失敗: ${error.message}`, 'error');
+                setStatus(studentStatus, `❌ 評分失敗：${error.message}`);
+                // 顯示一個默認評分，避免完全空白
+                showResult({
+                    accuracy: 0,
+                    fluency: 0,
+                    integrity: 0,
+                    total_score: 0,
+                    suggestion: '評分服務暫時不可用，請稍後重試。'
+                });
+            }
+        }
+
+        // ================================================================
+        // 12. 錄音控制
+        // ================================================================
         function startRecording() {
             if (isRecording) return;
             log('========== 開始錄音 ==========');
             audioBuffer = [];
-            currentTranscript = '';
+            finalTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
             receivedAnyMessage = false;
             chunkCount = 0;
+
+            // 檢查 DeepSeek API Key 是否已設定
+            if (!CONFIG.DEEPSEEK_API_KEY || CONFIG.DEEPSEEK_API_KEY === 'sk-your-deepseek-api-key-here') {
+                setStatus(studentStatus, '⚠️ 請先在程式碼中設定 DeepSeek API Key');
+                log('錯誤: DeepSeek API Key 未設定', 'error');
+                return;
+            }
 
             initAudio((err) => {
                 if (err) {
@@ -578,21 +699,21 @@
                     seconds++;
                     timerDisplay.textContent = formatTime(seconds);
                 }, 1000);
-                setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容...');
-                log('錄音已啟動，開始建立 WebSocket 評測...');
+                setStatus(studentStatus, '🔴 錄音中，請看圖說話...');
+                log('錄音已啟動，開始語音識別...');
 
                 try {
-                    startEvaluation();
+                    startXunfeiRecognition();
                 } catch (e) {
-                    log(`啟動評測失敗: ${e.message}`, 'error');
-                    setStatus(studentStatus, `❌ 啟動評測失敗：${e.message}`);
+                    log(`啟動識別失敗: ${e.message}`, 'error');
+                    setStatus(studentStatus, `❌ 啟動識別失敗：${e.message}`);
                     stopRecording();
                 }
             });
         }
 
         function stopRecording() {
-            if (!isRecording && !isEvaluating) return;
+            if (!isRecording && !isRecognizing) return;
             isRecording = false;
             micDot.className = 'dot';
             micStatusText.textContent = '⏹️ 錄音已停止';
@@ -603,6 +724,7 @@
                 recordTimer = null;
             }
 
+            // 釋放音頻資源
             if (mediaStream) {
                 mediaStream.getTracks().forEach(t => t.stop());
                 mediaStream = null;
@@ -616,6 +738,7 @@
                 scriptProcessor = null;
             }
 
+            // 如果 WebSocket 仍打開，發送結束幀
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const endFrame = {
                     data: {
@@ -626,21 +749,23 @@
                     }
                 };
                 ws.send(JSON.stringify(endFrame));
-                log('發送結束幀 (status=2) 因用戶停止');
+                log('發送結束幀 (status=2)');
                 setTimeout(() => { if (ws) ws.close(); }, 500);
             }
 
             if (!resultCard.style.display || resultCard.style.display === 'none') {
                 if (!receivedAnyMessage) {
-                    setStatus(studentStatus, '⚠️ 未收到服務器回應，請檢查簽名和服務狀態。');
+                    setStatus(studentStatus, '⚠️ 未收到服務器回應，請檢查網絡。');
                 } else {
-                    setStatus(studentStatus, '⏹️ 錄音已停止，等待評測結果...');
+                    setStatus(studentStatus, '⏹️ 錄音已停止，等待識別結果...');
                 }
             }
             log('========== 錄音停止 ==========');
         }
 
-        // ======================== 教師功能 ============================
+        // ================================================================
+        // 13. 教師功能
+        // ================================================================
         uploadArea.addEventListener('click', (e) => {
             if (e.target.tagName !== 'INPUT') imageInput.click();
         });
@@ -679,13 +804,15 @@
             log('教師重設');
         });
 
-        // ======================== 學生功能 ============================
+        // ================================================================
+        // 14. 學生功能
+        // ================================================================
         startRecordBtn.addEventListener('click', startRecording);
         stopRecordBtn.addEventListener('click', stopRecording);
 
         clearStudentBtn.addEventListener('click', () => {
             if (isRecording) stopRecording();
-            currentTranscript = '';
+            finalTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
             setStatus(studentStatus, '🗑️ 已清空。');
@@ -696,11 +823,13 @@
             startRecordBtn.disabled = false;
             stopRecordBtn.disabled = true;
             if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-            isEvaluating = false;
+            isRecognizing = false;
             log('清空學生狀態');
         });
 
-        // ======================== 分頁切換 ============================
+        // ================================================================
+        // 15. 分頁切換
+        // ================================================================
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -711,10 +840,14 @@
             });
         });
 
-        // ======================== 初始化 ============================
+        // ================================================================
+        // 16. 初始化
+        // ================================================================
         studentRefDisplay.textContent = teacherRefContent;
-        setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」。');
+        setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」看圖說話。');
         log('系統初始化完成');
+
+        // 預加載 CryptoJS
         loadCryptoJs((err) => {
             if (err) {
                 log(`⚠️ ${err.message}`, 'error');
@@ -724,8 +857,8 @@
             }
         });
 
-        console.log('✅ 最終修正版已啟動，請查看頁面日誌區。');
-        console.log('📌 修正要點: 握手幀中添加 cmd: "ssb" 和 method 字段');
+        console.log('✅ 語音轉文字 + DeepSeek 評分版已啟動');
+        console.log('📌 請在 CONFIG 中設定 DeepSeek API Key');
     })();
 </script>
 </body>
