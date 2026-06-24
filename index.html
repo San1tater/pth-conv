@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 最終穩定版</title>
+    <title>普通話語音評測系統 · 完整修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -116,7 +116,7 @@
         'use strict';
 
         // ================================================================
-        // 1. 配置（請確認憑證正確）
+        // 1. 配置
         // ================================================================
         const CONFIG = {
             IAT_APPID: 'b35875f2',
@@ -263,7 +263,7 @@
         }
 
         // ================================================================
-        // 6. 教師視圖（移除半固定式的整體關鍵字框）
+        // 6. 教師視圖
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
@@ -343,7 +343,9 @@
                 <div class="form-group" id="refAnswerGroup" style="${isOpen ? '' : 'display:none;'}">
                     <label>${t('referenceAnswer')}</label><textarea id="editRefAnswer" rows="2">${q.refAnswer || ''}</textarea>
                 </div>
-                ${isOpen ? `<div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${(q.keywords||[]).join(', ')}" placeholder="逗號分隔" /></div>` : ''}
+                ${isOpen ? `
+                <div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${(q.keywords||[]).join(', ')}" placeholder="逗號分隔" /></div>
+                ` : ''}
                 <div class="form-group">
                     <label>${t('image')}</label>
                     <input type="file" id="editImage" accept="image/*" onchange="handleImageUpload(event)" />
@@ -645,17 +647,293 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（完整，與前同）
+        // 10. 開放式錄音綁定（完整無省略）
         // ================================================================
         function bindOpenRecording(q) {
-            // 此函數與先前版本相同，為節省篇幅此處略過，但實際完整代碼中包含。
-            // 因字數限制，此處提供完整函數的縮減版，但保證功能完整。
-            // 實際使用時請確保此函數完整。
-            console.warn('bindOpenRecording 完整實作請參考最終版');
+            const startBtn = document.getElementById('startRecordBtn');
+            const stopBtn = document.getElementById('stopRecordBtn');
+            const dot = document.getElementById('recordDot');
+            const timer = document.getElementById('recordTimer');
+            const statusText = document.getElementById('statusText');
+            const transcript = document.getElementById('studentTranscript');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            let mediaStream = null, audioContext = null, scriptProcessor = null;
+            let isRecording = false, recordTimer = null, seconds = 0;
+            let audioBuffer = [];
+            const SAMPLE_RATE = 16000;
+            let iatWs = null, isRecognizing = false, finalTranscript = '';
+            let iatReceivedMessage = false, iatTimeoutId = null, iatChunkCount = 0;
+            let isIatEndSent = false, waitForIatResult = false;
+            let cryptoReady = false;
+            let sparkWs = null, isScoring = false, sparkResult = '';
+            let sparkTimeoutId = null;
+
+            if (!cryptoReady) loadCryptoJs(() => {});
+
+            startBtn.onclick = function() { if (!isRecording) startRecording(); };
+            stopBtn.onclick = function() { if (isRecording) stopRecording(); };
+
+            function startRecording() {
+                audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
+                document.getElementById('scoreResult').classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                progressBar.style.width = '0%';
+                initAudio((err) => {
+                    if (err) { console.error('麥克風錯誤:', err); return; }
+                    isRecording = true;
+                    dot.className = 'status-dot recording';
+                    startBtn.disabled = true; stopBtn.disabled = false;
+                    seconds = 0; timer.textContent = '00:00';
+                    if (recordTimer) clearInterval(recordTimer);
+                    recordTimer = setInterval(() => {
+                        seconds++;
+                        timer.textContent = String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
+                    }, 1000);
+                    statusText.textContent = '🔴 '+t('recording');
+                    startIatRecognition();
+                });
+            }
+
+            function stopRecording() {
+                isRecording = false;
+                dot.className = 'status-dot';
+                startBtn.disabled = false; stopBtn.disabled = true;
+                if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
+                statusText.textContent = '⏹️ '+t('stopRecording');
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '10%';
+                progressText.textContent = t('progress');
+                if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+                if (audioContext) { audioContext.close(); audioContext=null; }
+                if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
+                if (!iatReceivedMessage) console.warn('⚠️ 語音無回應');
+            }
+
+            function initAudio(cb) {
+                navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                }).then(stream => {
+                    mediaStream = stream;
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    const source = audioContext.createMediaStreamSource(stream);
+                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (event) => {
+                        if (!isRecording) return;
+                        const inputData = event.inputBuffer.getChannelData(0);
+                        const pcm = new Int16Array(inputData.length);
+                        for (let i=0; i<inputData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, inputData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        audioBuffer.push(pcm);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                    cb(null);
+                }).catch(err => cb(err));
+            }
+
+            function startIatRecognition() {
+                if (isRecognizing) return;
+                if (!cryptoReady) { loadCryptoJs(() => startIatRecognition()); return; }
+                try {
+                    const urlObj = new URL(CONFIG.IAT_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.IAT_API_KEY, CONFIG.IAT_API_SECRET);
+                    iatWs = new WebSocket(wsUrl);
+                    isRecognizing = true;
+                    iatReceivedMessage = false; iatChunkCount = 0; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false;
+                    if (iatTimeoutId) clearTimeout(iatTimeoutId);
+                    iatTimeoutId = setTimeout(() => {
+                        if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
+                            console.warn('⚠️ 語音服務無回應');
+                            if (iatWs) iatWs.close();
+                            stopRecording();
+                        }
+                        isRecognizing = false;
+                    }, 20000);
+                    iatWs.onopen = () => { sendIatHandshake(); sendIatAudioData(); };
+                    iatWs.onmessage = (event) => {
+                        iatReceivedMessage = true;
+                        if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
+                        try { const data = JSON.parse(event.data); handleIatMessage(data); } catch(e) {}
+                    };
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecording(); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecording(); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecording(); }
+            }
+
+            function sendIatHandshake() {
+                const handshake = { common: { app_id: CONFIG.IAT_APPID }, business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' }, data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } };
+                iatWs.send(JSON.stringify(handshake));
+            }
+
+            function sendIatAudioData() {
+                const sendChunk = () => {
+                    if (isIatEndSent || iatWs.readyState !== WebSocket.OPEN) return;
+                    if (!isRecording) {
+                        isIatEndSent = true;
+                        iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
+                        waitForIatResult = true;
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        return;
+                    }
+                    if (audioBuffer.length > 0) {
+                        const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                        const merged = new Int16Array(totalLength);
+                        let offset = 0;
+                        for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
+                        audioBuffer = [];
+                        const bytes = new Uint8Array(merged.buffer);
+                        let binary = '';
+                        for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                        const base64 = btoa(binary);
+                        iatWs.send(JSON.stringify({ data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 } }));
+                        iatChunkCount++;
+                    }
+                    setTimeout(sendChunk, 100);
+                };
+                sendChunk();
+            }
+
+            function handleIatMessage(data) {
+                if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecording(); isRecognizing = false; return; }
+                if (data.data && data.data.result) {
+                    const result = data.data.result;
+                    if (result.ws) {
+                        let text = '';
+                        for (const w of result.ws) {
+                            for (const cw of w.cw) text += cw.w;
+                        }
+                        if (text) {
+                            finalTranscript += text;
+                            transcript.innerHTML = toTraditional(finalTranscript);
+                            progressBar.style.width = '40%';
+                        }
+                    }
+                }
+                if (data.data && data.data.status === 2) {
+                    waitForIatResult = false;
+                    if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
+                    if (finalTranscript.trim()) {
+                        studentAnswerText = finalTranscript;
+                        progressBar.style.width = '60%';
+                        callSparkForScore(q, finalTranscript);
+                    } else { console.warn('未識別到語音'); progressContainer.classList.add('hidden'); }
+                    stopRecording();
+                    isRecognizing = false;
+                }
+            }
+
+            function callSparkForScore(q, answer) {
+                if (isScoring) return;
+                isScoring = true;
+                statusText.textContent = '🤖 '+t('scoring');
+                progressBar.style.width = '70%';
+                if (!cryptoReady) { loadCryptoJs(() => callSparkForScore(q, answer)); return; }
+                try {
+                    const urlObj = new URL(CONFIG.SPARK_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.SPARK_API_KEY, CONFIG.SPARK_API_SECRET);
+                    sparkWs = new WebSocket(wsUrl);
+                    sparkResult = '';
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    sparkTimeoutId = setTimeout(() => {
+                        if (sparkWs && sparkWs.readyState === WebSocket.OPEN) { console.warn('評分超時'); sparkWs.close(); }
+                        isScoring = false;
+                        progressContainer.classList.add('hidden');
+                    }, 30000);
+                    sparkWs.onopen = () => { progressBar.style.width = '80%'; sendSparkRequest(q, answer); };
+                    sparkWs.onmessage = (event) => { try { const data = JSON.parse(event.data); handleSparkMessage(data); } catch(e) {} };
+                    sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); };
+                    sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); };
+                } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); }
+            }
+
+            function sendSparkRequest(q, answer) {
+                const hasChinese = /[\u4e00-\u9fa5]/.test(answer);
+                let prompt = '';
+                if (!hasChinese) {
+                    prompt = `學生回答為英文，請給予鼓勵，但所有評分項目設為0。建議用中文回答。`;
+                } else {
+                    prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-100)，給出總分，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
+                }
+                const request = {
+                    header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
+                    parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
+                    payload: { message: { text: [ { role: 'system', content: '你是一位專業的普通話教師。' }, { role: 'user', content: prompt } ] } }
+                };
+                sparkWs.send(JSON.stringify(request));
+            }
+
+            function handleSparkMessage(data) {
+                if (data.header && data.header.code !== 0) { console.error('星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); return; }
+                if (data.payload && data.payload.choices && data.payload.choices.text) {
+                    for (const text of data.payload.choices.text) {
+                        if (text.content) sparkResult += text.content;
+                    }
+                }
+                if (data.header && data.header.status === 2) {
+                    if (sparkTimeoutId) clearTimeout(sparkTimeoutId);
+                    if (sparkWs) sparkWs.close();
+                    progressBar.style.width = '90%';
+                    try {
+                        let jsonStr = sparkResult.trim();
+                        jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                        const match = jsonStr.match(/\{[\s\S]*\}/);
+                        if (match) jsonStr = match[0];
+                        const grade = JSON.parse(jsonStr);
+                        const hasChinese = /[\u4e00-\u9fa5]/.test(studentAnswerText);
+                        if (!hasChinese) { grade.accuracy = 0; grade.fluency = 0; grade.integrity = 0; grade.total_score = 0; grade.suggestion = t('englishDetected'); }
+                        displayScore(grade);
+                        progressContainer.classList.add('hidden');
+                    } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); }
+                    isScoring = false;
+                }
+            }
+
+            function displayScore(grade) {
+                const resultDiv = document.getElementById('scoreResult');
+                resultDiv.classList.remove('hidden');
+                document.getElementById('totalScore').textContent = Math.round(grade.total_score || 0);
+                document.getElementById('accScore').textContent = Math.round(grade.accuracy || 0);
+                document.getElementById('fluencyScore').textContent = Math.round(grade.fluency || 0);
+                document.getElementById('integrityScore').textContent = Math.round(grade.integrity || 0);
+                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
+                document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
+                document.querySelectorAll('#scoreResult .num').forEach(el => {
+                    const val = parseFloat(el.textContent);
+                    el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
+                });
+                statusText.textContent = '✅ '+t('done');
+                console.log('✅ 評分完成！');
+            }
+
+            function buildWsUrl(host, path, apiKey, apiSecret) {
+                if (typeof CryptoJS === 'undefined') throw new Error('CryptoJS not loaded');
+                const date = new Date().toUTCString();
+                const requestLine = `GET ${path} HTTP/1.1`;
+                const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
+                const hmac = CryptoJS.HmacSHA256(signatureOrigin, apiSecret);
+                const signature = CryptoJS.enc.Base64.stringify(hmac);
+                const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+                const authorization = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(authorizationOrigin));
+                return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
+            }
+
+            function loadCryptoJs(cb) {
+                if (typeof CryptoJS !== 'undefined') { cryptoReady=true; cb(); return; }
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
+                script.onload = function() { cryptoReady=true; cb(); };
+                script.onerror = function() { console.error('加密庫載入失敗'); };
+                document.head.appendChild(script);
+            }
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（修正即時更新與評分解析）
+        // 11. 半固定式錄音綁定（完整無省略，修正多項問題）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -679,15 +957,11 @@
             let cryptoReady = false;
             let sparkWs = null, isScoring = false, sparkResult = '';
             let sparkTimeoutId = null;
-            let currentAnswer = ''; // 儲存當前提交的答案，供評分解析使用
 
             if (!cryptoReady) loadCryptoJs(() => {});
 
-            // 修正：立即更新按鈕狀態
             function updateButtons() {
-                // 重新獲取所有錄音按鈕，確保是最新的 DOM
-                const btns = document.querySelectorAll('.sq-record-btn');
-                btns.forEach((btn, idx) => {
+                recordBtns.forEach((btn, idx) => {
                     const answered = subAnswered[idx] || false;
                     let disabled = answered || subLocked || isScoring;
                     if (idx > 0 && !subAnswered[idx-1]) disabled = true;
@@ -695,16 +969,10 @@
                     btn.disabled = disabled;
                 });
                 const allDone = subs.every((_, idx) => subAnswered[idx]);
-                if (submitBtn) {
-                    submitBtn.disabled = !allDone || subLocked || isScoring;
-                }
-                if (submitStatus) {
-                    submitStatus.textContent = allDone ? t('done') : t('answering');
-                }
-                console.log('updateButtons: subAnswered=', subAnswered);
+                submitBtn.disabled = !allDone || subLocked || isScoring;
+                submitStatus.textContent = allDone ? t('done') : t('answering');
             }
 
-            // 綁定事件
             recordBtns.forEach((btn, idx) => {
                 btn.onclick = function() {
                     if (this.disabled) return;
@@ -723,7 +991,6 @@
                 };
             });
 
-            // 錄音相關函數（與之前相同，此處省略細節）
             function startRecordingForSub(idx) {
                 audioBuffer = []; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false; iatReceivedMessage = false; iatChunkCount = 0;
                 progressContainer.classList.add('hidden');
@@ -753,10 +1020,91 @@
                 updateButtons();
             }
 
-            function initAudio(cb) { /* 省略，與之前相同 */ }
-            function startIatRecognitionForSub(idx) { /* 省略，與之前相同 */ }
-            function sendIatHandshake() { /* 省略 */ }
-            function sendIatAudioData() { /* 省略 */ }
+            function initAudio(cb) {
+                navigator.mediaDevices.getUserMedia({
+                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                }).then(stream => {
+                    mediaStream = stream;
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    const source = audioContext.createMediaStreamSource(stream);
+                    scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                    scriptProcessor.onaudioprocess = (event) => {
+                        if (!isRecording) return;
+                        const inputData = event.inputBuffer.getChannelData(0);
+                        const pcm = new Int16Array(inputData.length);
+                        for (let i=0; i<inputData.length; i++) {
+                            const s = Math.max(-1, Math.min(1, inputData[i]));
+                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        audioBuffer.push(pcm);
+                    };
+                    source.connect(scriptProcessor);
+                    scriptProcessor.connect(audioContext.destination);
+                    cb(null);
+                }).catch(err => cb(err));
+            }
+
+            function startIatRecognitionForSub(idx) {
+                if (isRecognizing) return;
+                if (!cryptoReady) { loadCryptoJs(() => startIatRecognitionForSub(idx)); return; }
+                try {
+                    const urlObj = new URL(CONFIG.IAT_WS_URL);
+                    const wsUrl = buildWsUrl(urlObj.host, urlObj.pathname, CONFIG.IAT_API_KEY, CONFIG.IAT_API_SECRET);
+                    iatWs = new WebSocket(wsUrl);
+                    isRecognizing = true;
+                    iatReceivedMessage = false; iatChunkCount = 0; finalTranscript = ''; isIatEndSent = false; waitForIatResult = false;
+                    if (iatTimeoutId) clearTimeout(iatTimeoutId);
+                    iatTimeoutId = setTimeout(() => {
+                        if (!iatReceivedMessage && iatWs && iatWs.readyState === WebSocket.OPEN) {
+                            console.warn('語音無回應');
+                            if (iatWs) iatWs.close();
+                            stopRecordingForSub(idx);
+                        }
+                        isRecognizing = false;
+                    }, 20000);
+                    iatWs.onopen = () => { sendIatHandshake(); sendIatAudioData(); };
+                    iatWs.onmessage = (event) => {
+                        iatReceivedMessage = true;
+                        if (iatTimeoutId) { clearTimeout(iatTimeoutId); iatTimeoutId = null; }
+                        try { const data = JSON.parse(event.data); handleIatMessageForSub(data, idx); } catch(e) {}
+                    };
+                    iatWs.onerror = () => { console.error('語音錯誤'); stopRecordingForSub(idx); isRecognizing = false; };
+                    iatWs.onclose = () => { if (!iatReceivedMessage) console.warn('語音連線失敗'); if (isRecording) stopRecordingForSub(idx); isRecognizing = false; };
+                } catch(e) { console.error('語音初始化失敗', e); stopRecordingForSub(idx); }
+            }
+
+            function sendIatHandshake() {
+                const handshake = { common: { app_id: CONFIG.IAT_APPID }, business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' }, data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } };
+                iatWs.send(JSON.stringify(handshake));
+            }
+
+            function sendIatAudioData() {
+                const sendChunk = () => {
+                    if (isIatEndSent || iatWs.readyState !== WebSocket.OPEN) return;
+                    if (!isRecording) {
+                        isIatEndSent = true;
+                        iatWs.send(JSON.stringify({ data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' } }));
+                        waitForIatResult = true;
+                        setTimeout(() => { if (waitForIatResult && !finalTranscript) { console.warn('語音識別超時'); if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close(); } }, 10000);
+                        return;
+                    }
+                    if (audioBuffer.length > 0) {
+                        const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                        const merged = new Int16Array(totalLength);
+                        let offset = 0;
+                        for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
+                        audioBuffer = [];
+                        const bytes = new Uint8Array(merged.buffer);
+                        let binary = '';
+                        for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                        const base64 = btoa(binary);
+                        iatWs.send(JSON.stringify({ data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: base64 } }));
+                        iatChunkCount++;
+                    }
+                    setTimeout(sendChunk, 100);
+                };
+                sendChunk();
+            }
 
             function handleIatMessageForSub(data, idx) {
                 if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecordingForSub(idx); isRecognizing = false; return; }
@@ -780,32 +1128,38 @@
                     if (finalTranscript.trim()) {
                         subAnswers[idx] = finalTranscript;
                         subAnswered[idx] = true;
+                        // 重置當前錄製索引，這樣其他按鈕不會被鎖定
+                        currentRecordingIdx = null;
+                        // 更新狀態顯示
                         const statusSpan = document.querySelectorAll('.sq-status')[idx];
                         statusSpan.textContent = t('alreadyAnswered');
                         statusSpan.className = 'sq-status done';
+                        // 隱藏停止按鈕
                         const recordBtn = recordBtns[idx];
                         const stopBtn = stopBtns[idx];
                         recordBtn.style.display = 'inline-block';
                         stopBtn.style.display = 'none';
-                        // 立即更新按鈕狀態
+                        // 更新所有按鈕狀態（這會解鎖下一題）
                         updateButtons();
                         const allDone = subs.every((_, i) => subAnswered[i]);
                         if (allDone) {
-                            if (submitStatus) submitStatus.textContent = t('done');
-                            if (submitBtn) submitBtn.disabled = false;
+                            submitStatus.textContent = t('done');
+                            submitBtn.disabled = false;
                             console.log('✅ 全部子問題已作答，請點擊提交');
                         }
-                        // 釋放音頻資源
+                        // 清理音頻資源
                         isRecording = false;
                         if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                         if (audioContext) { audioContext.close(); audioContext=null; }
                         if (scriptProcessor) { scriptProcessor.disconnect(); scriptProcessor=null; }
+                        recordBtn.style.display = 'inline-block';
+                        stopBtn.style.display = 'none';
                     } else { console.warn('未識別到語音'); }
                     isRecognizing = false;
                 }
             }
 
-            // 提交全部
+            // 提交全部答案
             submitBtn.onclick = function() {
                 if (this.disabled) return;
                 subLocked = true;
@@ -817,9 +1171,9 @@
                 subs.forEach((sq, idx) => {
                     fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
                 });
-                // 儲存當前答案供評分使用
-                currentAnswer = fullAnswer;
-                callSparkForFixed(q, fullAnswer);
+                // 將完整答案儲存在變數中供後續使用
+                const answerText = fullAnswer;
+                callSparkForFixed(q, answerText);
             };
 
             function callSparkForFixed(q, answer) {
@@ -840,8 +1194,18 @@
                         subLocked = false;
                         updateButtons();
                     }, 30000);
-                    sparkWs.onopen = () => { progressBar.style.width = '50%'; sendSparkRequestFixed(q, answer); };
-                    sparkWs.onmessage = (event) => { try { const data = JSON.parse(event.data); handleSparkMessageFixed(data); } catch(e) {} };
+                    // 傳入 answer 給回調使用
+                    sparkWs.onopen = () => {
+                        progressBar.style.width = '50%';
+                        sendSparkRequestFixed(q, answer);
+                    };
+                    sparkWs.onmessage = (event) => {
+                        try {
+                            const data = JSON.parse(event.data);
+                            // 將 answer 傳遞給處理函數
+                            handleSparkMessageFixed(data, answer);
+                        } catch(e) {}
+                    };
                     sparkWs.onerror = () => { console.error('評分錯誤'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
                     sparkWs.onclose = () => { if (!sparkResult) console.warn('評分無回應'); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); };
                 } catch(e) { console.error('評分初始化失敗', e); isScoring = false; progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
@@ -867,9 +1231,16 @@
                 sparkWs.send(JSON.stringify(request));
             }
 
-            // 修正：使用 currentAnswer 變數
-            function handleSparkMessageFixed(data) {
-                if (data.header && data.header.code !== 0) { console.error('星火錯誤 '+data.header.code); isScoring = false; if (sparkWs) sparkWs.close(); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); return; }
+            function handleSparkMessageFixed(data, answer) {
+                if (data.header && data.header.code !== 0) {
+                    console.error('星火錯誤 '+data.header.code);
+                    isScoring = false;
+                    if (sparkWs) sparkWs.close();
+                    progressContainer.classList.add('hidden');
+                    subLocked = false;
+                    updateButtons();
+                    return;
+                }
                 if (data.payload && data.payload.choices && data.payload.choices.text) {
                     for (const text of data.payload.choices.text) {
                         if (text.content) sparkResult += text.content;
@@ -885,14 +1256,28 @@
                         const match = jsonStr.match(/\{[\s\S]*\}/);
                         if (match) jsonStr = match[0];
                         const grade = JSON.parse(jsonStr);
-                        // 使用 currentAnswer 檢測英文
-                        const hasChinese = /[\u4e00-\u9fa5]/.test(currentAnswer);
-                        if (!hasChinese) { grade.total_score = 0; grade.suggestion = t('englishDetected'); grade.sub_scores = (q.subQuestions || []).map(() => ({accuracy:0, fluency:0, integrity:0})); }
+                        const hasChinese = /[\u4e00-\u9fa5]/.test(answer);
+                        if (!hasChinese) {
+                            grade.total_score = 0;
+                            grade.suggestion = t('englishDetected');
+                            grade.sub_scores = (q.subQuestions || []).map(() => ({accuracy:0, fluency:0, integrity:0}));
+                        }
                         displayFixedScore(grade);
                         progressContainer.classList.add('hidden');
                         subLocked = false;
                         updateButtons();
-                    } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); subLocked = false; updateButtons(); }
+                    } catch(e) {
+                        console.error('評分解析失敗', e);
+                        console.log('原始回應:', sparkResult);
+                        progressContainer.classList.add('hidden');
+                        subLocked = false;
+                        updateButtons();
+                        // 顯示錯誤提示
+                        const resultDiv = document.getElementById('scoreResult');
+                        resultDiv.classList.remove('hidden');
+                        document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>評分服務回應異常，請稍後重試。`;
+                        document.getElementById('scoreSource').textContent = '評分失敗';
+                    }
                     isScoring = false;
                 }
             }
@@ -953,7 +1338,6 @@
                 document.head.appendChild(script);
             }
 
-            // 初始更新
             updateButtons();
         }
 
@@ -963,7 +1347,7 @@
         initOpenCC();
         loadData();
         render();
-        console.log('✅ 最終穩定版已啟動，所有功能完整。');
+        console.log('✅ 完整修正版已啟動，所有功能皆已包含。');
     })();
 </script>
 </body>
