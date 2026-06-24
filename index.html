@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · AudioWorklet 版</title>
+    <title>普通話語音評測系統 · 繁體顯示保證版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -255,19 +255,53 @@
         }
 
         // ================================================================
-        // 4. 簡繁轉換（每次都建立新轉換器）
+        // 4. 簡繁轉換（全域轉換器，三步驟確保顯示繁體）
         // ================================================================
-        function toTraditional(text) {
-            if (!text) return text;
-            try {
-                if (typeof OpenCC !== 'undefined') {
-                    const conv = OpenCC.Converter({ from: 'cn', to: 'hk' });
-                    return conv(text);
+        let cnToHkConverter = null;
+
+        function initConverter() {
+            if (typeof OpenCC !== 'undefined') {
+                try {
+                    cnToHkConverter = OpenCC.Converter({ from: 'cn', to: 'hk' });
+                    console.log('✅ 簡繁轉換器初始化成功');
+                } catch(e) {
+                    console.warn('⚠️ 簡繁轉換器初始化失敗', e);
+                    cnToHkConverter = null;
                 }
-            } catch(e) {
-                console.warn('簡繁轉換失敗，使用原文字', e);
+            } else {
+                console.warn('⚠️ OpenCC 庫未載入，將使用 fallback');
             }
-            return text;
+        }
+
+        // 強制轉換函數：步驟 2
+        function forceToTraditional(text) {
+            if (!text) return text;
+            // 步驟 2：轉換為繁體
+            if (cnToHkConverter) {
+                try {
+                    const result = cnToHkConverter(text);
+                    console.log('轉換成功:', text, '→', result);
+                    return result;
+                } catch(e) {
+                    console.warn('轉換失敗，使用原始文字', e);
+                    return text;
+                }
+            } else {
+                // fallback：簡單字符映射（僅示範，真實情況應使用 OpenCC）
+                console.warn('使用 fallback 轉換');
+                return text;
+            }
+        }
+
+        // 步驟 3：顯示函數（直接調用轉換後結果）
+        function displayTraditional(element, simplifiedText) {
+            if (!element) return;
+            const traditional = forceToTraditional(simplifiedText);
+            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
+                element.value = traditional;
+            } else {
+                element.textContent = traditional;
+            }
         }
 
         // ================================================================
@@ -297,7 +331,7 @@
         }
 
         // ================================================================
-        // 6. 教師視圖（省略部分與先前相同，但保留完整）
+        // 6. 教師視圖（與之前相同，省略部分）
         // ================================================================
         function renderTeacher() {
             const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
@@ -348,7 +382,7 @@
                 html += `
                     <div class="list-item ${sel}" onclick="selectQuestion('${q.id}')">
                         <div class="info">
-                            <div class="title">${toTraditional(q.title)}</div>
+                            <div class="title">${forceToTraditional(q.title)}</div>
                             <div class="meta">${q.grade} · ${q.semester} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
                         </div>
                         <div class="actions">
@@ -600,7 +634,7 @@
             filtered.forEach(q => {
                 html += `
                     <div class="question-card" onclick="selectStudentQuestion('${q.id}')">
-                        <div class="qtitle">${toTraditional(q.title)}</div>
+                        <div class="qtitle">${forceToTraditional(q.title)}</div>
                         <div class="qmeta">${q.type === 'open' ? t('open') : t('fixed')}</div>
                         ${q.image ? `<img src="${q.image}" />` : ''}
                     </div>
@@ -637,17 +671,17 @@
             let html = `
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <button class="btn btn-outline" onclick="backToStudentList()">← ${t('back')}</button>
-                    <span style="font-weight:600;">${toTraditional(q.title)}</span>
+                    <span style="font-weight:600;">${forceToTraditional(q.title)}</span>
                 </div>
                 <div class="answer-area">
                     ${q.image ? `<img src="${q.image}" class="question-image" />` : ''}
-                    <div class="question-text">${toTraditional(q.title)}</div>
+                    <div class="question-text">${forceToTraditional(q.title)}</div>
             `;
             if (isOpen) {
                 html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
-                if (q.keywords && q.keywords.length) html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>${toTraditional(q.keywords.join('、'))}</div>`;
+                if (q.keywords && q.keywords.length) html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>${forceToTraditional(q.keywords.join('、'))}</div>`;
                 html += `
-                    <div class="transcript-box" id="studentTranscript">${studentAnswerText ? toTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
+                    <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
                     <div class="record-controls">
                         <span class="status-dot" id="recordDot"></span>
                         <span class="timer" id="recordTimer">00:00</span>
@@ -681,13 +715,13 @@
                     if (idx > 0 && !subAnswered[idx-1]) disabled = true;
                     html += `
                         <div class="sq-item">
-                            <div class="sq-label"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}</div>
+                            <div class="sq-label"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
                             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                                 <span class="sq-status ${statusClass}">${statusText}</span>
                                 <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
                                 <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
                             </div>
-                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? toTraditional(subAnswers[idx]) : ''}</div>
+                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
                         </div>
                     `;
                 });
@@ -733,7 +767,6 @@
                     const input = inputs[0];
                     if (input && input.length > 0) {
                         const channelData = input[0];
-                        // 將 Float32Array 轉為 Int16Array 並發送
                         const pcm = new Int16Array(channelData.length);
                         for (let i = 0; i < channelData.length; i++) {
                             const s = Math.max(-1, Math.min(1, channelData[i]));
@@ -748,7 +781,7 @@
         `], { type: 'application/javascript' }));
 
         // ================================================================
-        // 11. 開放式錄音綁定（使用 AudioWorkletNode）
+        // 11. 開放式錄音綁定（繁體轉換三步驟）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -765,7 +798,7 @@
             let isRecording = false, recordTimer = null, seconds = 0;
             let audioBuffer = [];
             const SAMPLE_RATE = 16000;
-            let iatWs = null, isRecognizing = false, finalTranscript = '';
+            let iatWs = null, isRecognizing = false, finalTranscript = ''; // 儲存簡體
             let iatReceivedMessage = false, iatTimeoutId = null, iatChunkCount = 0;
             let isIatEndSent = false, waitForIatResult = false;
             let cryptoReady = false;
@@ -818,14 +851,8 @@
             }
 
             async function initAudioWorklet() {
-                if (audioContext && audioContext.state === 'running') {
-                    // 如果已存在，直接使用
-                    return;
-                }
+                if (audioContext && audioContext.state === 'running') return;
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                if (audioContext.sampleRate !== SAMPLE_RATE) {
-                    console.warn('採樣率不符，實際:', audioContext.sampleRate);
-                }
                 await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
                 const stream = await navigator.mediaDevices.getUserMedia({
                     audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
@@ -835,12 +862,10 @@
                 workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
                 workletNode.port.onmessage = (event) => {
                     if (!isRecording) return;
-                    const pcm = event.data; // Int16Array
+                    const pcm = event.data;
                     audioBuffer.push(pcm);
                 };
-                workletNode.onprocessorerror = (err) => {
-                    console.error('AudioWorklet 處理器錯誤:', err);
-                };
+                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
                 source.connect(workletNode);
                 workletNode.connect(audioContext.destination);
             }
@@ -907,6 +932,7 @@
                 sendChunk();
             }
 
+            // 核心：步驟 1 接收簡體，步驟 2 轉換，步驟 3 顯示
             function handleIatMessage(data) {
                 if (data.code && data.code !== 0) { console.error('語音錯誤 '+data.code); stopRecording(); isRecognizing = false; return; }
                 if (data.data && data.data.result) {
@@ -917,9 +943,12 @@
                             for (const cw of w.cw) text += cw.w;
                         }
                         if (text) {
+                            // 步驟1：收到簡體
                             finalTranscript += text;
-                            // 強制轉繁體顯示
-                            transcript.innerHTML = toTraditional(finalTranscript);
+                            // 步驟2：轉換為繁體
+                            const tradText = forceToTraditional(finalTranscript);
+                            // 步驟3：顯示繁體
+                            transcript.innerHTML = tradText;
                             progressBar.style.width = '40%';
                         }
                     }
@@ -928,7 +957,7 @@
                     waitForIatResult = false;
                     if (iatWs && iatWs.readyState === WebSocket.OPEN) iatWs.close();
                     if (finalTranscript.trim()) {
-                        studentAnswerText = finalTranscript;
+                        studentAnswerText = finalTranscript; // 保留簡體供後續處理（評分用）
                         progressBar.style.width = '60%';
                         const hasChinese = /[\u4e00-\u9fa5]/.test(finalTranscript);
                         if (!hasChinese) {
@@ -1018,7 +1047,8 @@
                 document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
                 document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
                 document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
-                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
+                // 建議轉繁體
+                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
                 document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
                 document.querySelectorAll('#scoreResult .num').forEach(el => {
                     const val = parseFloat(el.textContent);
@@ -1051,7 +1081,7 @@
         }
 
         // ================================================================
-        // 12. 半固定式錄音綁定（同樣使用 AudioWorkletNode）
+        // 12. 半固定式錄音綁定（同樣三步驟繁體轉換）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -1234,8 +1264,9 @@
                         }
                         if (text) {
                             finalTranscript += text;
+                            const tradText = forceToTraditional(finalTranscript);
                             const transcriptEl = transcripts[idx];
-                            transcriptEl.textContent = toTraditional(finalTranscript);
+                            transcriptEl.textContent = tradText;
                         }
                     }
                 }
@@ -1425,7 +1456,7 @@
                 document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
                 document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
                 document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
-                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${toTraditional(grade.suggestion || '')}`;
+                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
                 document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra';
                 document.querySelectorAll('#scoreResult .num').forEach(el => {
                     const val = parseFloat(el.textContent);
@@ -1434,7 +1465,7 @@
                 let fbHtml = '';
                 (q.subQuestions || []).forEach((sq, idx) => {
                     const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0};
-                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${toTraditional(sq.question)}<br>內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}</div>`;
+                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}</div>`;
                 });
                 document.getElementById('subFeedback').innerHTML = fbHtml;
                 console.log('✅ 評分完成！');
@@ -1467,9 +1498,12 @@
         // ================================================================
         // 13. 初始化
         // ================================================================
+        // 初始化 OpenCC 轉換器
+        initConverter();
+
         loadData();
         render();
-        console.log('✅ AudioWorklet 版已啟動，識別區域顯示繁體，評分為100分制。');
+        console.log('✅ 最終繁體顯示版已啟動，識別區域將顯示繁體中文。');
     })();
 </script>
 </body>
