@@ -1,1062 +1,1051 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>普通話拼音教學 · 語音評測 (Web Speech)</title>
-    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.0/dist/index.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>普通话语音评测系统 - 看圖說故事</title>
     <style>
-        /* 樣式與之前相同，完整保留，此處省略以節省篇幅，但實際使用時請複製完整樣式 */
-        :root {
-            --bg: #f0f2f5;
-            --teacher-bubble: #ffffff;
-            --student-bubble: #95ec69;
-            --send-btn: #ff6b6b;
-            --send-btn-disabled: #cccccc;
-            --display-bg: #fffef5;
-            --border: #d9d9d9;
-            --danger: #e74c3c;
-            --success: #27ae60;
-            --modal-overlay: rgba(0,0,0,0.55);
-            --radius-sm: 6px; --radius-md: 12px; --radius-lg: 18px;
-            --init-bpmf: #f8cecc; --init-dtnl: #ffe6cc; --init-gkh: #e1d5e7;
-            --init-jqx: #d5e8d4; --init-zhchshr: #dae8fc; --init-zcs: #f5d5c8; --init-yw: #e0e0e0;
-            --final-a: #fde0dc; --final-o: #fff2cc; --final-e: #fdf4cc;
-            --final-i: #d9ead3; --final-u: #cfe2f3; --final-ü: #ead1dc;
+        /* ===== 全局样式 ===== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Microsoft YaHei','Noto Sans TC',sans-serif;background:#d5d9df;display:flex;justify-content:center;align-items:center;min-height:100vh;padding:6px;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
-        .app-container{width:100%;max-width:1200px;height:97vh;max-height:950px;background:var(--bg);border-radius:var(--radius-lg);display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
-        .header{background:#fff;padding:6px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);flex-shrink:0;z-index:10;}
-        .header .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#ff9a56,#ff6b6b);display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;font-weight:700;}
-        .header .info{flex:1;min-width:0;} .header .name{font-weight:700;font-size:0.95rem;color:#1a1a1a;} .header .subtitle{font-size:0.7rem;color:#666;}
-        .header button{background:#f5f5f5;border:1px solid #e0e0e0;border-radius:var(--radius-sm);padding:5px 12px;font-size:0.78rem;cursor:pointer;color:#666;font-weight:500;}
-        .main-layout{flex:1;display:flex;overflow:hidden;min-height:0;}
-        .chat-section{flex:1.2;display:flex;flex-direction:column;background:#e0e2e6;border-right:1px solid var(--border);min-width:0;}
-        .chat-area{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;}
-        .message-row{display:flex;flex-direction:column;animation:msgIn 0.3s ease-out;max-width:80%;}
-        .message-row.teacher{align-self:flex-start;} .message-row.student{align-self:flex-end;}
-        @keyframes msgIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-        .msg-label{font-size:0.65rem;color:#999;margin-bottom:2px;padding:0 6px;}
-        .msg-bubble{padding:8px 12px;border-radius:var(--radius-lg);font-size:0.9rem;line-height:1.5;word-break:break-word;position:relative;box-shadow:0 1px 3px rgba(0,0,0,0.05);}
-        .message-row.teacher .msg-bubble{background:#fff;color:#1a1a1a;border-bottom-left-radius:2px;}
-        .message-row.student .msg-bubble{background:var(--student-bubble);color:#1a1a1a;border-bottom-right-radius:2px;}
-        .speakable{cursor:pointer;} .speak-icon{margin-left:6px;font-size:0.9rem;opacity:0.6;}
-        .evaluable{cursor:pointer;padding-right:30px;} .eval-icon{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:1rem;opacity:0.7;}
-        .input-section{flex:1;display:flex;flex-direction:column;background:#f8f8f8;padding:6px 8px;gap:4px;min-width:420px;max-width:540px;}
-        .spell-display{display:flex;align-items:center;gap:6px;background:var(--display-bg);border:1.5px solid #e0dcc8;border-radius:var(--radius-sm);padding:4px 10px;min-height:38px;flex-wrap:wrap;}
-        .current-syllable{display:flex;align-items:center;gap:1px;font-size:1rem;font-weight:700;color:#555;min-width:55px;padding:2px 4px;background:#f0f0f0;border-radius:4px;}
-        .confirmed-syllables{display:flex;gap:4px;flex-wrap:wrap;} .confirmed-syllable-tag{background:#d4edda;color:#1e7e34;padding:2px 7px;border-radius:10px;font-size:0.85rem;font-weight:600;}
-        .target-hint{text-align:center;font-size:0.75rem;color:#666;} .target-hint strong{color:#e55a5a;font-size:0.85rem;}
-        .keyboard{display:flex;flex-direction:column;gap:2px;margin-top:2px;}
-        .kb-section{border-top:1px solid #d0d0d0;padding-top:4px;display:flex;flex-direction:column;gap:3px;}
-        .kb-section:first-child{border-top:none;}
-        .key-row{display:flex;flex-wrap:wrap;gap:3px;align-items:center;}
-        .section-label{font-size:0.7rem;font-weight:700;color:#666;margin-right:6px;min-width:28px;}
-        .key-btn{border:1px solid rgba(0,0,0,0.12);border-radius:5px;padding:6px 8px;font-size:0.85rem;font-weight:600;cursor:pointer;min-width:32px;text-align:center;outline:none;background:#fff;color:#333;transition:all 0.1s;}
-        .key-btn:active{transform:scale(0.92);}
-        .key-btn.initial.bpmf{background:var(--init-bpmf);} .key-btn.initial.dtnl{background:var(--init-dtnl);} .key-btn.initial.gkh{background:var(--init-gkh);} .key-btn.initial.jqx{background:var(--init-jqx);} .key-btn.initial.zhchshr{background:var(--init-zhchshr);} .key-btn.initial.zcs{background:var(--init-zcs);} .key-btn.initial.yw{background:var(--init-yw);}
-        .key-btn.initial.zero{background:#e8e8e8; border-color:#aaa;}
-        .key-btn.initial.selected{filter:brightness(0.9);border-width:2px;}
-        .key-btn.final.a-group{background:var(--final-a);} .key-btn.final.o-group{background:var(--final-o);} .key-btn.final.e-group{background:var(--final-e);} .key-btn.final.i-group{background:var(--final-i);} .key-btn.final.u-group{background:var(--final-u);} .key-btn.final.ü-group{background:var(--final-ü);}
-        .key-btn.final.selected{filter:brightness(0.9);border-width:2px;}
-        .key-btn.tone{background:#fef5ec;color:#c07830;min-width:42px;font-size:0.9rem;} .key-btn.tone.selected{background:#f0a050;color:#fff;}
-        .tone-symbol{font-size:1.3rem;vertical-align:middle;line-height:1;}
-        .key-btn.action{background:#f0f0f0;color:#555;font-size:0.78rem;min-width:32px;} .key-btn.action.danger{color:#c0392b;background:#fef5f5;}
-        .key-btn.confirm{background:#fff;color:#27ae60;border:1.5px solid #27ae60;font-weight:700;font-size:0.9rem;min-width:56px;}
-        .key-btn.send{background:var(--send-btn-disabled);color:#fff;font-weight:700;font-size:0.9rem;min-width:56px;cursor:not-allowed;opacity:0.55;border:1px solid transparent;}
-        .key-btn.send.unlocked{background:var(--send-btn);border-color:#cc5a5a;cursor:pointer;opacity:1;animation:pulseSend 1.8s infinite;}
-        @keyframes pulseSend{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,0.3);}50%{box-shadow:0 0 0 8px rgba(255,107,107,0);}}
-        .page-container{flex:1;display:flex;flex-direction:column;padding:16px;overflow-y:auto;background:var(--bg);}
-        .plain-list{width:100%;max-width:900px;margin:0 auto;} .plain-item{display:flex;justify-content:space-between;align-items:center;padding:10px 6px;border-bottom:1px solid #ddd;cursor:pointer;}
-        .btn-primary{background:#4a90d9;color:#fff;border:none;padding:6px 16px;border-radius:16px;font-weight:600;cursor:pointer;font-size:0.85rem;}
-        .btn-danger{background:#e74c3c;color:#fff;border:none;padding:4px 12px;border-radius:14px;cursor:pointer;font-size:0.75rem;}
-        .btn-outline{background:#fff;border:1px solid #4a90d9;color:#4a90d9;padding:4px 12px;border-radius:14px;cursor:pointer;font-size:0.75rem;}
-        .modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--modal-overlay);z-index:100;display:flex;align-items:center;justify-content:center;}
-        .modal-dialog{background:#fff;border-radius:var(--radius-md);padding:20px;width:90%;max-width:520px;max-height:85vh;overflow-y:auto;text-align:center;}
-        .btn-mic{width:100px;height:100px;border-radius:50%;border:4px solid #e0e0e0;background:#fff;font-size:3rem;cursor:pointer;margin:15px auto;display:flex;align-items:center;justify-content:center;}
-        .btn-mic.recording{border-color:#e74c3c;background:#ffeaea;animation:micPulse 0.7s infinite;}
-        @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.4);}50%{box-shadow:0 0 0 20px rgba(231,76,60,0);}}
-        .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:18px;font-size:0.85rem;font-weight:600;z-index:200;pointer-events:none;animation:toastIn 0.3s ease-out,toastOut 0.3s 1.8s ease-in forwards;}
-        @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-20px);}to{opacity:1;transform:translateX(-50%) translateY(0);}} @keyframes toastOut{to{opacity:0;}}
-        .error-box{background:#ffe6e6;color:#c0392b;padding:8px;border-radius:8px;margin:8px 0;font-size:0.85rem;border:1px solid #f5c6cb;text-align:left;}
-        .spell-display.correct-flash{background:#d4edda;transition:background 0.2s;}
-        .spell-display.error-flash{background:#f8d7da;transition:background 0.2s;}
-        .engine-loading-container { margin-bottom: 4px; padding: 4px 8px; background: #f0f8ff; border-radius: 6px; border: 1px solid #cce5ff; }
-        .engine-loading-container .label { font-size: 0.8rem; color: #555; }
-        .engine-loading-container progress { width: 100%; height: 8px; border-radius: 4px; border: none; background: #eee; color: #4a90d9; -webkit-appearance: none; appearance: none; }
-        .engine-loading-container progress::-webkit-progress-bar { background: #eee; border-radius: 4px; }
-        .engine-loading-container progress::-webkit-progress-value { background: #4a90d9; border-radius: 4px; }
-        .engine-loading-container .error-msg { display: none; color: #c0392b; font-size: 0.8rem; margin-top: 4px; }
-        .disclaimer { background: #fff3cd; color: #856404; padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; margin-top: 4px; text-align: center; }
-        @media(max-width:800px){.main-layout{flex-direction:column;}.input-section{max-width:100%;min-width:auto;}}
+        body {
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.10);
+            padding: 40px 36px;
+            transition: all 0.2s;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a2332;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #6b7a8f;
+            font-size: 15px;
+            margin-bottom: 28px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 16px;
+            background: #f8fafc;
+            border-radius: 0 12px 12px 0;
+            line-height: 1.6;
+        }
+
+        /* ===== 入口切换 ===== */
+        .role-tabs {
+            display: flex;
+            gap: 0;
+            background: #eef2f6;
+            border-radius: 60px;
+            padding: 4px;
+            margin-bottom: 28px;
+        }
+        .role-tab {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 20px;
+            border-radius: 60px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #4a5a6e;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .role-tab.active {
+            background: #ffffff;
+            color: #1a2332;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+        .role-tab:hover:not(.active) {
+            color: #1a2332;
+        }
+
+        /* ===== 面板 ===== */
+        .panel {
+            display: none;
+            animation: fadeUp 0.3s ease;
+        }
+        .panel.active {
+            display: block;
+        }
+        @keyframes fadeUp {
+            0% {
+                opacity: 0;
+                transform: translateY(12px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ===== 教师面板 ===== */
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 20px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #fafcff;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 20px;
+        }
+        .upload-area:hover {
+            border-color: #3b82f6;
+            background: #f0f7ff;
+        }
+        .upload-area .icon {
+            font-size: 48px;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .upload-area p {
+            color: #4a5a6e;
+            font-size: 15px;
+        }
+        .upload-area .hint {
+            color: #8a9aa8;
+            font-size: 13px;
+            margin-top: 6px;
+        }
+        #imagePreview {
+            margin-top: 16px;
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            display: none;
+        }
+        .teacher-form label {
+            display: block;
+            font-weight: 600;
+            color: #1a2332;
+            margin-top: 18px;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .teacher-form textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1.5px solid #dce2ea;
+            border-radius: 14px;
+            font-size: 15px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+        }
+        .teacher-form textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 32px;
+            border: none;
+            border-radius: 60px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 16px;
+        }
+        .btn-primary {
+            background: #1a2332;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #2d3a4f;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(26, 35, 50, 0.20);
+        }
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-success {
+            background: #0b8a5e;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #0d9d6b;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(11, 138, 94, 0.25);
+        }
+        .btn-outline {
+            background: transparent;
+            color: #1a2332;
+            border: 1.5px solid #dce2ea;
+        }
+        .btn-outline:hover {
+            background: #f0f4f8;
+            border-color: #b0c0d0;
+        }
+        .btn-danger {
+            background: #b91c1c;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #991b1b;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* ===== 学生面板 ===== */
+        .student-image-box {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1.5px solid #eef2f6;
+        }
+        .student-image-box img {
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 12px;
+        }
+        .student-image-box .placeholder {
+            color: #8a9aa8;
+            font-size: 15px;
+        }
+        .reference-box {
+            background: #f0f7ff;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+        .reference-box .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #3b82f6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .reference-box .content {
+            margin-top: 4px;
+            color: #1a2332;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* ===== 录音控制 ===== */
+        .recording-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin: 16px 0 12px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: 60px;
+            font-size: 14px;
+            font-weight: 500;
+            background: #eef2f6;
+            color: #4a5a6e;
+        }
+        .status-badge.recording {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-badge .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #8a9aa8;
+            display: inline-block;
+        }
+        .status-badge.recording .dot {
+            background: #b91c1c;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.4;
+                transform: scale(0.8);
+            }
+        }
+
+        /* ===== 识别结果 ===== */
+        .result-box {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-top: 16px;
+            border: 1.5px solid #eef2f6;
+            min-height: 60px;
+        }
+        .result-box .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7a8f;
+            margin-bottom: 4px;
+        }
+        .result-box .text {
+            font-size: 16px;
+            color: #1a2332;
+            line-height: 1.7;
+        }
+        .result-box .text.empty {
+            color: #b0c0d0;
+        }
+
+        /* ===== 评分 ===== */
+        .score-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .score-item {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 14px 16px;
+            border: 1.5px solid #eef2f6;
+            text-align: center;
+        }
+        .score-item .value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a2332;
+        }
+        .score-item .value.good {
+            color: #0b8a5e;
+        }
+        .score-item .value.ok {
+            color: #d97706;
+        }
+        .score-item .value.poor {
+            color: #b91c1c;
+        }
+        .score-item .desc {
+            font-size: 13px;
+            color: #6b7a8f;
+            margin-top: 2px;
+        }
+
+        .advice-box {
+            background: #fefce8;
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-top: 16px;
+            border-left: 4px solid #d97706;
+        }
+        .advice-box .label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #d97706;
+        }
+        .advice-box .content {
+            margin-top: 4px;
+            color: #1a2332;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 640px) {
+            .container {
+                padding: 24px 16px;
+            }
+            h1 {
+                font-size: 22px;
+            }
+            .role-tab {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+            .score-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .recording-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .btn {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
-<div class="app-container" id="appContainer">
-    <div class="header" id="headerBar">
-        <div class="avatar">👩‍🏫</div>
-        <div class="info"><div class="name" id="headerName">普通話課堂</div><div class="subtitle" id="headerSub">拼音對話練習</div></div>
-        <button id="btnBack" style="display:none;">↩️ 返回</button>
-        <button id="btnReset" style="display:none;">🔄 重置</button>
-    </div>
-    <div id="dynamicContent" style="flex:1;display:flex;overflow:hidden;"></div>
-</div>
-<div id="toastContainer"></div>
 
-<script type="module">
-    // ===== 應用程式狀態（完全保留原始邏輯） =====
-    const AppState = { currentView: 'menu', currentThemeId: null, editThemeId: null };
-    const STORAGE_KEY = 'pinyin_teaching_final';
+    <div class="container">
+        <!-- 标题 -->
+        <h1>🎙️ 普通話語音評測</h1>
+        <div class="subtitle">
+            📖 看圖說故事 · 智能語音識別與評分
+            <span style="display:inline-block;margin-left:16px;font-weight:400;color:#8a9aa8;font-size:13px;">
+                🔒 純前端 · 無需服務器
+            </span>
+        </div>
 
-    function getDefaultThemes() {
-        return [{
-            id: '1',
-            title: '日常問候',
-            characterName: '小明',
-            dialogues: [
-                { teacherMessage: '你好！歡迎來到普通話課堂。請用拼音回覆「你好」。', targetPinyin: 'ni3 hao3', targetChinese: '你好', hint: '', openQuestion: '你還能用其他方式打招呼嗎？', openKeywords: '您好,嗨,早上好' },
-                { teacherMessage: '很好！你叫什麼名字？請用拼音回覆「我叫小明」。', targetPinyin: 'wo3 jiao4 xiao3 ming2', targetChinese: '我叫小明', hint: '', openQuestion: '你的名字是？', openKeywords: '我係,我叫' },
-                { teacherMessage: '認識你很高興！你是哪裡人？', targetPinyin: 'wo3 shi4 zhong1 guo2 ren2', targetChinese: '我是中國人', hint: '' },
-                { teacherMessage: '太棒了！你喜歡吃什麼？', targetPinyin: 'wo3 xi3 huan1 chi1 jiao3 zi5', targetChinese: '我喜歡吃餃子', hint: '', openQuestion: '你還喜歡吃什麼？', openKeywords: '麵,飯,水果,蔬菜' },
-                { teacherMessage: '餃子確實很好吃！今天的練習就到這裡。', targetPinyin: 'xie4 xie5 lao3 shi1', targetChinese: '謝謝老師', hint: '' }
-            ]
-        }, {
-            id: '2',
-            title: '自我介紹',
-            characterName: '小華',
-            dialogues: [
-                { teacherMessage: '你好！請用拼音介紹你的名字。', targetPinyin: 'wo3 jiao4 xiao3 hua2', targetChinese: '我叫小華', hint: '', openQuestion: '告訴我你的全名。', openKeywords: '我係,全名' },
-                { teacherMessage: '你今年幾歲？', targetPinyin: 'wo3 jin1 nian2 shi2 sui4', targetChinese: '我今年十歲', hint: '' }
-            ]
-        }];
-    }
+        <!-- ===== 角色切换 ===== -->
+        <div class="role-tabs">
+            <button class="role-tab active" data-role="teacher">👩‍🏫 教師入口</button>
+            <button class="role-tab" data-role="student">🧑‍🎓 學生入口</button>
+        </div>
 
-    function loadThemes() {
-        const s = localStorage.getItem(STORAGE_KEY);
-        if (s) try { return JSON.parse(s); } catch (e) {}
-        return getDefaultThemes();
-    }
-    function saveThemes(t) { localStorage.setItem(STORAGE_KEY, JSON.stringify(t)); }
+        <!-- ============================================================ -->
+        <!-- ===== 教师面板 ===== -->
+        <!-- ============================================================ -->
+        <div id="panelTeacher" class="panel active">
+            <p style="color:#4a5a6e;margin-bottom:16px;font-size:15px;">
+                上傳圖片並設定參考答案，學生將根據此圖片進行看圖說話。
+            </p>
 
-    let themes = loadThemes(),
-        currentDialogueIndex = 0,
-        confirmedSyllables = [],
-        selectedInitial = null,
-        selectedFinal = null,
-        selectedTone = null,
-        inputOrder = 0,
-        isCourseComplete = false;
-    let recognition = null,
-        isRecording = false,
-        currentEvalTarget = null,
-        currentMode = 'standard',
-        engineReady = false;
-
-    const dynamicContent = document.getElementById('dynamicContent'),
-        headerName = document.getElementById('headerName'),
-        headerSub = document.getElementById('headerSub'),
-        btnBack = document.getElementById('btnBack'),
-        btnReset = document.getElementById('btnReset'),
-        toastContainer = document.getElementById('toastContainer');
-
-    function showToast(m) {
-        const t = document.createElement('div');
-        t.className = 'toast';
-        t.textContent = m;
-        toastContainer.appendChild(t);
-        setTimeout(() => { if (t.parentNode) t.remove(); }, 2200);
-    }
-
-    function esc(s) {
-        const d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
-    }
-
-    function renderView() {
-        dynamicContent.innerHTML = '';
-        btnBack.style.display = 'none';
-        btnReset.style.display = 'none';
-        headerName.textContent = '普通話課堂';
-        headerSub.textContent = '拼音對話練習';
-        switch (AppState.currentView) {
-            case 'menu': renderMenu(); break;
-            case 'student-themes': renderStudentThemes(); btnBack.style.display = 'inline-block'; break;
-            case 'chat': renderChatView(); btnBack.style.display = 'inline-block'; btnReset.style.display = 'inline-block'; break;
-            case 'teacher-dashboard': renderTeacherDashboard(); btnBack.style.display = 'inline-block'; break;
-            case 'teacher-edit': renderTeacherEdit(); btnBack.style.display = 'inline-block'; break;
-        }
-    }
-
-    function goTo(view, p = {}) {
-        if (view === 'chat') AppState.currentThemeId = p.themeId;
-        if (view === 'teacher-edit') AppState.editThemeId = p.themeId || null;
-        AppState.currentView = view;
-        renderView();
-    }
-
-    btnBack.addEventListener('click', () => {
-        const map = { 'student-themes': 'menu', 'chat': 'student-themes', 'teacher-dashboard': 'menu', 'teacher-edit': 'teacher-dashboard' };
-        goTo(map[AppState.currentView] || 'menu');
-    });
-
-    // ===== 菜單 =====
-    function renderMenu() {
-        dynamicContent.innerHTML = `
-            <div class="page-container" style="align-items:center;justify-content:center;">
-                <div style="font-size:2rem;font-weight:700;margin-bottom:32px;">📚 普通話拼音教學</div>
-                <div style="display:flex;gap:36px;">
-                    <div style="background:#fff;padding:30px 44px;border-radius:16px;text-align:center;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.08);" id="btnStudent">
-                        <span style="font-size:3rem;">🧑‍🎓</span><div style="font-size:1.2rem;font-weight:600;">學生模式</div>
-                    </div>
-                    <div style="background:#fff;padding:30px 44px;border-radius:16px;text-align:center;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,0.08);" id="btnTeacher">
-                        <span style="font-size:3rem;">👩‍🏫</span><div style="font-size:1.2rem;font-weight:600;">老師模式</div>
-                    </div>
-                </div>
-            </div>`;
-        document.getElementById('btnStudent').addEventListener('click', () => goTo('student-themes'));
-        document.getElementById('btnTeacher').addEventListener('click', () => goTo('teacher-dashboard'));
-    }
-
-    // ===== 學生主題列表 =====
-    function renderStudentThemes() {
-        headerName.textContent = '選擇對話主題';
-        headerSub.textContent = '學生模式';
-        const td = loadThemes();
-        let h = `<div class="page-container"><div class="plain-list">`;
-        if (!td.length) h += '<p>暫無主題</p>';
-        else td.forEach(t => {
-            h += `<div class="plain-item theme-item" data-id="${t.id}">
-                    <div><strong>${esc(t.title)}</strong><br><small>角色：${esc(t.characterName)} | ${t.dialogues.length} 輪</small></div>
-                    <span style="color:#4a90d9;">進入 ➔</span>
-                  </div>`;
-        });
-        h += `</div></div>`;
-        dynamicContent.innerHTML = h;
-        document.querySelectorAll('.theme-item').forEach(i => i.addEventListener('click', () => goTo('chat', { themeId: i.dataset.id })));
-    }
-
-    // ===== 聊天視圖 =====
-    function renderChatView() {
-        const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
-        if (!theme) { showToast('主題不存在'); goTo('student-themes'); return; }
-        headerName.textContent = theme.title;
-        headerSub.textContent = `角色：${theme.characterName}`;
-        currentDialogueIndex = 0;
-        confirmedSyllables = [];
-        clearSelection();
-        isCourseComplete = false;
-        stopRecording();
-
-        dynamicContent.innerHTML = `
-            <div class="main-layout">
-                <div class="chat-section">
-                    <div class="chat-area" id="chatArea"></div>
-                </div>
-                <div class="input-section" id="inputSection"></div>
-            </div>`;
-        buildInputSection(theme.dialogues);
-        if (theme.dialogues.length) addTeacherMessage(theme.dialogues[0].teacherMessage);
-        updateTargetHint();
-        updateSendButton();
-        scrollChatToBottom();
-
-        btnReset.onclick = () => {
-            currentDialogueIndex = 0;
-            confirmedSyllables = [];
-            clearSelection();
-            updateSyllableDisplay();
-            updateSendButton();
-            isCourseComplete = false;
-            document.getElementById('chatArea').innerHTML = '';
-            if (theme.dialogues.length) addTeacherMessage(theme.dialogues[0].teacherMessage);
-            updateTargetHint();
-            scrollChatToBottom();
-        };
-
-        // ---- 初始化 Web Speech（幾乎瞬間完成） ----
-        const oldProgress = document.getElementById('engineLoadingContainer');
-        if (oldProgress) oldProgress.remove();
-        const progressContainer = document.createElement('div');
-        progressContainer.id = 'engineLoadingContainer';
-        progressContainer.className = 'engine-loading-container';
-        progressContainer.innerHTML = `
-            <div class="label">⏳ 準備語音引擎 (Web Speech) ...</div>
-            <progress indeterminate></progress>
-            <div class="error-msg" id="engineError"></div>
-            <div class="disclaimer">⚠️ 語音評測基於文字轉錄，僅供參考，無法區分方言發音差異。</div>
-        `;
-        const inputSection = document.getElementById('inputSection');
-        inputSection.prepend(progressContainer);
-
-        if (engineReady) {
-            progressContainer.style.display = 'none';
-        } else {
-            progressContainer.style.display = 'block';
-            initSpeech().then(ok => {
-                if (ok) {
-                    engineReady = true;
-                    progressContainer.style.display = 'none';
-                    showToast('✅ 語音引擎就緒 (Web Speech)');
-                } else {
-                    // 錯誤訊息已寫入
-                }
-            });
-        }
-    }
-
-    // ===== 鍵盤與輸入邏輯（完全保留） =====
-    function buildInputSection(dialogues) {
-        document.getElementById('inputSection').innerHTML = `
-            <div class="target-hint">💡 請拼寫回覆：<strong id="targetStrong">--</strong></div>
-            <div class="spell-display" id="spellDisplay">
-                <span class="label-text">📝 當前拼寫：</span>
-                <span class="current-syllable">
-                    <span id="partInitial"></span><span id="partFinal"></span><span id="partTone"></span>
-                </span>
-                <span id="arrowSep" style="display:none;">→</span>
-                <span class="confirmed-syllables" id="confirmedSyllables"></span>
+            <div class="upload-area" id="uploadArea">
+                <span class="icon">🖼️</span>
+                <p><strong>點擊上傳圖片</strong> 或拖曳至此</p>
+                <span class="hint">支援 JPG / PNG / WebP</span>
+                <input type="file" id="imageInput" accept="image/*" style="display:none;" />
+                <img id="imagePreview" alt="圖片預覽" />
             </div>
-            <div class="keyboard" id="keyboardContainer"></div>`;
-        buildKeyboard();
-        updateSyllableDisplay();
-    }
 
-    const initialRows = [
-        [{ group: 'bpmf', list: ['b', 'p', 'm', 'f'] }, { group: 'dtnl', list: ['d', 't', 'n', 'l'] }],
-        [{ group: 'gkh', list: ['g', 'k', 'h'] }, { group: 'jqx', list: ['j', 'q', 'x'] }],
-        [{ group: 'zhchshr', list: ['zh', 'ch', 'sh', 'r'] }, { group: 'zcs', list: ['z', 'c', 's'] }],
-        [{ group: 'yw', list: ['y', 'w'] }]
-    ];
-    const finalGroups = [
-        { prefix: 'a', cls: 'a-group', list: ['a', 'ai', 'ao', 'an', 'ang'] },
-        { prefix: 'o', cls: 'o-group', list: ['o', 'ou', 'ong'] },
-        { prefix: 'e', cls: 'e-group', list: ['e', 'ei', 'en', 'eng', 'er'] },
-        { prefix: 'i', cls: 'i-group', list: ['i', 'ia', 'iao', 'ie', 'iu', 'ian', 'in', 'iang', 'ing', 'iong'] },
-        { prefix: 'u', cls: 'u-group', list: ['u', 'ua', 'uo', 'uai', 'ui', 'uan', 'un', 'uang', 'ueng'] },
-        { prefix: 'ü', cls: 'ü-group', list: ['ü', 'üe', 'üan', 'ün'] }
-    ];
-    const tonesList = [
-        { symbol: 'ˉ', label: '一聲', value: 1 },
-        { symbol: 'ˊ', label: '二聲', value: 2 },
-        { symbol: 'ˇ', label: '三聲', value: 3 },
-        { symbol: 'ˋ', label: '四聲', value: 4 },
-        { symbol: '·', label: '輕聲', value: 0 }
-    ];
+            <div class="teacher-form">
+                <label for="refAnswer">📝 參考答案（標準敘述）</label>
+                <textarea id="refAnswer" placeholder="請輸入這段看圖說話的參考答案，用於比對學生發言內容...">小明的爸爸媽媽帶他去公園玩。公園裡有很多樹和花，還有一個大池塘。小明很開心，他和爸爸一起放風箏，媽媽在旁邊拍照。天氣很好，陽光明媚。</textarea>
 
-    function clearSelection() {
-        selectedInitial = null;
-        selectedFinal = null;
-        selectedTone = null;
-        inputOrder = 0;
-        document.querySelectorAll('.key-btn.selected').forEach(b => b.classList.remove('selected'));
-    }
+                <label for="refKeywords">🏷️ 關鍵詞（逗號分隔，用於評分）</label>
+                <textarea id="refKeywords" placeholder="例如：公園, 爸爸, 媽媽, 風箏, 拍照, 開心" style="min-height:50px;">公園, 爸爸, 媽媽, 風箏, 拍照, 開心, 樹, 花, 池塘, 陽光</textarea>
 
-    function buildKeyboard() {
-        const cont = document.getElementById('keyboardContainer');
-        let h = '';
-        h += `<div class="kb-section">`;
-        initialRows.forEach((row, idx) => {
-            h += `<div class="key-row">`;
-            h += idx === 0 ? `<span class="section-label">聲母</span>` : `<span class="section-label" style="visibility:hidden;">聲母</span>`;
-            row.forEach(g => g.list.forEach(init => {
-                h += `<button class="key-btn initial ${g.group}" data-value="${init}">${init}</button>`;
-            }));
-            h += `</div>`;
-        });
-        h += `<div class="key-row"><span class="section-label" style="visibility:hidden;">聲母</span><button class="key-btn initial zero" data-value="zero">∅ 零聲母</button></div>`;
-        h += `</div>`;
+                <button class="btn btn-success" id="saveTeacherConfig">💾 儲存設定</button>
+                <span id="saveStatus" style="margin-left:12px;font-size:14px;color:#0b8a5e;"></span>
+            </div>
 
-        h += `<div class="kb-section">`;
-        finalGroups.forEach((g, idx) => {
-            h += `<div class="key-row">`;
-            h += idx === 0 ? `<span class="section-label">韻母</span>` : `<span class="section-label" style="visibility:hidden;">韻母</span>`;
-            h += `<span style="font-size:0.55rem;color:#888;margin-right:2px;">${g.prefix}</span>`;
-            g.list.forEach(f => {
-                h += `<button class="key-btn final ${g.cls}" data-value="${f}">${f}</button>`;
-            });
-            h += `</div>`;
-        });
-        h += `</div>`;
-
-        h += `<div class="kb-section"><div class="key-row"><span class="section-label">聲調</span>`;
-        tonesList.forEach(t => {
-            h += `<button class="key-btn tone" data-value="${t.value}"><span class="tone-symbol">${t.symbol}</span> ${t.label}</button>`;
-        });
-        h += `</div></div>`;
-
-        h += `<div class="key-row" style="gap:5px;margin-top:4px;border-top:1px solid #d0d0d0;padding-top:4px;">
-                <button class="key-btn action danger" id="btnBackspace">⌫</button>
-                <button class="key-btn action" id="btnClear">✕</button>
-                <button class="key-btn confirm" id="btnConfirm">✅ 確認</button>
-                <button class="key-btn send" id="btnSend" disabled>🔒 發送</button>
-              </div>`;
-        cont.innerHTML = h;
-
-        document.querySelectorAll('.key-btn.initial').forEach(b => b.addEventListener('click', () => selectInitial(b.dataset.value, b)));
-        document.querySelectorAll('.key-btn.final').forEach(b => b.addEventListener('click', () => selectFinal(b.dataset.value, b)));
-        document.querySelectorAll('.key-btn.tone').forEach(b => b.addEventListener('click', () => selectTone(parseInt(b.dataset.value), b)));
-        document.getElementById('btnBackspace').addEventListener('click', backspaceSelection);
-        document.getElementById('btnClear').addEventListener('click', clearCurrentSyllable);
-        document.getElementById('btnConfirm').addEventListener('click', confirmSyllable);
-        document.getElementById('btnSend').addEventListener('click', () => {
-            if (document.getElementById('btnSend').classList.contains('unlocked')) sendMessage();
-        });
-    }
-
-    function selectInitial(v, b) {
-        if (isCourseComplete) return;
-        if (inputOrder !== 0) { showToast('請先清除當前音節'); return; }
-        document.querySelectorAll('.key-btn.initial').forEach(btn => btn.classList.remove('selected'));
-        if (v === 'zero') {
-            selectedInitial = '';
-            b.classList.add('selected');
-            inputOrder = 1;
-            updateSyllableDisplay();
-            return;
-        }
-        if (selectedInitial === v) {
-            selectedInitial = null;
-            inputOrder = 0;
-        } else {
-            selectedInitial = v;
-            b.classList.add('selected');
-            inputOrder = 1;
-        }
-        updateSyllableDisplay();
-    }
-
-    function selectFinal(v, b) {
-        if (isCourseComplete) return;
-        if (inputOrder !== 1) { showToast('請先選擇聲母（或零聲母）'); return; }
-        document.querySelectorAll('.key-btn.final').forEach(btn => btn.classList.remove('selected'));
-        if (selectedFinal === v) {
-            selectedFinal = null;
-            inputOrder = 1;
-        } else {
-            selectedFinal = v;
-            b.classList.add('selected');
-            inputOrder = 2;
-        }
-        updateSyllableDisplay();
-    }
-
-    function selectTone(v, b) {
-        if (isCourseComplete) return;
-        if (inputOrder !== 2) { showToast('請先選擇韻母'); return; }
-        document.querySelectorAll('.key-btn.tone').forEach(btn => btn.classList.remove('selected'));
-        if (selectedTone === v) {
-            selectedTone = null;
-            inputOrder = 2;
-        } else {
-            selectedTone = v;
-            b.classList.add('selected');
-            inputOrder = 3;
-        }
-        updateSyllableDisplay();
-    }
-
-    function clearCurrentSyllable() { clearSelection(); updateSyllableDisplay(); }
-    function backspaceSelection() {
-        if (inputOrder === 3) { selectedTone = null; inputOrder = 2; document.querySelectorAll('.key-btn.tone.selected').forEach(b => b.classList.remove('selected')); }
-        else if (inputOrder === 2) { selectedFinal = null; inputOrder = 1; document.querySelectorAll('.key-btn.final.selected').forEach(b => b.classList.remove('selected')); }
-        else if (inputOrder === 1) { selectedInitial = null; inputOrder = 0; document.querySelectorAll('.key-btn.initial.selected').forEach(b => b.classList.remove('selected')); }
-        updateSyllableDisplay();
-    }
-
-    function updateSyllableDisplay() {
-        const pi = document.getElementById('partInitial'),
-            pf = document.getElementById('partFinal'),
-            pt = document.getElementById('partTone');
-        if (pi) pi.textContent = (selectedInitial !== null && selectedInitial !== undefined) ? (selectedInitial || '∅') : '?';
-        if (pf) pf.textContent = selectedFinal || (selectedInitial || selectedTone ? '' : '?');
-        if (pt) {
-            if (selectedTone !== null) {
-                const tObj = tonesList.find(t => t.value === selectedTone);
-                pt.textContent = tObj ? tObj.symbol : '';
-            } else pt.textContent = (selectedInitial || selectedFinal) ? '' : '?';
-        }
-        updateConfirmedDisplay();
-        updateSendButton();
-    }
-
-    function updateConfirmedDisplay() {
-        const cont = document.getElementById('confirmedSyllables'),
-            arr = document.getElementById('arrowSep');
-        if (!cont) return;
-        cont.innerHTML = '';
-        if (confirmedSyllables.length) {
-            if (arr) arr.style.display = 'inline';
-            confirmedSyllables.forEach(s => {
-                const tag = document.createElement('span');
-                tag.className = 'confirmed-syllable-tag';
-                tag.textContent = s.displayStr;
-                cont.appendChild(tag);
-            });
-        } else {
-            if (arr) arr.style.display = 'none';
-        }
-    }
-
-    function getCurrentDialogue() {
-        const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
-        return (theme && currentDialogueIndex < theme.dialogues.length) ? theme.dialogues[currentDialogueIndex] : null;
-    }
-
-    function parsePinyin(s) {
-        const p = s.trim().split(/\s+/);
-        const syls = [];
-        p.forEach(part => {
-            const m = part.match(/^([bpmfdtnlgkhjqxzcsryw]?h?|zh|ch|sh)?([a-züê]+)([0-4])$/i);
-            if (m) syls.push({ initial: m[1] || '', final: m[2].toLowerCase(), tone: parseInt(m[3]) });
-            else {
-                const m2 = part.match(/^([a-züê]+)([0-4])$/i);
-                if (m2) syls.push({ initial: '', final: m2[1].toLowerCase(), tone: parseInt(m2[2]) });
-            }
-        });
-        return syls;
-    }
-
-    function applyTone(f, t) {
-        if (!t || t === 0) return f;
-        const marks = {
-            a: { 1: 'ā', 2: 'á', 3: 'ǎ', 4: 'à' },
-            e: { 1: 'ē', 2: 'é', 3: 'ě', 4: 'è' },
-            i: { 1: 'ī', 2: 'í', 3: 'ǐ', 4: 'ì' },
-            o: { 1: 'ō', 2: 'ó', 3: 'ǒ', 4: 'ò' },
-            u: { 1: 'ū', 2: 'ú', 3: 'ǔ', 4: 'ù' },
-            ü: { 1: 'ǖ', 2: 'ǘ', 3: 'ǚ', 4: 'ǜ' }
-        };
-        const prio = ['a', 'e', 'o', 'i', 'u', 'ü'];
-        let idx = -1,
-            ch = null;
-        for (const v of prio) {
-            idx = f.lastIndexOf(v);
-            if (idx >= 0) { ch = v; break; }
-        }
-        if (ch && marks[ch] && marks[ch][t]) return f.substring(0, idx) + marks[ch][t] + f.substring(idx + 1);
-        return f + t;
-    }
-
-    function buildDisplay(init, fin, tone) {
-        return (init || '') + (fin ? applyTone(fin, tone) : '');
-    }
-
-    function buildDisplayFromNum(pn) {
-        return parsePinyin(pn).map(s => buildDisplay(s.initial, s.final, s.tone)).join(' ');
-    }
-
-    function compareSyllables(si, sf, st, ti, tf, tt) {
-        return (si || '') === (ti || '') && sf === tf && st === tt;
-    }
-
-    function confirmSyllable() {
-        if (isCourseComplete) return;
-        if (inputOrder !== 3) { showToast('請依照聲母→韻母→聲調順序完成選擇'); return; }
-        const d = getCurrentDialogue();
-        if (!d) return;
-        const targets = parsePinyin(d.targetPinyin);
-        const idx = confirmedSyllables.length;
-        if (idx >= targets.length) { showToast('⚠️ 已確認足夠音節'); return; }
-        const tgt = targets[idx];
-        const match = compareSyllables(selectedInitial, selectedFinal, selectedTone, tgt.initial, tgt.final, tgt.tone);
-        if (match) {
-            confirmedSyllables.push({ displayStr: buildDisplay(selectedInitial, selectedFinal, selectedTone), matchesTarget: true });
-            clearSelection();
-            updateSyllableDisplay();
-            document.getElementById('spellDisplay')?.classList.add('correct-flash');
-            setTimeout(() => document.getElementById('spellDisplay')?.classList.remove('correct-flash'), 400);
-            if (confirmedSyllables.length === targets.length) updateSendButton();
-        } else {
-            document.getElementById('spellDisplay')?.classList.add('error-flash');
-            setTimeout(() => document.getElementById('spellDisplay')?.classList.remove('error-flash'), 400);
-            showToast('❌ 音節不匹配');
-        }
-    }
-
-    function updateSendButton() {
-        const btn = document.getElementById('btnSend');
-        if (!btn) return;
-        const d = getCurrentDialogue();
-        if (!d || isCourseComplete) { btn.classList.remove('unlocked'); btn.disabled = true; btn.textContent = '🔒 發送'; return; }
-        const targets = parsePinyin(d.targetPinyin);
-        const ok = confirmedSyllables.length === targets.length && confirmedSyllables.every(s => s.matchesTarget);
-        if (ok && targets.length) {
-            btn.classList.add('unlocked');
-            btn.disabled = false;
-            btn.textContent = '📤 發送';
-        } else {
-            btn.classList.remove('unlocked');
-            btn.disabled = true;
-            btn.textContent = '🔒 發送';
-        }
-    }
-
-    function updateTargetHint() {
-        const d = getCurrentDialogue();
-        const s = document.getElementById('targetStrong');
-        if (d && s) s.textContent = d.hint || `請拼寫：${buildDisplayFromNum(d.targetPinyin)}（${d.targetChinese}）`;
-        else if (s) s.textContent = '課程完成';
-    }
-
-    function sendMessage() {
-        if (isCourseComplete) return;
-        const d = getCurrentDialogue();
-        if (!d) return;
-        const str = confirmedSyllables.map(s => s.displayStr).join(' ');
-        addStudentMessage(str, d.targetChinese, d.targetPinyin, d.openQuestion, d.openKeywords);
-        currentDialogueIndex++;
-        confirmedSyllables = [];
-        clearSelection();
-        updateSyllableDisplay();
-        updateSendButton();
-        const theme = loadThemes().find(t => t.id === AppState.currentThemeId);
-        if (theme && currentDialogueIndex < theme.dialogues.length) {
-            setTimeout(() => {
-                addTeacherMessage(theme.dialogues[currentDialogueIndex].teacherMessage);
-                updateTargetHint();
-                scrollChatToBottom();
-            }, 300);
-        } else {
-            isCourseComplete = true;
-            setTimeout(() => {
-                addSystemMessage('🎉 課程結束！');
-                updateTargetHint();
-                updateSendButton();
-                scrollChatToBottom();
-            }, 400);
-        }
-    }
-
-    function speakText(text) {
-        if (!window.speechSynthesis) return;
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.lang = 'zh-CN';
-        u.rate = 0.9;
-        window.speechSynthesis.speak(u);
-    }
-
-    function addTeacherMessage(text) {
-        const chat = document.getElementById('chatArea');
-        if (!chat) return;
-        const row = document.createElement('div');
-        row.className = 'message-row teacher';
-        row.innerHTML = `<span class="msg-label">👩‍🏫 老師</span><div class="msg-bubble speakable">${esc(text)} <span class="speak-icon">🔊</span></div>`;
-        row.querySelector('.msg-bubble').addEventListener('click', (e) => { e.stopPropagation(); speakText(text); });
-        chat.appendChild(row);
-        scrollChatToBottom();
-    }
-
-    function addStudentMessage(pinyinDisp, chinese, targetPinyin, openQ, openKw) {
-        const chat = document.getElementById('chatArea');
-        if (!chat) return;
-        const row = document.createElement('div');
-        row.className = 'message-row student';
-        row.innerHTML = `<span class="msg-label">🧑‍🎓 你</span>
-            <div class="msg-bubble evaluable" data-pinyin="${esc(targetPinyin)}" data-chinese="${esc(chinese)}" data-openq="${esc(openQ||'')}" data-openkw="${esc(openKw||'')}">
-                ${esc(pinyinDisp)} <span class="eval-icon">🎤</span>
-            </div>`;
-        row.querySelector('.msg-bubble').addEventListener('click', () => openEvalModal(targetPinyin, chinese, openQ, openKw));
-        chat.appendChild(row);
-        scrollChatToBottom();
-    }
-
-    function addSystemMessage(text) {
-        const chat = document.getElementById('chatArea');
-        if (!chat) return;
-        const d = document.createElement('div');
-        d.className = 'system-hint';
-        d.textContent = text;
-        chat.appendChild(d);
-        scrollChatToBottom();
-    }
-
-    function scrollChatToBottom() {
-        const c = document.getElementById('chatArea');
-        if (c) requestAnimationFrame(() => { c.scrollTop = c.scrollHeight; });
-    }
-
-    // ===== Web Speech 初始化 =====
-    function initSpeech() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            const msg = '⚠️ 此瀏覽器不支援 Web Speech API，請使用 Chrome/Edge/Safari 14+。';
-            showToast(msg);
-            const errorDiv = document.getElementById('engineError');
-            if (errorDiv) {
-                errorDiv.textContent = msg;
-                errorDiv.style.display = 'block';
-            }
-            return Promise.resolve(false);
-        }
-        try {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'zh-CN';   // 強制普通話
-            recognition.continuous = false;
-            recognition.interimResults = true;
-            recognition.maxAlternatives = 1;
-            engineReady = true;
-            return Promise.resolve(true);
-        } catch (e) {
-            const msg = '⚠️ 初始化語音失敗：' + e.message;
-            showToast(msg);
-            const errorDiv = document.getElementById('engineError');
-            if (errorDiv) {
-                errorDiv.textContent = msg;
-                errorDiv.style.display = 'block';
-            }
-            return Promise.resolve(false);
-        }
-    }
-
-    // ===== 語音評測模態框 =====
-    function openEvalModal(pinyinNum, chinese, openQ, openKw) {
-        currentEvalTarget = { pinyin: pinyinNum, chinese, openQ, openKw };
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.id = 'evalModal';
-        modal.innerHTML = `
-            <div class="modal-dialog">
-                <h3>🎤 拼音朗讀評測</h3>
-                <div style="font-size:1.2rem;margin-bottom:8px;">${esc(chinese)} (${buildDisplayFromNum(pinyinNum)})</div>
-                <div style="display:flex;gap:12px;justify-content:center;margin-bottom:12px;">
-                    <button class="btn-outline" id="btnStandard">朗讀指定拼音</button>
-                    ${openQ ? `<button class="btn-outline" id="btnOpen">自由回答 (拼音)</button>` : ''}
+            <div style="margin-top:24px;padding-top:20px;border-top:1.5px solid #eef2f6;">
+                <p style="font-size:14px;color:#6b7a8f;">
+                    ⚙️ <strong>DeepSeek API（選填）</strong> — 填入後可自動生成更智慧的評分建議
+                </p>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;align-items:center;">
+                    <input type="text" id="deepseekKey" placeholder="sk-... 輸入 DeepSeek API Key"
+                    style="flex:1;min-width:200px;padding:10px 14px;border:1.5px solid #dce2ea;border-radius:12px;font-size:14px;" />
+                    <button class="btn btn-outline" id="testDeepseek" style="margin-top:0;">🔗 測試連線</button>
                 </div>
-                <div id="evalQuestion" style="display:none;margin-bottom:10px;color:#555;">${openQ ? esc(openQ) : ''}</div>
-                <button class="btn-mic" id="btnMic" style="display:none;">🎙️</button>
-                <div id="evalResult" style="margin:12px 0;">請選擇模式後點擊麥克風</div>
-                <div id="evalStars" style="font-size:2rem;"></div>
-                <div id="evalDetail" style="font-size:0.8rem;color:#666;"></div>
-                <div style="margin-top:8px;background:#fff3cd;padding:4px;border-radius:4px;font-size:0.7rem;color:#856404;">⚠️ 評測基於文字轉錄，無法檢測實際發音，僅供練習參考。</div>
-                <button class="btn-close" id="btnCloseEval">關閉</button>
-            </div>`;
-        document.body.appendChild(modal);
+                <div id="deepseekStatus" style="font-size:13px;color:#6b7a8f;margin-top:6px;"></div>
+            </div>
+        </div>
 
-        document.getElementById('btnStandard').addEventListener('click', () => {
-            document.getElementById('evalQuestion').style.display = 'none';
-            document.getElementById('btnMic').style.display = 'flex';
-            if (!engineReady || !recognition) {
-                document.getElementById('evalResult').innerHTML = `<div class="error-box">⚠️ 語音引擎尚未載入完成，請稍後再試。</div>`;
-                return;
-            }
-            currentMode = 'standard';
-            document.getElementById('evalResult').textContent = '請朗讀指定拼音 (普通話)';
-        });
-        if (openQ) {
-            document.getElementById('btnOpen').addEventListener('click', () => {
-                document.getElementById('evalQuestion').style.display = 'block';
-                document.getElementById('btnMic').style.display = 'flex';
-                if (!engineReady || !recognition) {
-                    document.getElementById('evalResult').innerHTML = `<div class="error-box">⚠️ 語音引擎尚未載入完成，請稍後再試。</div>`;
-                    return;
-                }
-                currentMode = 'open';
-                document.getElementById('evalResult').textContent = '請自由回答（普通話）';
-            });
-        }
-        document.getElementById('btnMic').addEventListener('click', () => {
-            if (isRecording) stopRecording();
-            else startRecording();
-        });
-        document.getElementById('btnCloseEval').addEventListener('click', closeEvalModal);
-        modal.addEventListener('click', e => { if (e.target === modal) closeEvalModal(); });
-    }
+        <!-- ============================================================ -->
+        <!-- ===== 学生面板 ===== -->
+        <!-- ============================================================ -->
+        <div id="panelStudent" class="panel">
+            <!-- 显示教师上传的图片 -->
+            <div class="student-image-box" id="studentImageBox">
+                <span class="placeholder">📷 等待教師上傳圖片...</span>
+            </div>
 
-    function closeEvalModal() {
-        if (isRecording) stopRecording();
-        document.getElementById('evalModal')?.remove();
-        currentEvalTarget = null;
-    }
+            <!-- 显示参考答案（学生可见） -->
+            <div class="reference-box" id="referenceBox">
+                <div class="label">📖 參考答案</div>
+                <div class="content" id="refDisplay">教師尚未設定參考答案。</div>
+            </div>
 
-    // ===== 錄音控制（Web Speech） =====
-    function startRecording() {
-        const resultEl = document.getElementById('evalResult');
-        if (!resultEl) return;
+            <!-- 录音控制 -->
+            <div class="recording-controls">
+                <button class="btn btn-primary" id="startRecord">🎤 開始錄音</button>
+                <button class="btn btn-danger" id="stopRecord" disabled>⏹ 停止錄音</button>
+                <span class="status-badge" id="statusBadge">
+                    <span class="dot"></span> 就緒
+                </span>
+            </div>
 
-        if (!engineReady || !recognition) {
-            resultEl.innerHTML = `<div class="error-box">⚠️ 語音引擎未就緒，請稍後再試。</div>`;
-            return;
-        }
+            <!-- 识别结果 -->
+            <div class="result-box">
+                <div class="label">📝 識別結果</div>
+                <div class="text empty" id="recognizedText">點擊「開始錄音」後說話，語音將轉為文字...</div>
+            </div>
 
-        // 請求麥克風權限
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            resultEl.innerHTML = `<div class="error-box">⚠️ 此瀏覽器不支援麥克風。</div>`;
-            return;
-        }
+            <!-- 评分结果 -->
+            <div id="scoreArea" style="display:none;">
+                <div class="score-grid" id="scoreGrid">
+                    <div class="score-item">
+                        <div class="value" id="scoreContent">—</div>
+                        <div class="desc">內容匹配度</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreKeyword">—</div>
+                        <div class="desc">關鍵詞覆蓋</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreLength">—</div>
+                        <div class="desc">表達完整度</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="value" id="scoreOverall">—</div>
+                        <div class="desc">綜合評分</div>
+                    </div>
+                </div>
+                <div class="advice-box" id="adviceBox">
+                    <div class="label">💡 智能建議</div>
+                    <div class="content" id="adviceContent">評分完成後將顯示建議。</div>
+                </div>
+            </div>
+        </div>
 
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(() => {
-                recognition.onresult = (event) => {
-                    let finalText = '';
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        if (event.results[i].isFinal) {
-                            finalText += event.results[i][0].transcript;
+    </div>
+
+    <script>
+        // ================================================================
+        //  JavaScript 核心逻辑
+        // ================================================================
+
+        (function() {
+            'use strict';
+
+            // ---------- DOM 引用 ----------
+            const roleTabs = document.querySelectorAll('.role-tab');
+            const panelTeacher = document.getElementById('panelTeacher');
+            const panelStudent = document.getElementById('panelStudent');
+
+            const uploadArea = document.getElementById('uploadArea');
+            const imageInput = document.getElementById('imageInput');
+            const imagePreview = document.getElementById('imagePreview');
+
+            const refAnswer = document.getElementById('refAnswer');
+            const refKeywords = document.getElementById('refKeywords');
+            const saveTeacherBtn = document.getElementById('saveTeacherConfig');
+            const saveStatus = document.getElementById('saveStatus');
+
+            const studentImageBox = document.getElementById('studentImageBox');
+            const refDisplay = document.getElementById('refDisplay');
+
+            const startBtn = document.getElementById('startRecord');
+            const stopBtn = document.getElementById('stopRecord');
+            const statusBadge = document.getElementById('statusBadge');
+            const recognizedText = document.getElementById('recognizedText');
+
+            const scoreArea = document.getElementById('scoreArea');
+            const scoreContent = document.getElementById('scoreContent');
+            const scoreKeyword = document.getElementById('scoreKeyword');
+            const scoreLength = document.getElementById('scoreLength');
+            const scoreOverall = document.getElementById('scoreOverall');
+            const adviceContent = document.getElementById('adviceContent');
+
+            const deepseekKey = document.getElementById('deepseekKey');
+            const testDeepseekBtn = document.getElementById('testDeepseek');
+            const deepseekStatus = document.getElementById('deepseekStatus');
+
+            // ---------- 状态 ----------
+            let teacherConfig = {
+                imageData: null, // base64
+                refAnswer: '',
+                refKeywords: [],
+                deepseekApiKey: ''
+            };
+
+            let isRecording = false;
+            let recognition = null;
+            let finalTranscript = '';
+
+            // ---------- 本地存储 ----------
+            function loadConfig() {
+                try {
+                    const saved = localStorage.getItem('mandarin_teacher_config');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        teacherConfig = parsed;
+                        // 回填界面
+                        if (parsed.imageData) {
+                            imagePreview.src = parsed.imageData;
+                            imagePreview.style.display = 'block';
+                            updateStudentImage(parsed.imageData);
+                        }
+                        if (parsed.refAnswer) {
+                            refAnswer.value = parsed.refAnswer;
+                            refDisplay.textContent = parsed.refAnswer;
+                        }
+                        if (parsed.refKeywords && parsed.refKeywords.length) {
+                            refKeywords.value = parsed.refKeywords.join(', ');
+                        }
+                        if (parsed.deepseekApiKey) {
+                            deepseekKey.value = parsed.deepseekApiKey;
                         }
                     }
-                    if (finalText) {
-                        evaluatePinyin(finalText);
-                        stopRecording();
+                } catch (e) { /* ignore */ }
+            }
+
+            function saveConfig() {
+                const keywordsRaw = refKeywords.value.trim();
+                const keywords = keywordsRaw ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+                teacherConfig.refAnswer = refAnswer.value.trim();
+                teacherConfig.refKeywords = keywords;
+                teacherConfig.deepseekApiKey = deepseekKey.value.trim();
+
+                // 图片已在上传时保存
+                try {
+                    localStorage.setItem('mandarin_teacher_config', JSON.stringify(teacherConfig));
+                } catch (e) { /* ignore */ }
+
+                // 更新学生面板的参考答案
+                refDisplay.textContent = teacherConfig.refAnswer || '教師尚未設定參考答案。';
+
+                saveStatus.textContent = '✅ 已儲存';
+                setTimeout(() => { saveStatus.textContent = ''; }, 2000);
+            }
+
+            function updateStudentImage(dataUrl) {
+                if (dataUrl) {
+                    studentImageBox.innerHTML = `<img src="${dataUrl}" alt="看圖說話圖片" />`;
+                } else {
+                    studentImageBox.innerHTML = `<span class="placeholder">📷 等待教師上傳圖片...</span>`;
+                }
+            }
+
+            // ---------- 图片上传 ----------
+            uploadArea.addEventListener('click', () => imageInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#3b82f6';
+                uploadArea.style.background = '#f0f7ff';
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#cbd5e1';
+                uploadArea.style.background = '#fafcff';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#cbd5e1';
+                uploadArea.style.background = '#fafcff';
+                if (e.dataTransfer.files.length) {
+                    handleImageFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            imageInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleImageFile(e.target.files[0]);
+                }
+            });
+
+            function handleImageFile(file) {
+                if (!file.type.startsWith('image/')) {
+                    alert('請上傳圖片檔案');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const dataUrl = ev.target.result;
+                    imagePreview.src = dataUrl;
+                    imagePreview.style.display = 'block';
+                    teacherConfig.imageData = dataUrl;
+                    updateStudentImage(dataUrl);
+                    saveConfig();
+                };
+                reader.readAsDataURL(file);
+            }
+
+            // ---------- 保存教师配置 ----------
+            saveTeacherBtn.addEventListener('click', saveConfig);
+
+            // ---------- 角色切换 ----------
+            roleTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    roleTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    const role = tab.dataset.role;
+                    if (role === 'teacher') {
+                        panelTeacher.classList.add('active');
+                        panelStudent.classList.remove('active');
+                    } else {
+                        panelTeacher.classList.remove('active');
+                        panelStudent.classList.add('active');
+                        // 如果正在录音，停止
+                        if (isRecording) stopRecording();
+                    }
+                });
+            });
+
+            // ---------- Web Speech API 语音识别 ----------
+            function initRecognition() {
+                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SR) {
+                    statusBadge.textContent = '❌ 瀏覽器不支援語音識別';
+                    statusBadge.className = 'status-badge';
+                    startBtn.disabled = true;
+                    return null;
+                }
+                const rec = new SR();
+                // 设置语言为中文普通话
+                rec.lang = 'zh-CN';
+                rec.continuous = false;
+                rec.interimResults = true;
+                rec.maxAlternatives = 1;
+
+                rec.onstart = () => {
+                    isRecording = true;
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                    statusBadge.textContent = '🔴 錄音中...';
+                    statusBadge.className = 'status-badge recording';
+                    finalTranscript = '';
+                    recognizedText.textContent = '🎤 聆聽中...';
+                    recognizedText.className = 'text';
+                    scoreArea.style.display = 'none';
+                };
+
+                rec.onerror = (event) => {
+                    console.warn('Speech recognition error:', event.error);
+                    if (event.error === 'not-allowed') {
+                        statusBadge.textContent = '❌ 麥克風權限被拒絕';
+                    } else if (event.error === 'no-speech') {
+                        statusBadge.textContent = '⏳ 未偵測到語音，請再試一次';
+                    } else {
+                        statusBadge.textContent = '❌ 錯誤: ' + event.error;
+                    }
+                    statusBadge.className = 'status-badge';
+                    isRecording = false;
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                };
+
+                rec.onresult = (event) => {
+                    let interim = '';
+                    let final = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            final += transcript;
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+                    const displayText = final || interim || '🎤 聆聽中...';
+                    recognizedText.textContent = displayText;
+                    recognizedText.className = 'text';
+                    if (final) {
+                        finalTranscript = final;
                     }
                 };
-                recognition.onerror = (e) => {
-                    console.warn('Web Speech error:', e.error);
-                    resultEl.innerHTML = `<div class="error-box">語音錯誤：${e.error}。請重新嘗試。</div>`;
-                    stopRecording();
-                };
-                recognition.onend = () => {
+
+                rec.onend = () => {
                     isRecording = false;
-                    const mic = document.getElementById('btnMic');
-                    if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    statusBadge.textContent = '⏹ 已停止';
+                    statusBadge.className = 'status-badge';
+
+                    // 如果有最终结果，进行评分
+                    if (finalTranscript.trim()) {
+                        recognizedText.textContent = finalTranscript;
+                        recognizedText.className = 'text';
+                        performScoring(finalTranscript);
+                    } else if (recognizedText.textContent.includes('聆聽中')) {
+                        recognizedText.textContent = '⚠️ 未識別到語音，請再試一次';
+                        recognizedText.className = 'text empty';
+                    }
                 };
 
-                recognition.start();
-                isRecording = true;
-                document.getElementById('btnMic').textContent = '🔴';
-                document.getElementById('btnMic').classList.add('recording');
-                resultEl.textContent = '🎤 正在聆聽 (普通話)...';
-            })
-            .catch((err) => {
-                resultEl.innerHTML = `<div class="error-box">麥克風權限被拒絕：${err.message}。請允許權限後再試。</div>`;
-            });
-    }
-
-    function stopRecording() {
-        if (recognition) {
-            try { recognition.stop(); } catch (e) {}
-        }
-        isRecording = false;
-        const mic = document.getElementById('btnMic');
-        if (mic) { mic.textContent = '🎙️'; mic.classList.remove('recording'); }
-    }
-
-    // ===== 評測核心（使用 pinyin-pro） =====
-    function evaluatePinyin(recognizedChinese) {
-        if (!currentEvalTarget) return;
-        const targetPinyin = currentEvalTarget.pinyin.trim();
-        let recognizedPinyin = '';
-        try {
-            if (window.pinyin) {
-                const result = window.pinyin(recognizedChinese, { toneType: 'num' });
-                recognizedPinyin = result.join(' ').toLowerCase();
-            } else {
-                recognizedPinyin = recognizedChinese;
-                showToast('⚠️ 拼音轉換庫未加載，評測可能不準確');
+                return rec;
             }
-        } catch (e) {
-            recognizedPinyin = recognizedChinese;
-        }
 
-        let stars = 0,
-            msg = '',
-            detail = '';
-        if (currentMode === 'standard') {
-            const sim = similarity(recognizedPinyin, targetPinyin);
-            if (sim >= 0.9) { stars = 5;
-                msg = '🏆 拼音完全正確！'; } else if (sim >= 0.7) { stars = 4;
-                msg = '👍 拼音大致正確'; } else if (sim >= 0.5) { stars = 3;
-                msg = '📝 部分音節有誤'; } else { stars = 1;
-                msg = '📢 請再試一次'; }
-            detail = `目標：${targetPinyin}  你的發音（拼音）：${recognizedPinyin}`;
-        } else {
-            const kw = currentEvalTarget.openKw.split(',').map(s => s.trim());
-            const matched = kw.filter(k => recognizedChinese.includes(k));
-            const rate = kw.length ? matched.length / kw.length : 0;
-            if (rate >= 0.8) { stars = 5;
-                msg = '🏆 關鍵詞全部命中！'; } else if (rate >= 0.5) { stars = 4;
-                msg = '👍 大部分關鍵詞命中'; } else if (rate >= 0.3) { stars = 3;
-                msg = '📝 部分關鍵詞命中'; } else { stars = 1;
-                msg = '📢 未命中關鍵詞'; }
-            detail = `關鍵詞：${kw.join('、')}  命中：${matched.join('、') || '無'}`;
-        }
-        document.getElementById('evalResult').textContent = msg;
-        document.getElementById('evalStars').textContent = ['', '⭐', '⭐⭐', '⭐⭐⭐', '⭐⭐⭐⭐', '🌟🌟🌟🌟🌟'][stars];
-        document.getElementById('evalDetail').textContent = detail;
-    }
+            // ---------- 评分逻辑 ----------
+            function performScoring(transcript) {
+                const ref = teacherConfig.refAnswer || '';
+                const keywords = teacherConfig.refKeywords || [];
 
-    function similarity(s1, s2) {
-        let l = s1,
-            sh = s2;
-        if (s1.length < s2.length) { l = s2;
-            sh = s1; }
-        if (l.length === 0) return 1;
-        return (l.length - editDistance(l, sh)) / parseFloat(l.length);
-    }
+                // 1. 内容匹配度 (基于编辑距离的相似度)
+                let contentScore = 0;
+                if (ref && transcript) {
+                    const sim = calculateSimilarity(transcript, ref);
+                    contentScore = Math.round(sim * 100);
+                } else if (ref) {
+                    contentScore = 0;
+                } else {
+                    contentScore = 50; // 无参考答案时给中性分
+                }
 
-    function editDistance(s1, s2) {
-        s1 = s1.toLowerCase();
-        s2 = s2.toLowerCase();
-        const costs = [];
-        for (let i = 0; i <= s1.length; i++) {
-            let last = i;
-            for (let j = 0; j <= s2.length; j++) {
-                if (i === 0) costs[j] = j;
-                else if (j > 0) {
-                    let n = costs[j - 1];
-                    if (s1.charAt(i - 1) !== s2.charAt(j - 1)) n = Math.min(n, Math.min(last, costs[j])) + 1;
-                    costs[j - 1] = last;
-                    last = n;
+                // 2. 关键词覆盖
+                let keywordScore = 0;
+                if (keywords.length > 0 && transcript) {
+                    let found = 0;
+                    const lowerTranscript = transcript.toLowerCase();
+                    for (const kw of keywords) {
+                        if (lowerTranscript.includes(kw.toLowerCase())) {
+                            found++;
+                        }
+                    }
+                    keywordScore = Math.round((found / keywords.length) * 100);
+                } else if (keywords.length === 0) {
+                    keywordScore = 50;
+                } else {
+                    keywordScore = 0;
+                }
+
+                // 3. 表达完整度 (基于长度)
+                let lengthScore = 0;
+                const refLen = ref ? ref.length : 50;
+                const transLen = transcript ? transcript.length : 0;
+                if (transLen === 0) {
+                    lengthScore = 0;
+                } else if (refLen > 0) {
+                    const ratio = Math.min(transLen / refLen, 2);
+                    lengthScore = Math.min(Math.round(ratio * 50), 100);
+                } else {
+                    lengthScore = Math.min(Math.round(transLen / 10 * 20), 100);
+                }
+
+                // 4. 综合评分
+                const overall = Math.round((contentScore * 0.4 + keywordScore * 0.35 + lengthScore * 0.25));
+
+                // 显示评分
+                scoreContent.textContent = contentScore + '%';
+                scoreContent.className = 'value ' + getScoreClass(contentScore);
+                scoreKeyword.textContent = keywordScore + '%';
+                scoreKeyword.className = 'value ' + getScoreClass(keywordScore);
+                scoreLength.textContent = lengthScore + '%';
+                scoreLength.className = 'value ' + getScoreClass(lengthScore);
+                scoreOverall.textContent = overall + '%';
+                scoreOverall.className = 'value ' + getScoreClass(overall);
+
+                scoreArea.style.display = 'block';
+
+                // 生成建议
+                generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall);
+            }
+
+            function getScoreClass(score) {
+                if (score >= 70) return 'good';
+                if (score >= 40) return 'ok';
+                return 'poor';
+            }
+
+            function calculateSimilarity(s1, s2) {
+                // 使用编辑距离计算相似度
+                const a = s1.toLowerCase();
+                const b = s2.toLowerCase();
+                if (a.length === 0 && b.length === 0) return 1;
+                if (a.length === 0 || b.length === 0) return 0;
+
+                const maxLen = Math.max(a.length, b.length);
+                const dist = levenshteinDistance(a, b);
+                return 1 - (dist / maxLen);
+            }
+
+            function levenshteinDistance(a, b) {
+                const matrix = [];
+                for (let i = 0; i <= b.length; i++) {
+                    matrix[i] = [i];
+                }
+                for (let j = 0; j <= a.length; j++) {
+                    matrix[0][j] = j;
+                }
+                for (let i = 1; i <= b.length; i++) {
+                    for (let j = 1; j <= a.length; j++) {
+                        if (b[i - 1] === a[j - 1]) {
+                            matrix[i][j] = matrix[i - 1][j - 1];
+                        } else {
+                            matrix[i][j] = Math.min(
+                                matrix[i - 1][j - 1] + 1,
+                                matrix[i][j - 1] + 1,
+                                matrix[i - 1][j] + 1
+                            );
+                        }
+                    }
+                }
+                return matrix[b.length][a.length];
+            }
+
+            // ---------- 生成建议 ----------
+            async function generateAdvice(transcript, contentScore, keywordScore, lengthScore, overall) {
+                const adviceEl = document.getElementById('adviceContent');
+
+                // 如果有 DeepSeek API Key，调用 AI 生成建议
+                const apiKey = teacherConfig.deepseekApiKey || deepseekKey.value.trim();
+                if (apiKey && apiKey.startsWith('sk-')) {
+                    try {
+                        const prompt = `你是一位普通話語音評測老師。學生的語音識別結果如下：
+        【學生說話內容】${transcript}
+        【參考答案】${teacherConfig.refAnswer || '未設定'}
+        【關鍵詞】${teacherConfig.refKeywords.join('、') || '未設定'}
+        【評分】內容匹配度${contentScore}%，關鍵詞覆蓋${keywordScore}%，表達完整度${lengthScore}%，綜合${overall}%
+
+        請用繁體中文給出2-3句具體、有建設性的改進建議，鼓勵學生繼續努力。不要超過80字。`;
+
+                        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': 'Bearer ' + apiKey
+                            },
+                            body: JSON.stringify({
+                                model: 'deepseek-chat',
+                                messages: [
+                                    { role: 'system',
+                                        content: '你是一位親切的普通話老師，給出鼓勵性的改進建議。' },
+                                    { role: 'user', content: prompt }
+                                ],
+                                max_tokens: 200,
+                                temperature: 0.7
+                            })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            const advice = data.choices?.[0]?.message?.content || '';
+                            if (advice) {
+                                adviceEl.textContent = advice.trim();
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('DeepSeek API 调用失败:', e);
+                        // fall through to local advice
+                    }
+                }
+
+                // 本地生成建议
+                let advice = '';
+                if (overall >= 80) {
+                    advice = '🎉 表現非常優秀！說話內容豐富，表達流暢。繼續保持，可以嘗試加入更多細節描述。';
+                } else if (overall >= 60) {
+                    advice = '👍 整體不錯！建議多留意關鍵詞的運用，嘗試用更完整的句子表達想法。';
+                } else if (overall >= 40) {
+                    advice = '📖 繼續努力！建議先參考答案的結構，練習使用關鍵詞組織句子。多聽多說會有進步！';
+                } else {
+                    advice = '💪 加油！可以先把圖片中的主要元素（人物、地點、活動）說出來，再慢慢豐富內容。';
+                }
+
+                // 针对特定维度补充建议
+                if (keywordScore < 50 && teacherConfig.refKeywords.length > 0) {
+                    advice += ' 試著用上「' + teacherConfig.refKeywords.slice(0, 3).join('、') + '」這些關鍵詞。';
+                }
+                if (lengthScore < 40) {
+                    advice += ' 可以說得更完整一些，描述更多細節。';
+                }
+
+                adviceEl.textContent = advice;
+            }
+
+            // ---------- 录音控制 ----------
+            function startRecording() {
+                if (isRecording) return;
+                if (!recognition) {
+                    recognition = initRecognition();
+                    if (!recognition) return;
+                }
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // 可能已经在运行
+                    if (e.name === 'InvalidStateError') {
+                        recognition.stop();
+                        setTimeout(() => {
+                            try { recognition.start(); } catch (e2) { /* ignore */ }
+                        }, 200);
+                    } else {
+                        console.error(e);
+                        statusBadge.textContent = '❌ 啟動失敗: ' + e.message;
+                    }
                 }
             }
-            if (i > 0) costs[s2.length] = last;
-        }
-        return costs[s2.length];
-    }
 
-    // ===== 老師管理（完整保留） =====
-    function renderTeacherDashboard() {
-        headerName.textContent = '老師管理';
-        headerSub.textContent = '編輯對話主題';
-        const td = loadThemes();
-        let h = `<div class="page-container"><div class="plain-list">
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;">
-                    <h2>📋 對話主題</h2>
-                    <button class="btn-primary" id="btnNewTheme">＋ 新建主題</button>
-                </div>`;
-        td.forEach(t => {
-            h += `<div class="plain-item">
-                    <div><strong>${esc(t.title)}</strong><br><small>角色：${esc(t.characterName)} | ${t.dialogues.length} 輪</small></div>
-                    <div>
-                        <button class="btn-outline edit-theme" data-id="${t.id}">編輯</button>
-                        <button class="btn-danger delete-theme" data-id="${t.id}">刪除</button>
-                    </div>
-                </div>`;
-        });
-        h += `</div></div>`;
-        dynamicContent.innerHTML = h;
-        document.getElementById('btnNewTheme').addEventListener('click', () => goTo('teacher-edit', { themeId: null }));
-        document.querySelectorAll('.edit-theme').forEach(b => b.addEventListener('click', () => goTo('teacher-edit', { themeId: b.dataset.id })));
-        document.querySelectorAll('.delete-theme').forEach(b => b.addEventListener('click', () => {
-            if (confirm('確定刪除？')) {
-                let t = loadThemes();
-                t = t.filter(x => x.id !== b.dataset.id);
-                saveThemes(t);
-                renderTeacherDashboard();
-            }
-        }));
-    }
-
-    function renderTeacherEdit() {
-        const themeId = AppState.editThemeId;
-        const theme = themeId ? loadThemes().find(t => t.id === themeId) : null;
-        headerName.textContent = theme ? '編輯主題' : '新建主題';
-        const title = theme ? theme.title : '';
-        const charName = theme ? theme.characterName : '';
-        const dialogues = theme ? theme.dialogues : [{ teacherMessage: '', targetPinyin: '', targetChinese: '', hint: '', openQuestion: '', openKeywords: '' }];
-        let h = `<div class="page-container"><div class="plain-list">
-                <label>主題名稱：<input type="text" id="editTitle" value="${esc(title)}" style="width:100%;padding:6px;"></label>
-                <label>角色名稱：<input type="text" id="editCharName" value="${esc(charName)}" style="width:100%;padding:6px;"></label>
-                <h3>對話輪次</h3>
-                <div id="dialoguesContainer">`;
-        dialogues.forEach((d, i) => {
-            h += `<div class="dialogue-item" style="background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;">
-                    <strong>第${i+1}輪</strong>
-                    <label>老師訊息：<input type="text" class="teacherMsg" value="${esc(d.teacherMessage)}" style="width:100%;"></label>
-                    <label>目標拼音：<input type="text" class="targetPinyin" value="${esc(d.targetPinyin)}" style="width:100%;"></label>
-                    <label>目標漢字：<input type="text" class="targetChinese" value="${esc(d.targetChinese)}" style="width:100%;"></label>
-                    <label>提示：<input type="text" class="hintText" value="${esc(d.hint||'')}" style="width:100%;"></label>
-                    <label>開放問題(可選)：<input type="text" class="openQuestion" value="${esc(d.openQuestion||'')}" style="width:100%;"></label>
-                    <label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" value="${esc(d.openKeywords||'')}" style="width:100%;"></label>
-                    <button class="btn-danger remove-dialogue">刪除此輪</button>
-                </div>`;
-        });
-        h += `</div>
-                <button class="btn-primary" id="btnAddDialogue">＋ 添加一輪</button>
-                <div style="margin-top:16px;"><button class="btn-primary" id="btnSaveTheme">💾 儲存主題</button></div>
-            </div></div>`;
-        dynamicContent.innerHTML = h;
-
-        function autoHint(div) {
-            const p = div.querySelector('.targetPinyin'),
-                c = div.querySelector('.targetChinese'),
-                hint = div.querySelector('.hintText');
-            function up() {
-                if (p.value.trim() && c.value.trim()) {
-                    const auto = `請拼寫：${buildDisplayFromNum(p.value.trim())}（${c.value.trim()}）`;
-                    if (!hint.value) hint.value = auto;
+            function stopRecording() {
+                if (recognition && isRecording) {
+                    try {
+                        recognition.stop();
+                    } catch (e) { /* ignore */ }
                 }
+                isRecording = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusBadge.textContent = '⏹ 已停止';
+                statusBadge.className = 'status-badge';
             }
-            p.addEventListener('input', up);
-            c.addEventListener('input', up);
-            up();
-        }
 
-        function autoKeywords(div) {
-            const qInput = div.querySelector('.openQuestion');
-            const kwInput = div.querySelector('.openKeywords');
-            function gen() {
-                const q = qInput.value.trim();
-                if (!q) { kwInput.value = ''; return; }
-                const words = q.replace(/[?？，,。！!]/g, '').split(/\s+/).filter(w => w.length > 0);
-                const stop = new Set(['的', '了', '嗎', '呢', '吧', '啊', '呀', '哪', '什麼', '怎麼', '可以', '還有', '其他', '方式', '用', '是', '我', '你', '他', '她', '它', '們', '這', '那', '請', '告訴', '說', '一下']);
-                let kw = words.filter(w => !stop.has(w) && w.length > 1);
-                kw = [...new Set(kw)].slice(0, 5);
-                kwInput.value = kw.join(',');
-            }
-            qInput.addEventListener('input', gen);
-            gen();
-        }
+            startBtn.addEventListener('click', startRecording);
+            stopBtn.addEventListener('click', stopRecording);
 
-        document.querySelectorAll('.dialogue-item').forEach(d => { autoHint(d);
-            autoKeywords(d); });
-
-        document.getElementById('btnAddDialogue').addEventListener('click', () => {
-            const cont = document.getElementById('dialoguesContainer');
-            const idx = cont.children.length + 1;
-            const div = document.createElement('div');
-            div.className = 'dialogue-item';
-            div.style = 'background:#f9f9f9;padding:10px;margin:8px 0;border-radius:8px;';
-            div.innerHTML = `
-                <strong>第${idx}輪</strong>
-                <label>老師訊息：<input type="text" class="teacherMsg" style="width:100%;"></label>
-                <label>目標拼音：<input type="text" class="targetPinyin" style="width:100%;"></label>
-                <label>目標漢字：<input type="text" class="targetChinese" style="width:100%;"></label>
-                <label>提示：<input type="text" class="hintText" style="width:100%;"></label>
-                <label>開放問題(可選)：<input type="text" class="openQuestion" style="width:100%;"></label>
-                <label>開放關鍵詞(自動生成)：<input type="text" class="openKeywords" style="width:100%;"></label>
-                <button class="btn-danger remove-dialogue">刪除此輪</button>
-            `;
-            cont.appendChild(div);
-            autoHint(div);
-            autoKeywords(div);
-            div.querySelector('.remove-dialogue').addEventListener('click', () => div.remove());
-        });
-
-        document.querySelectorAll('.remove-dialogue').forEach(b => b.addEventListener('click', function() { this.parentElement.remove(); }));
-
-        document.getElementById('btnSaveTheme').addEventListener('click', () => {
-            const ttl = document.getElementById('editTitle').value.trim(),
-                chn = document.getElementById('editCharName').value.trim();
-            if (!ttl || !chn) { showToast('請填寫主題名稱和角色'); return; }
-            const items = document.querySelectorAll('.dialogue-item');
-            const dialogues = [];
-            items.forEach(it => {
-                const tm = it.querySelector('.teacherMsg').value.trim(),
-                    tp = it.querySelector('.targetPinyin').value.trim(),
-                    tc = it.querySelector('.targetChinese').value.trim(),
-                    th = it.querySelector('.hintText').value.trim(),
-                    oq = it.querySelector('.openQuestion').value.trim(),
-                    ok = it.querySelector('.openKeywords').value.trim();
-                if (tm && tp && tc) dialogues.push({ teacherMessage: tm, targetPinyin: tp, targetChinese: tc, hint: th, openQuestion: oq, openKeywords: ok });
+            // ---------- DeepSeek 连接测试 ----------
+            testDeepseekBtn.addEventListener('click', async () => {
+                const key = deepseekKey.value.trim();
+                if (!key || !key.startsWith('sk-')) {
+                    deepseekStatus.textContent = '⚠️ 請輸入有效的 DeepSeek API Key (以 sk- 開頭)';
+                    deepseekStatus.style.color = '#b91c1c';
+                    return;
+                }
+                deepseekStatus.textContent = '⏳ 測試中...';
+                deepseekStatus.style.color = '#6b7a8f';
+                try {
+                    const resp = await fetch('https://api.deepseek.com/v1/models', {
+                        headers: { 'Authorization': 'Bearer ' + key }
+                    });
+                    if (resp.ok) {
+                        deepseekStatus.textContent = '✅ 連線成功！DeepSeek API 可用';
+                        deepseekStatus.style.color = '#0b8a5e';
+                        teacherConfig.deepseekApiKey = key;
+                        saveConfig();
+                    } else {
+                        const err = await resp.text();
+                        deepseekStatus.textContent = '❌ 連線失敗: ' + (err.slice(0, 100) || resp.status);
+                        deepseekStatus.style.color = '#b91c1c';
+                    }
+                } catch (e) {
+                    deepseekStatus.textContent = '❌ 網路錯誤: ' + e.message;
+                    deepseekStatus.style.color = '#b91c1c';
+                }
             });
-            if (!dialogues.length) { showToast('至少需要一輪對話'); return; }
-            let themes = loadThemes();
-            if (themeId) {
-                const idx = themes.findIndex(t => t.id === themeId);
-                if (idx >= 0) themes[idx] = { id: themeId, title: ttl, characterName: chn, dialogues };
-            } else {
-                themes.push({ id: Date.now().toString(), title: ttl, characterName: chn, dialogues });
-            }
-            saveThemes(themes);
-            showToast('✅ 主題已儲存');
-            goTo('teacher-dashboard');
-        });
-    }
 
-    // ===== 啟動 =====
-    renderView();
-</script>
+            // ---------- 初始化 ----------
+            loadConfig();
+
+            // 如果已有图片，显示
+            if (teacherConfig.imageData) {
+                updateStudentImage(teacherConfig.imageData);
+            }
+            if (teacherConfig.refAnswer) {
+                refDisplay.textContent = teacherConfig.refAnswer;
+            }
+
+            // 预初始化识别器
+            recognition = initRecognition();
+
+            console.log('✅ 普通話語音評測系統已載入');
+            console.log('📌 提示: 使用 Chrome 或 Edge 瀏覽器獲得最佳語音識別效果');
+
+        })();
+    </script>
+
 </body>
 </html>
