@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 最終版</title>
+    <title>普通話語音評測 · 最終修正版</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -69,7 +69,7 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>最終版</small></h1>
+    <h1>🎙️ 普通話語音評測 <small>最終修正版</small></h1>
     <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，即時評分</div>
 
     <div class="tabs">
@@ -140,7 +140,7 @@
     (function() {
         'use strict';
 
-        // ======================== 配置（請確認服務已開通） ============================
+        // ======================== 配置 ============================
         const APPID = 'b35875f2';
         const API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
         const API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
@@ -274,15 +274,14 @@
             document.head.appendChild(script);
         }
 
-        // ======================== 簽名（嚴格按照官方規範） ============================
+        // ======================== 簽名 ============================
         function buildWsUrl() {
             if (typeof CryptoJS === 'undefined') {
                 throw new Error('CryptoJS 未定義，請確保加密庫已載入。');
             }
             const host = 'ise-api.xfyun.cn';
-            const date = new Date().toUTCString(); // 例如: "Tue, 24 Jun 2026 04:31:13 GMT"
+            const date = new Date().toUTCString();
             const requestLine = 'GET /v2/open-ise HTTP/1.1';
-            // 簽名原始字串
             const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
             log(`簽名原始字串:\n${signatureOrigin}`);
             const hmac = CryptoJS.HmacSHA256(signatureOrigin, API_SECRET);
@@ -336,7 +335,7 @@
             });
         }
 
-        // ======================== WebSocket 評測 ============================
+        // ======================== WebSocket 評測（修正握手幀） ============================
         function startEvaluation() {
             if (isEvaluating) {
                 log('⚠️ 已有評測進行中，忽略重複調用。', 'error');
@@ -436,23 +435,28 @@
             }
         }
 
+        // ========== 修正：加入 cmd: "ssb" 與 method 字段 ==========
         function sendHandshake() {
             const handshake = {
-                common: { app_id: APPID },
+                common: {
+                    app_id: APPID
+                },
                 business: {
-                    language: 'zh_cn',
-                    category: 'read_sentence',
-                    ref_text: teacherRefContent,
+                    cmd: "ssb",                  // 必須
+                    method: "read_sentence",     // 依據官方文檔
+                    category: "read_sentence",   // 兼容
+                    language: "zh_cn",
+                    ref_text: teacherRefContent
                 },
                 data: {
                     status: 0,
-                    format: 'audio/L16;rate=16000',
-                    encoding: 'raw',
-                    audio: '',
+                    format: "audio/L16;rate=16000",
+                    encoding: "raw",
+                    audio: ""
                 }
             };
             const msg = JSON.stringify(handshake);
-            log(`發送握手幀: ${msg.substring(0, 150)}...`);
+            log(`發送握手幀: ${msg.substring(0, 200)}...`);
             ws.send(msg);
         }
 
@@ -720,12 +724,8 @@
             }
         });
 
-        console.log('✅ 最終版已啟動，請查看頁面日誌區。');
-        console.log('📌 若連接失敗，請檢查:');
-        console.log('  1. 訊飛控制台「語音評測（流式版）」服務是否已開通');
-        console.log('  2. APPID / APIKey / APISecret 是否正確無空格');
-        console.log('  3. 網絡能否訪問 wss://ise-api.xfyun.cn');
-        console.log('  4. 每日免費調用是否已超限');
+        console.log('✅ 最終修正版已啟動，請查看頁面日誌區。');
+        console.log('📌 修正要點: 握手幀中添加 cmd: "ssb" 和 method 字段');
     })();
 </script>
 </body>
