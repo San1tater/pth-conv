@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 語音轉文字 + DeepSeek 評分</title>
+    <title>普通話語音評測 · 訊飛聽寫 + DeepSeek</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -64,16 +64,13 @@
         .debug-log { background: #1e2a3a; color: #9ef; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
         .debug-log .error { color: #f88; }
         .debug-log .success { color: #8f8; }
-        .manual-input { margin-top: 12px; }
-        .manual-input textarea { width: 100%; border: 1px solid #dce1e8; border-radius: 12px; padding: 12px 14px; font-size: 15px; font-family: inherit; resize: vertical; min-height: 60px; background: #fff; }
-        .manual-input textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
         @media (max-width:600px) { .container { padding:20px 16px; } .tabs { gap:4px; } .tab-btn { padding:8px 14px; font-size:14px; } .actions { flex-direction:column; } .btn { justify-content:center; } .result-card .score-row { gap:10px 20px; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>語音轉文字 + DeepSeek 評分</small></h1>
-    <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音，語音轉文字後由 AI 評分</div>
+    <h1>🎙️ 普通話語音評測 <small>訊飛聽寫 + DeepSeek</small></h1>
+    <div class="sub">👩‍🏫 教師上傳圖片及主題描述 ｜ 🧑‍🎓 學生錄音，訊飛轉文字，AI 評分</div>
 
     <div class="tabs">
         <button class="tab-btn active" data-tab="teacher">👩‍🏫 教師入口</button>
@@ -90,8 +87,8 @@
         </div>
         <div class="preview-box" id="imagePreview"><span class="placeholder">📷 尚未上傳圖片</span></div>
         <div class="ref-box">
-            <label for="refText">📝 參考答案（學生應表達的內容）</label>
-            <textarea id="refText" placeholder="請輸入參考答案……">今天天氣真好，小貓在花園裏玩耍。</textarea>
+            <label for="refText">📝 主題描述（學生應表達的內容）</label>
+            <textarea id="refText" placeholder="請輸入主題描述……">今天天氣真好，小貓在花園裏玩耍。</textarea>
         </div>
         <div class="actions">
             <button class="btn btn-success" id="saveTeacherBtn">💾 儲存設定</button>
@@ -105,7 +102,7 @@
         <div class="preview-box" id="studentImagePreview"><span class="placeholder">📷 教師尚未上傳圖片</span></div>
         <div class="ref-box" style="background:#f0f7ff; border-color:#b3d4fc;">
             <label>📖 請看圖說話，描述你所看到的內容：</label>
-            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">教師尚未設定題目</div>
+            <div id="studentRefDisplay" style="font-size:17px; padding:6px 2px; color:#0b1e2e;">教師尚未設定主題</div>
         </div>
 
         <div class="student-speak-area">
@@ -116,12 +113,6 @@
             </div>
             <div class="transcript" id="transcriptBox"><span class="empty">🎤 語音識別結果將顯示在此……</span></div>
             <div class="debug-log" id="debugLog">[系統] 等待操作……</div>
-            <!-- 備用手動輸入 -->
-            <div class="manual-input">
-                <label for="manualText" style="font-weight:600; font-size:14px; color:#1e2a3a;">✏️ 若語音識別失敗，可在此手動輸入文字：</label>
-                <textarea id="manualText" placeholder="請輸入學生的回答……"></textarea>
-                <button class="btn btn-primary" id="manualScoreBtn" style="margin-top:8px;">📝 提交評分</button>
-            </div>
         </div>
 
         <div class="actions">
@@ -134,16 +125,16 @@
         <div class="result-card" id="resultCard" style="display:none;">
             <div class="score-row">
                 <div class="score-item"><span>🏆 總分</span> <span class="num" id="totalScore">--</span></div>
-                <div class="score-item"><span>🎯 內容準確度</span> <span class="num" id="accScore">--</span></div>
-                <div class="score-item"><span>📊 表達流暢度</span> <span class="num" id="fluencyScore">--</span></div>
-                <div class="score-item"><span>📝 完整性</span> <span class="num" id="integrityScore">--</span></div>
+                <div class="score-item"><span>🎯 內容相關性</span> <span class="num" id="accScore">--</span></div>
+                <div class="score-item"><span>📊 豐富度</span> <span class="num" id="fluencyScore">--</span></div>
+                <div class="score-item"><span>🔊 語音準確度</span> <span class="num" id="integrityScore">--</span></div>
             </div>
             <div class="detail" id="suggestionText"><strong>💡 智能建議：</strong> 評分完成後顯示建議。</div>
         </div>
 
         <div class="status-box" id="studentStatus"><span class="label">📌 狀態：</span> 請點擊「開始錄音」看圖說話。</div>
     </div>
-    <div class="footer-note">⚡ 語音識別：訊飛語音評測（流式版）｜ 評分：DeepSeek API</div>
+    <div class="footer-note">⚡ 語音識別：訊飛語音聽寫 (流式版) ｜ 評分：DeepSeek API</div>
 </div>
 
 <script>
@@ -151,14 +142,13 @@
         'use strict';
 
         // ================================================================
-        // 1. 配置區（已填入 DeepSeek API Key）
+        // 1. 配置區（已填入訊飛聽寫憑證 + DeepSeek API Key）
         // ================================================================
         const CONFIG = {
-            // 訊飛語音評測（流式版）WebAPI 憑證（與您控制台一致）
             XUNFEI_APPID: 'b35875f2',
             XUNFEI_API_KEY: '2cba10591dc68d093065c60d0c8b98ab',
             XUNFEI_API_SECRET: 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy',
-            // DeepSeek API 憑證（已填入）
+            XUNFEI_WS_URL: 'wss://iat-api.xfyun.cn/v2/iat',   // 語音聽寫端點
             DEEPSEEK_API_KEY: 'sk-1b549674ca454f55b440b778e2cc122b',
         };
 
@@ -192,9 +182,6 @@
         const integrityScore = document.getElementById('integrityScore');
         const suggestionText = document.getElementById('suggestionText');
 
-        const manualText = document.getElementById('manualText');
-        const manualScoreBtn = document.getElementById('manualScoreBtn');
-
         // ================================================================
         // 3. 狀態變量
         // ================================================================
@@ -211,7 +198,7 @@
         let audioBuffer = [];
         const SAMPLE_RATE = 16000;
 
-        // 訊飛語音評測 WebSocket 相關
+        // 訊飛聽寫 WebSocket 相關
         let ws = null;
         let isRecognizing = false;
         let finalTranscript = '';
@@ -219,11 +206,11 @@
         let timeoutId = null;
         let chunkCount = 0;
 
-        // 加密庫就緒標誌
+        // 加密庫就緒
         let cryptoReady = false;
 
         // ================================================================
-        // 4. 日誌與工具函數
+        // 4. 日誌與工具
         // ================================================================
         function log(msg, type = 'info') {
             const time = new Date().toLocaleTimeString();
@@ -308,15 +295,15 @@
         }
 
         // ================================================================
-        // 6. 訊飛語音評測（流式版）簽名與 WebSocket 連接
+        // 6. 訊飛簽名（針對 iat-api）
         // ================================================================
         function buildXunfeiWsUrl() {
             if (typeof CryptoJS === 'undefined') {
                 throw new Error('CryptoJS 未定義，請確保加密庫已載入。');
             }
-            const host = 'ise-api.xfyun.cn';   // 語音評測使用 ise-api
+            const host = 'iat-api.xfyun.cn';
             const date = new Date().toUTCString();
-            const requestLine = 'GET /v2/open-ise HTTP/1.1';
+            const requestLine = 'GET /v2/iat HTTP/1.1';
             const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
             const hmac = CryptoJS.HmacSHA256(signatureOrigin, CONFIG.XUNFEI_API_SECRET);
             const signature = CryptoJS.enc.Base64.stringify(hmac);
@@ -324,11 +311,11 @@
                 `api_key="${CONFIG.XUNFEI_API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
             const encodedAuth = encodeURIComponent(authorization);
             const encodedDate = encodeURIComponent(date);
-            return `wss://${host}/v2/open-ise?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
+            return `wss://${host}/v2/iat?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
         }
 
         // ================================================================
-        // 7. 音頻採集
+        // 7. 音頻採集 (PCM 16k 16bit)
         // ================================================================
         function initAudio(callback) {
             navigator.mediaDevices.getUserMedia({
@@ -366,7 +353,7 @@
         }
 
         // ================================================================
-        // 8. 訊飛語音評測 - 開始識別（修正握手協議）
+        // 8. 訊飛聽寫 - 開始識別
         // ================================================================
         function startXunfeiRecognition() {
             if (isRecognizing) {
@@ -402,7 +389,7 @@
                 timeoutId = setTimeout(() => {
                     if (!receivedAnyMessage && ws && ws.readyState === WebSocket.OPEN) {
                         log('⚠️ 超過15秒未收到服務器回應', 'error');
-                        setStatus(studentStatus, '⚠️ 服務器無回應，請檢查網絡和服務狀態。');
+                        setStatus(studentStatus, '⚠️ 服務器無回應，請檢查網絡。');
                         if (ws) ws.close();
                         stopRecording();
                     }
@@ -429,9 +416,9 @@
                     }
                 };
 
-                ws.onerror = (event) => {
-                    log(`WebSocket 錯誤: ${event.type || 'unknown'}`, 'error');
-                    setStatus(studentStatus, '❌ WebSocket 錯誤，請查看控制台詳細信息。');
+                ws.onerror = (err) => {
+                    log(`WebSocket 錯誤: ${err.type || 'unknown'}`, 'error');
+                    setStatus(studentStatus, '❌ WebSocket 錯誤');
                     if (timeoutId) { clearTimeout(timeoutId);
                         timeoutId = null; }
                     stopRecording();
@@ -441,7 +428,7 @@
                 ws.onclose = (e) => {
                     log(`WebSocket 關閉: code=${e.code}`, e.code === 1006 ? 'error' : 'info');
                     if (!receivedAnyMessage) {
-                        setStatus(studentStatus, '⚠️ 連接關閉，未收到數據。請確認服務已開通且憑證正確。');
+                        setStatus(studentStatus, '⚠️ 連接關閉，未收到數據。');
                     }
                     if (isRecording) stopRecording();
                     if (timeoutId) { clearTimeout(timeoutId);
@@ -457,29 +444,29 @@
         }
 
         // ================================================================
-        // 9. 發送數據（嚴格按照語音評測協議）
+        // 9. 發送數據（握手 + 音頻）
         // ================================================================
         function sendXunfeiHandshake() {
-            // 語音評測（流式版）官方握手幀
             const handshake = {
                 common: {
                     app_id: CONFIG.XUNFEI_APPID
                 },
                 business: {
-                    cmd: 'ssb',                // 必填：開始命令
-                    language: 'zh_cn',         // 中文
-                    category: 'read_sentence', // 句子朗讀
-                    ref_text: teacherRefContent // 參考文本
+                    language: 'zh_cn',        // 普通話
+                    domain: 'iat',            // 聽寫
+                    accent: 'mandarin',       // 普通話口音
+                    vad: 'eos',               // 靜音檢測
+                    dwa: 'wpgs'               // 動態權重
                 },
                 data: {
-                    status: 0,                 // 開始
+                    status: 0,
                     format: 'audio/L16;rate=16000',
                     encoding: 'raw',
                     audio: ''
                 }
             };
             const msg = JSON.stringify(handshake);
-            log(`發送握手幀: ${msg.substring(0, 150)}...`);
+            log(`發送握手幀`);
             ws.send(msg);
         }
 
@@ -489,7 +476,7 @@
                     if (!isRecording && ws.readyState === WebSocket.OPEN) {
                         const endFrame = {
                             data: {
-                                status: 2,    // 結束
+                                status: 2,
                                 format: 'audio/L16;rate=16000',
                                 encoding: 'raw',
                                 audio: ''
@@ -520,7 +507,7 @@
 
                     const dataFrame = {
                         data: {
-                            status: 1,    // 持續發送
+                            status: 1,
                             format: 'audio/L16;rate=16000',
                             encoding: 'raw',
                             audio: base64,
@@ -539,10 +526,9 @@
         }
 
         // ================================================================
-        // 10. 處理返回消息
+        // 10. 處理服務器返回
         // ================================================================
         function handleXunfeiMessage(data) {
-            // 檢查錯誤碼
             if (data.code && data.code !== 0) {
                 const msg = `服務器錯誤 (${data.code})：${data.message || '未知錯誤'}`;
                 log(`❌ ${msg}`, 'error');
@@ -552,26 +538,32 @@
                 return;
             }
 
-            // 獲取轉寫結果（語音評測也會返回轉寫文本）
             if (data.data && data.data.result) {
                 const result = data.data.result;
-                if (result.text) {
-                    finalTranscript = result.text;
-                    showTranscript(finalTranscript);
-                    log(`即時轉寫: "${finalTranscript}"`);
+                if (result.ws) {
+                    let text = '';
+                    for (const w of result.ws) {
+                        for (const cw of w.cw) {
+                            text += cw.w;
+                        }
+                    }
+                    if (text) {
+                        finalTranscript = text;
+                        showTranscript(finalTranscript);
+                        log(`即時轉寫: "${finalTranscript}"`);
+                    }
                 }
             }
 
-            // 評測結束（status === 2 或 有 grade 字段）
-            if (data.data && (data.data.status === 2 || data.data.grade)) {
-                log('收到結束幀，識別完成', 'success');
+            if (data.data && data.data.status === 2) {
+                log('收到最後一幀，識別完成', 'success');
                 setStatus(studentStatus, '✅ 語音識別完成！');
                 if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 
                 if (finalTranscript.trim()) {
                     callDeepSeekForScore(finalTranscript);
                 } else {
-                    setStatus(studentStatus, '⚠️ 未能識別到有效語音，請重新錄音或手動輸入。');
+                    setStatus(studentStatus, '⚠️ 未能識別到有效語音，請重新錄音。');
                 }
                 stopRecording();
                 isRecognizing = false;
@@ -579,7 +571,7 @@
         }
 
         // ================================================================
-        // 11. DeepSeek API - 評分與建議
+        // 11. DeepSeek 評分
         // ================================================================
         async function callDeepSeekForScore(studentAnswer) {
             setStatus(studentStatus, '🤖 正在呼叫 AI 進行評分...');
@@ -588,16 +580,16 @@
             const prompt = `
 你是一位專業的普通話語言教師。請根據以下資訊，對學生的看圖說話回答進行評分。
 
-【圖片主題描述】
+【主題描述】
 ${teacherRefContent}
 
 【學生的回答】
 ${studentAnswer}
 
 請從以下三個維度進行評分（每個維度滿分 100 分）：
-1. 內容準確度 (accuracy)：回答是否準確描述了圖片內容，是否與主題相關。
-2. 表達流暢度 (fluency)：語言表達是否流暢自然，是否有明顯的停頓或重複。
-3. 完整性 (integrity)：回答是否完整，是否涵蓋了圖片的主要元素。
+1. 內容相關性 (accuracy)：回答是否準確描述了圖片內容，是否與主題緊密相關。
+2. 豐富度 (fluency)：詞彙運用是否豐富，細節描述是否充分，語言是否流暢。
+3. 語音準確度 (integrity)：請仔細檢查回答中是否有**因發音近似而導致的錯字**（例如「貓」寫成「毛」，「花」寫成「華」等），這些錯字反映了學生的發音問題。根據錯字數量給分，錯字越多分數越低。
 
 請以 JSON 格式回覆，包含以下字段：
 {
@@ -621,7 +613,7 @@ ${studentAnswer}
                     body: JSON.stringify({
                         model: 'deepseek-chat',
                         messages: [
-                            { role: 'system', content: '你是一位專業的普通話語言教師，擅長評估學生的口語表達能力。' },
+                            { role: 'system', content: '你是一位專業的普通話語言教師，擅長評估學生的口語表達和發音準確性。' },
                             { role: 'user', content: prompt }
                         ],
                         temperature: 0.3,
@@ -656,23 +648,7 @@ ${studentAnswer}
         }
 
         // ================================================================
-        // 12. 手動輸入評分
-        // ================================================================
-        manualScoreBtn.addEventListener('click', () => {
-            const text = manualText.value.trim();
-            if (!text) {
-                setStatus(studentStatus, '⚠️ 請輸入學生的回答文字。');
-                return;
-            }
-            if (!teacherRefContent.trim()) {
-                setStatus(studentStatus, '⚠️ 教師尚未設定參考答案。');
-                return;
-            }
-            callDeepSeekForScore(text);
-        });
-
-        // ================================================================
-        // 13. 錄音控制
+        // 12. 錄音控制
         // ================================================================
         function startRecording() {
             if (isRecording) return;
@@ -764,7 +740,7 @@ ${studentAnswer}
 
             if (!resultCard.style.display || resultCard.style.display === 'none') {
                 if (!receivedAnyMessage) {
-                    setStatus(studentStatus, '⚠️ 未收到服務器回應，請檢查服務開通和憑證。');
+                    setStatus(studentStatus, '⚠️ 未收到服務器回應，請檢查網絡。');
                 } else {
                     setStatus(studentStatus, '⏹️ 錄音已停止，等待識別結果...');
                 }
@@ -773,7 +749,7 @@ ${studentAnswer}
         }
 
         // ================================================================
-        // 14. 教師功能
+        // 13. 教師功能
         // ================================================================
         uploadArea.addEventListener('click', (e) => {
             if (e.target.tagName !== 'INPUT') imageInput.click();
@@ -794,11 +770,11 @@ ${studentAnswer}
 
         saveTeacherBtn.addEventListener('click', () => {
             const ref = refText.value.trim();
-            if (!ref) { setStatus(teacherStatus, '⚠️ 請輸入參考答案。'); return; }
+            if (!ref) { setStatus(teacherStatus, '⚠️ 請輸入主題描述。'); return; }
             teacherRefContent = ref;
             studentRefDisplay.textContent = ref;
             setStatus(teacherStatus, '✅ 設定已儲存！');
-            log(`教師儲存參考答案: "${ref}"`);
+            log(`教師儲存主題: "${ref}"`);
         });
 
         resetTeacherBtn.addEventListener('click', () => {
@@ -814,7 +790,7 @@ ${studentAnswer}
         });
 
         // ================================================================
-        // 15. 學生功能
+        // 14. 學生功能
         // ================================================================
         startRecordBtn.addEventListener('click', startRecording);
         stopRecordBtn.addEventListener('click', stopRecording);
@@ -824,7 +800,6 @@ ${studentAnswer}
             finalTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
-            manualText.value = '';
             setStatus(studentStatus, '🗑️ 已清空。');
             timerDisplay.textContent = '00:00';
             seconds = 0;
@@ -838,7 +813,7 @@ ${studentAnswer}
         });
 
         // ================================================================
-        // 16. 分頁切換
+        // 15. 分頁切換
         // ================================================================
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -851,11 +826,11 @@ ${studentAnswer}
         });
 
         // ================================================================
-        // 17. 初始化
+        // 16. 初始化
         // ================================================================
         studentRefDisplay.textContent = teacherRefContent;
         setStatus(studentStatus, '✅ 準備就緒，請點擊「開始錄音」看圖說話。');
-        log('系統初始化完成');
+        log('系統初始化完成 (訊飛聽寫)');
 
         loadCryptoJs((err) => {
             if (err) {
@@ -866,9 +841,8 @@ ${studentAnswer}
             }
         });
 
-        console.log('✅ 語音轉文字 + DeepSeek 評分版已啟動');
-        console.log('📌 使用語音評測（流式版）服務');
-        console.log('📌 若語音識別失敗，可使用手動輸入功能');
+        console.log('✅ 訊飛聽寫 + DeepSeek 版已啟動');
+        console.log('📌 使用端點: wss://iat-api.xfyun.cn/v2/iat');
     })();
 </script>
 </body>
