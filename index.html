@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · 完整修正版</title>
+    <title>普通話語音評測系統 · 最終完整版</title>
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.0.5/dist/opencc.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -647,7 +647,7 @@
         window.backToStudentList = function() { studentSelectedQuestionId = null; renderStudent(); };
 
         // ================================================================
-        // 10. 開放式錄音綁定（完整無省略）
+        // 10. 開放式錄音綁定（完整無省略，含英文處理）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -820,7 +820,24 @@
                     if (finalTranscript.trim()) {
                         studentAnswerText = finalTranscript;
                         progressBar.style.width = '60%';
-                        callSparkForScore(q, finalTranscript);
+                        // 檢測是否為英文
+                        const hasChinese = /[\u4e00-\u9fa5]/.test(finalTranscript);
+                        if (!hasChinese) {
+                            // 直接生成評分，不呼叫星火
+                            const grade = {
+                                accuracy: 0,
+                                fluency: 0,
+                                integrity: 0,
+                                total_score: 0,
+                                suggestion: t('englishDetected')
+                            };
+                            displayScore(grade);
+                            progressContainer.classList.add('hidden');
+                            statusText.textContent = '✅ '+t('done');
+                            isScoring = false;
+                        } else {
+                            callSparkForScore(q, finalTranscript);
+                        }
                     } else { console.warn('未識別到語音'); progressContainer.classList.add('hidden'); }
                     stopRecording();
                     isRecognizing = false;
@@ -852,13 +869,7 @@
             }
 
             function sendSparkRequest(q, answer) {
-                const hasChinese = /[\u4e00-\u9fa5]/.test(answer);
-                let prompt = '';
-                if (!hasChinese) {
-                    prompt = `學生回答為英文，請給予鼓勵，但所有評分項目設為0。建議用中文回答。`;
-                } else {
-                    prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-100)，給出總分，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
-                }
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${q.refAnswer || ''}\n關鍵字：${(q.keywords||[]).join('、')}\n學生回答：${answer}\n請從內容相關性、豐富度、語音準確度三項評分(0-100)，給出總分，並提供具體建議(繁體中文，50-100字，鼓勵為主)。\n輸出JSON：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
                 const request = {
                     header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
                     parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
@@ -884,8 +895,6 @@
                         const match = jsonStr.match(/\{[\s\S]*\}/);
                         if (match) jsonStr = match[0];
                         const grade = JSON.parse(jsonStr);
-                        const hasChinese = /[\u4e00-\u9fa5]/.test(studentAnswerText);
-                        if (!hasChinese) { grade.accuracy = 0; grade.fluency = 0; grade.integrity = 0; grade.total_score = 0; grade.suggestion = t('englishDetected'); }
                         displayScore(grade);
                         progressContainer.classList.add('hidden');
                     } catch(e) { console.error('評分解析失敗', e); progressContainer.classList.add('hidden'); }
@@ -933,7 +942,7 @@
         }
 
         // ================================================================
-        // 11. 半固定式錄音綁定（完整無省略，修正多項問題）
+        // 11. 半固定式錄音綁定（完整無省略，含英文處理及修正）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -1128,18 +1137,14 @@
                     if (finalTranscript.trim()) {
                         subAnswers[idx] = finalTranscript;
                         subAnswered[idx] = true;
-                        // 重置當前錄製索引，這樣其他按鈕不會被鎖定
                         currentRecordingIdx = null;
-                        // 更新狀態顯示
                         const statusSpan = document.querySelectorAll('.sq-status')[idx];
                         statusSpan.textContent = t('alreadyAnswered');
                         statusSpan.className = 'sq-status done';
-                        // 隱藏停止按鈕
                         const recordBtn = recordBtns[idx];
                         const stopBtn = stopBtns[idx];
                         recordBtn.style.display = 'inline-block';
                         stopBtn.style.display = 'none';
-                        // 更新所有按鈕狀態（這會解鎖下一題）
                         updateButtons();
                         const allDone = subs.every((_, i) => subAnswered[i]);
                         if (allDone) {
@@ -1147,7 +1152,6 @@
                             submitBtn.disabled = false;
                             console.log('✅ 全部子問題已作答，請點擊提交');
                         }
-                        // 清理音頻資源
                         isRecording = false;
                         if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                         if (audioContext) { audioContext.close(); audioContext=null; }
@@ -1171,8 +1175,28 @@
                 subs.forEach((sq, idx) => {
                     fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
                 });
-                // 將完整答案儲存在變數中供後續使用
                 const answerText = fullAnswer;
+                // 檢測是否有中文字
+                const hasChinese = /[\u4e00-\u9fa5]/.test(answerText);
+                if (!hasChinese) {
+                    // 直接生成全0評分，不呼叫星火
+                    const subCount = subs.length;
+                    const subScores = [];
+                    for (let i=0; i<subCount; i++) {
+                        subScores.push({ accuracy: 0, fluency: 0, integrity: 0 });
+                    }
+                    const grade = {
+                        total_score: 0,
+                        suggestion: t('englishDetected'),
+                        sub_scores: subScores
+                    };
+                    displayFixedScore(grade);
+                    progressContainer.classList.add('hidden');
+                    subLocked = false;
+                    updateButtons();
+                    isScoring = false;
+                    return;
+                }
                 callSparkForFixed(q, answerText);
             };
 
@@ -1194,7 +1218,6 @@
                         subLocked = false;
                         updateButtons();
                     }, 30000);
-                    // 傳入 answer 給回調使用
                     sparkWs.onopen = () => {
                         progressBar.style.width = '50%';
                         sendSparkRequestFixed(q, answer);
@@ -1202,7 +1225,6 @@
                     sparkWs.onmessage = (event) => {
                         try {
                             const data = JSON.parse(event.data);
-                            // 將 answer 傳遞給處理函數
                             handleSparkMessageFixed(data, answer);
                         } catch(e) {}
                     };
@@ -1212,17 +1234,11 @@
             }
 
             function sendSparkRequestFixed(q, answer) {
-                const hasChinese = /[\u4e00-\u9fa5]/.test(answer);
-                let prompt = '';
-                if (!hasChinese) {
-                    prompt = `學生回答為英文，請給予鼓勵，但所有評分項目設為0。建議用中文回答。`;
-                } else {
-                    let subInfo = '';
-                    (q.subQuestions || []).forEach((sq, idx) => {
-                        subInfo += `子問題${idx+1}：${sq.question}\n參考答案：${sq.answer || ''}\n關鍵字：${(sq.keywords||[]).join('、')}\n學生回答：${subAnswers[idx] || ''}\n\n`;
-                    });
-                    prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${subInfo}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度），並給出總分和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
-                }
+                let subInfo = '';
+                (q.subQuestions || []).forEach((sq, idx) => {
+                    subInfo += `子問題${idx+1}：${sq.question}\n參考答案：${sq.answer || ''}\n關鍵字：${(sq.keywords||[]).join('、')}\n學生回答：${subAnswers[idx] || ''}\n\n`;
+                });
+                const prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目：半固定式看圖答問題\n${subInfo}\n請對每個子問題分別給分（內容相關性、豐富度、語音準確度），並給出總分和整體建議(繁體中文，鼓勵為主)。\n輸出JSON格式：\n{"sub_scores":[{"accuracy":分數,"fluency":分數,"integrity":分數},...],"total_score":平均分,"suggestion":"整體建議"}`;
                 const request = {
                     header: { app_id: CONFIG.SPARK_APPID, uid: 'student' },
                     parameter: { chat: { domain: CONFIG.SPARK_DOMAIN, temperature: 0.3, max_tokens: 1024, top_k: 5 } },
@@ -1256,11 +1272,15 @@
                         const match = jsonStr.match(/\{[\s\S]*\}/);
                         if (match) jsonStr = match[0];
                         const grade = JSON.parse(jsonStr);
-                        const hasChinese = /[\u4e00-\u9fa5]/.test(answer);
-                        if (!hasChinese) {
-                            grade.total_score = 0;
-                            grade.suggestion = t('englishDetected');
-                            grade.sub_scores = (q.subQuestions || []).map(() => ({accuracy:0, fluency:0, integrity:0}));
+                        // 確保 sub_scores 長度正確
+                        const subCount = (q.subQuestions || []).length;
+                        if (!grade.sub_scores || grade.sub_scores.length !== subCount) {
+                            // 補齊
+                            const newSub = [];
+                            for (let i=0; i<subCount; i++) {
+                                newSub.push(grade.sub_scores[i] || { accuracy: 0, fluency: 0, integrity: 0 });
+                            }
+                            grade.sub_scores = newSub;
                         }
                         displayFixedScore(grade);
                         progressContainer.classList.add('hidden');
@@ -1347,7 +1367,7 @@
         initOpenCC();
         loadData();
         render();
-        console.log('✅ 完整修正版已啟動，所有功能皆已包含。');
+        console.log('✅ 最終完整版已啟動，所有功能皆已包含。');
     })();
 </script>
 </body>
