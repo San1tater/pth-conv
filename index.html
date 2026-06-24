@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測系統 · Firebase 即時同步版</title>
+    <title>普通話語音評測 · 音頻直連訊飛版</title>
 
     <!-- Firebase SDK (Compat) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -13,7 +13,6 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js"></script>
 
     <style>
-        /* ===== 完整樣式（與原檔案一致） ===== */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; color: #1e2a3a; }
         #app { width: 100%; max-width: 1200px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
@@ -74,6 +73,7 @@
         .answer-area .sub-questions .sq-item .sq-label { font-weight: 500; flex: 1; }
         .answer-area .sub-questions .sq-item .sq-status { font-size: 13px; color: #6b7a8a; }
         .answer-area .sub-questions .sq-item .sq-status.done { color: #22c55e; font-weight: 600; }
+        .answer-area .sub-questions .sq-item .sq-status.waiting { color: #eab308; font-weight: 600; }
         .answer-area .keywords { background: #f0f7ff; padding: 10px 14px; border-radius: 10px; border-left: 4px solid #3b82f6; font-size: 14px; }
         .answer-area .transcript-box { background: #fff; border: 1px solid #dce1e8; border-radius: 12px; padding: 12px 16px; min-height: 60px; font-size: 16px; line-height: 1.7; }
         .answer-area .record-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
@@ -143,7 +143,7 @@
         const db = firebase.firestore();
 
         // ================================================================
-        // 2. 後端代理位址
+        // 2. 後端代理位址（Vercel）
         // ================================================================
         const BACKEND_URL = '/api/proxy';
 
@@ -167,7 +167,8 @@
                 keywordsHint: '提示關鍵字', transcriptResult: '語音識別結果',
                 pleaseSelect: '請選擇', submitAll: '提交全部答案', answering: '作答中',
                 alreadyAnswered: '已作答', notStarted: '未開始', progress: '評測進行中，請稍等。',
-                englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。'
+                englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。',
+                waiting: '請稍等...'
             },
             en: {
                 grade: 'Grade', semester: 'Semester', questionList: 'Question List', newQuestion: 'New Question',
@@ -185,7 +186,8 @@
                 keywordsHint: 'Keywords', transcriptResult: 'Transcript',
                 pleaseSelect: 'Select', submitAll: 'Submit All', answering: 'Answering',
                 alreadyAnswered: 'Done', notStarted: 'Not started', progress: 'Processing, please wait...',
-                englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.'
+                englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.',
+                waiting: 'Please wait...'
             }
         };
         let currentLang = 'zh';
@@ -687,8 +689,8 @@
                 html += `<div class="sub-questions">`;
                 subs.forEach((sq, idx) => {
                     const answered = subAnswered[idx] || false;
-                    const statusClass = answered ? 'done' : '';
-                    const statusText = answered ? t('alreadyAnswered') : (subRecordingIndex === idx ? t('recording') : t('notStarted'));
+                    const statusClass = answered ? 'done' : (subRecordingIndex === idx ? 'waiting' : '');
+                    const statusText = answered ? t('alreadyAnswered') : (subRecordingIndex === idx ? t('waiting') : t('notStarted'));
                     let disabled = answered || subLocked || (subRecordingIndex !== null && subRecordingIndex !== idx);
                     if (idx > 0 && !subAnswered[idx-1]) disabled = true;
                     html += `
@@ -735,7 +737,7 @@
         }
 
         // ================================================================
-        // 12. 音頻工具
+        // 12. 音頻工具（AudioWorklet）
         // ================================================================
         const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
             class PCMProcessor extends AudioWorkletProcessor {
@@ -757,7 +759,85 @@
         `], { type: 'application/javascript' }));
 
         // ================================================================
-        // 13. 開放式錄音綁定
+        // 13. 通用語音識別函數（前端直連訊飛 WebSocket）
+        // ================================================================
+        function recognizeWithIat(audioBase64, wsUrl) {
+            return new Promise((resolve, reject) => {
+                const ws = new WebSocket(wsUrl);
+                let transcript = '';
+                let finished = false;
+                const timeout = setTimeout(() => {
+                    if (!finished) {
+                        ws.close();
+                        reject(new Error('語音識別超時'));
+                    }
+                }, 15000);
+
+                ws.onopen = () => {
+                    // 握手
+                    ws.send(JSON.stringify({
+                        common: { app_id: 'b35875f2' }, // 可從後端返回，此處硬編碼可接受（非敏感）
+                        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' },
+                        data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                    }));
+                    // 發送音頻
+                    const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+                    const chunkSize = 4000;
+                    let offset = 0;
+                    while (offset < audioBuffer.length) {
+                        const chunk = audioBuffer.slice(offset, offset + chunkSize);
+                        const chunkBase64 = btoa(String.fromCharCode.apply(null, chunk));
+                        ws.send(JSON.stringify({
+                            data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: chunkBase64 }
+                        }));
+                        offset += chunkSize;
+                    }
+                    // 結束
+                    ws.send(JSON.stringify({
+                        data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                    }));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.code && msg.code !== 0) {
+                            reject(new Error(`IAT error: ${msg.code}`));
+                            return;
+                        }
+                        if (msg.data && msg.data.result && msg.data.result.ws) {
+                            let text = '';
+                            for (const w of msg.data.result.ws) {
+                                for (const cw of w.cw) text += cw.w;
+                            }
+                            transcript += text;
+                        }
+                        if (msg.data && msg.data.status === 2) {
+                            finished = true;
+                            clearTimeout(timeout);
+                            ws.close();
+                            resolve(transcript);
+                        }
+                    } catch (e) {
+                        reject(e);
+                    }
+                };
+
+                ws.onerror = (err) => {
+                    clearTimeout(timeout);
+                    reject(err);
+                };
+                ws.onclose = () => {
+                    if (!finished) {
+                        clearTimeout(timeout);
+                        reject(new Error('WebSocket 關閉'));
+                    }
+                };
+            });
+        }
+
+        // ================================================================
+        // 14. 開放式錄音綁定（音頻直連訊飛）
         // ================================================================
         function bindOpenRecording(q) {
             const startBtn = document.getElementById('startRecordBtn');
@@ -857,45 +937,60 @@
                 const audioBase64 = btoa(binary);
 
                 progressBar.style.width = '30%';
-                statusText.textContent = '📡 '+t('recognizing');
+                statusText.textContent = '📡 獲取連接...';
 
-                const questionInfo = {
-                    type: q.type,
-                    refAnswer: q.refAnswer || '',
-                    keywords: q.keywords || [],
-                    subQuestions: q.subQuestions || []
-                };
-                fetch(BACKEND_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audioBase64, question: questionInfo })
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error('後端錯誤');
-                    return res.json();
-                })
-                .then(data => {
-                    progressBar.style.width = '80%';
-                    const transcriptText = data.transcript || '';
-                    studentAnswerText = transcriptText;
-                    const tradText = forceToTraditional(transcriptText);
-                    transcript.innerHTML = tradText;
-                    if (data.score) {
-                        displayScore(data.score);
-                    } else {
-                        throw new Error('評分結果缺失');
-                    }
-                    progressContainer.classList.add('hidden');
-                    statusText.textContent = '✅ '+t('done');
-                })
-                .catch(err => {
-                    console.error('後端呼叫失敗:', err);
-                    statusText.textContent = '❌ 服務錯誤';
-                    progressContainer.classList.add('hidden');
-                })
-                .finally(() => {
-                    isProcessing = false;
-                });
+                // 1. 獲取 IAT URL
+                fetch('/api/getIatUrl')
+                    .then(res => {
+                        if (!res.ok) throw new Error('獲取 URL 失敗');
+                        return res.json();
+                    })
+                    .then(data => {
+                        const wsUrl = data.url;
+                        statusText.textContent = '🎤 ' + t('recognizing');
+                        progressBar.style.width = '50%';
+                        return recognizeWithIat(audioBase64, wsUrl);
+                    })
+                    .then(transcriptText => {
+                        progressBar.style.width = '70%';
+                        studentAnswerText = transcriptText;
+                        const tradText = forceToTraditional(transcriptText);
+                        transcript.innerHTML = tradText;
+                        // 2. 呼叫評分（只傳文字）
+                        const questionInfo = {
+                            type: q.type,
+                            refAnswer: q.refAnswer || '',
+                            keywords: q.keywords || [],
+                            subQuestions: q.subQuestions || []
+                        };
+                        return fetch(BACKEND_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ question: questionInfo, textAnswer: transcriptText })
+                        });
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('評分錯誤');
+                        return res.json();
+                    })
+                    .then(data => {
+                        progressBar.style.width = '90%';
+                        if (data.score) {
+                            displayScore(data.score);
+                        } else {
+                            throw new Error('評分結果缺失');
+                        }
+                        progressContainer.classList.add('hidden');
+                        statusText.textContent = '✅ '+t('done');
+                    })
+                    .catch(err => {
+                        console.error('處理失敗:', err);
+                        statusText.textContent = '❌ 服務錯誤';
+                        progressContainer.classList.add('hidden');
+                    })
+                    .finally(() => {
+                        isProcessing = false;
+                    });
             }
 
             function displayScore(grade) {
@@ -916,7 +1011,7 @@
         }
 
         // ================================================================
-        // 14. 半固定式錄音綁定（修正：子題目錄音完成後立即更新按鈕，且不顯示進度條）
+        // 15. 半固定式錄音綁定（音頻直連訊飛，即時更新狀態，逐題評語）
         // ================================================================
         function bindFixedRecording(q) {
             const subs = q.subQuestions || [];
@@ -936,7 +1031,6 @@
             const SAMPLE_RATE = 16000;
             let isProcessing = false;
 
-            // 立即更新所有按鈕和狀態文字（不依賴重新渲染）
             function updateButtons() {
                 recordBtns.forEach((btn, idx) => {
                     const answered = subAnswered[idx] || false;
@@ -960,6 +1054,10 @@
                     } else if (currentRecordingIdx === idx && isRecording) {
                         span.textContent = t('recording');
                         span.className = 'sq-status';
+                    } else if (currentRecordingIdx === idx && !isRecording && !answered) {
+                        // 錄音停止但尚未完成識別
+                        span.textContent = t('waiting');
+                        span.className = 'sq-status waiting';
                     } else {
                         span.textContent = t('notStarted');
                         span.className = 'sq-status';
@@ -975,6 +1073,12 @@
                     const stopBtn = stopBtns[idx];
                     stopBtn.style.display = 'inline-block';
                     transcripts[idx].textContent = '';
+                    // 顯示「請稍等」狀態
+                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                    if (statusSpan) {
+                        statusSpan.textContent = t('waiting');
+                        statusSpan.className = 'sq-status waiting';
+                    }
                     startRecordingForSub(idx);
                 };
             });
@@ -987,7 +1091,6 @@
 
             async function startRecordingForSub(idx) {
                 audioBuffer = [];
-                // 不顯示總進度條（只在提交時顯示）
                 progressContainer.classList.add('hidden');
                 try {
                     await initAudioWorklet();
@@ -1016,9 +1119,14 @@
                 if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
                 if (audioContext) { audioContext.close(); audioContext=null; }
                 if (workletNode) { workletNode.disconnect(); workletNode=null; }
-                // 處理音頻（不顯示進度條）
+                // 狀態設為「請稍等」
+                const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                if (statusSpan) {
+                    statusSpan.textContent = t('waiting');
+                    statusSpan.className = 'sq-status waiting';
+                }
+                // 處理音頻
                 processAudioForSub(idx);
-                // 更新按鈕狀態（但進度條保持隱藏）
                 updateButtons();
             }
 
@@ -1061,58 +1169,44 @@
                 for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
                 const audioBase64 = btoa(binary);
 
-                // 不顯示總進度條
-                const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                if (statusSpan) statusSpan.textContent = t('recognizing');
-
-                const questionInfo = {
-                    type: q.type,
-                    refAnswer: q.refAnswer || '',
-                    keywords: q.keywords || [],
-                    subQuestions: q.subQuestions || []
-                };
-                fetch(BACKEND_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audioBase64, question: questionInfo })
-                })
-                .then(res => {
-                    if (!res.ok) throw new Error('後端錯誤');
-                    return res.json();
-                })
-                .then(data => {
-                    const transcriptText = data.transcript || '';
-                    subAnswers[idx] = transcriptText;
-                    subAnswered[idx] = true;
-                    currentRecordingIdx = null;
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) {
-                        statusSpan.textContent = t('alreadyAnswered');
-                        statusSpan.className = 'sq-status done';
-                    }
-                    const transcriptEl = transcripts[idx];
-                    if (transcriptEl) {
-                        transcriptEl.textContent = forceToTraditional(transcriptText);
-                    }
-                    const recordBtn = recordBtns[idx];
-                    const stopBtn = stopBtns[idx];
-                    if (recordBtn) recordBtn.style.display = 'inline-block';
-                    if (stopBtn) stopBtn.style.display = 'none';
-                    // 立即更新按鈕狀態，不需要重新渲染
-                    updateButtons();
-                })
-                .catch(err => {
-                    console.error('後端錯誤:', err);
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) statusSpan.textContent = '❌ 錯誤';
-                })
-                .finally(() => {
-                    isProcessing = false;
-                    updateButtons();
-                });
+                // 獲取 IAT URL
+                fetch('/api/getIatUrl')
+                    .then(res => res.json())
+                    .then(data => {
+                        const wsUrl = data.url;
+                        return recognizeWithIat(audioBase64, wsUrl);
+                    })
+                    .then(transcriptText => {
+                        subAnswers[idx] = transcriptText;
+                        subAnswered[idx] = true;
+                        currentRecordingIdx = null;
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) {
+                            statusSpan.textContent = t('alreadyAnswered');
+                            statusSpan.className = 'sq-status done';
+                        }
+                        const transcriptEl = transcripts[idx];
+                        if (transcriptEl) {
+                            transcriptEl.textContent = forceToTraditional(transcriptText);
+                        }
+                        const recordBtn = recordBtns[idx];
+                        const stopBtn = stopBtns[idx];
+                        if (recordBtn) recordBtn.style.display = 'inline-block';
+                        if (stopBtn) stopBtn.style.display = 'none';
+                        updateButtons();
+                    })
+                    .catch(err => {
+                        console.error('子題目識別失敗:', err);
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) statusSpan.textContent = '❌ 錯誤';
+                    })
+                    .finally(() => {
+                        isProcessing = false;
+                        updateButtons();
+                    });
             }
 
-            // 提交全部答案進行評分（此時才顯示進度條）
+            // 提交全部答案（此時顯示進度條）
             if (submitBtn) {
                 submitBtn.onclick = function() {
                     if (this.disabled) return;
@@ -1131,7 +1225,7 @@
                         const grade = {
                             total_score: 0,
                             suggestion: t('englishDetected'),
-                            sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0 }))
+                            sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0, comment: '未使用普通話作答' }))
                         };
                         displayFixedScore(grade);
                         progressContainer.classList.add('hidden');
@@ -1150,7 +1244,6 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            audioBase64: '',
                             question: questionInfo,
                             textAnswer: fullAnswer
                         })
@@ -1203,25 +1296,32 @@
                     const val = parseFloat(el.textContent);
                     el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
                 });
+                // 顯示每個子題目的評語
                 let fbHtml = '';
                 (q.subQuestions || []).forEach((sq, idx) => {
-                    const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0};
-                    fbHtml += `<div class="fb-item"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}</div>`;
+                    const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0, comment: ''};
+                    fbHtml += `
+                        <div class="fb-item">
+                            <strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>
+                            內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}
+                            <br>💬 ${forceToTraditional(s.comment || '')}
+                        </div>
+                    `;
                 });
                 document.getElementById('subFeedback').innerHTML = fbHtml;
             }
 
-            // 初始化按鈕狀態
+            // 初始化
             updateButtons();
         }
 
         // ================================================================
-        // 15. 初始化
+        // 16. 初始化
         // ================================================================
         initConverter();
         startListeningQuestions();
         render();
-        console.log('✅ Firebase 即時同步已啟動，後端代理:', BACKEND_URL);
+        console.log('✅ Firebase 即時同步啟動，後端代理:', BACKEND_URL);
     })();
 </script>
 </body>
