@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>普通話語音評測 · 修正版</title>
+    <title>普通話語音評測 · 最終版</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
@@ -44,7 +44,6 @@
         .btn-danger:hover { background: #dc2626; }
         .status-box { margin: 16px 0 10px; padding: 14px 18px; border-radius: 14px; background: #f8fafc; border: 1px solid #e9edf2; font-size: 14px; color: #1e2a3a; min-height: 50px; line-height: 1.6; }
         .status-box .label { font-weight: 600; color: #4b5a6a; margin-right: 8px; }
-        .status-box .debug { background: #eef2f6; padding: 8px 12px; border-radius: 8px; margin-top: 6px; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
         .result-card { background: #f8fafc; border-radius: 18px; padding: 20px 24px; margin-top: 18px; border: 1px solid #e2e8f0; }
         .result-card .score-row { display: flex; flex-wrap: wrap; gap: 18px 32px; margin-bottom: 10px; }
         .result-card .score-item { display: flex; align-items: baseline; gap: 6px; }
@@ -63,12 +62,14 @@
         .student-speak-area .transcript { margin-top: 12px; padding: 14px 16px; background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; min-height: 60px; font-size: 16px; line-height: 1.7; color: #0b1e2e; }
         .student-speak-area .transcript .empty { color: #94a3b8; }
         .debug-log { background: #1e2a3a; color: #9ef; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; margin-top: 12px; white-space: pre-wrap; word-break: break-all; }
+        .debug-log .error { color: #f88; }
+        .debug-log .success { color: #8f8; }
         @media (max-width:600px) { .container { padding:20px 16px; } .tabs { gap:4px; } .tab-btn { padding:8px 14px; font-size:14px; } .actions { flex-direction:column; } .btn { justify-content:center; } .result-card .score-row { gap:10px 20px; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🎙️ 普通話語音評測 <small>修正版</small></h1>
+    <h1>🎙️ 普通話語音評測 <small>最終版</small></h1>
     <div class="sub">👩‍🏫 教師上傳圖片及參考答案 ｜ 🧑‍🎓 學生錄音朗讀，即時評分</div>
 
     <div class="tabs">
@@ -139,7 +140,7 @@
     (function() {
         'use strict';
 
-        // ======================== 配置 ============================
+        // ======================== 配置（請確認服務已開通） ============================
         const APPID = 'b35875f2';
         const API_KEY = '2cba10591dc68d093065c60d0c8b98ab';
         const API_SECRET = 'ZDg0NzJhZjgyNjE0N2I0OTEzMDMxZmMy';
@@ -188,15 +189,19 @@
         let audioBuffer = [];
         const SAMPLE_RATE = 16000;
         let cryptoReady = false;
-        let isEvaluating = false;       // 防止重複調用
+        let isEvaluating = false;
         let chunkCount = 0;
         let receivedAnyMessage = false;
         let timeoutId = null;
 
         // ======================== 日誌 ============================
-        function log(msg) {
+        function log(msg, type = 'info') {
             const time = new Date().toLocaleTimeString();
-            debugLog.innerHTML += `[${time}] ${msg}\n`;
+            const prefix = `[${time}] `;
+            let html = prefix + msg;
+            if (type === 'error') html = `<span class="error">${prefix}${msg}</span>`;
+            else if (type === 'success') html = `<span class="success">${prefix}${msg}</span>`;
+            debugLog.innerHTML += html + '\n';
             debugLog.scrollTop = debugLog.scrollHeight;
             console.log(`[LOG] ${msg}`);
         }
@@ -260,7 +265,7 @@
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js';
             script.onload = function() {
                 cryptoReady = true;
-                log('CryptoJS 加載成功');
+                log('CryptoJS 加載成功', 'success');
                 callback(null);
             };
             script.onerror = function() {
@@ -269,21 +274,27 @@
             document.head.appendChild(script);
         }
 
-        // ======================== 簽名 ============================
+        // ======================== 簽名（嚴格按照官方規範） ============================
         function buildWsUrl() {
             if (typeof CryptoJS === 'undefined') {
                 throw new Error('CryptoJS 未定義，請確保加密庫已載入。');
             }
             const host = 'ise-api.xfyun.cn';
-            const date = new Date().toUTCString();
+            const date = new Date().toUTCString(); // 例如: "Tue, 24 Jun 2026 04:31:13 GMT"
             const requestLine = 'GET /v2/open-ise HTTP/1.1';
+            // 簽名原始字串
             const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
+            log(`簽名原始字串:\n${signatureOrigin}`);
             const hmac = CryptoJS.HmacSHA256(signatureOrigin, API_SECRET);
             const signature = CryptoJS.enc.Base64.stringify(hmac);
+            log(`signature (base64): ${signature}`);
             const authorization = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+            log(`authorization: ${authorization}`);
             const encodedAuth = encodeURIComponent(authorization);
             const encodedDate = encodeURIComponent(date);
-            return `${WS_URL}?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
+            const url = `${WS_URL}?authorization=${encodedAuth}&host=${host}&date=${encodedDate}`;
+            log(`最終 URL (前100字): ${url.substring(0, 100)}...`);
+            return url;
         }
 
         // ======================== 音頻採集 ============================
@@ -302,7 +313,7 @@
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
                 log(`音頻上下文採樣率: ${audioContext.sampleRate}Hz`);
                 if (audioContext.sampleRate !== SAMPLE_RATE) {
-                    log(`⚠️ 警告: 實際採樣率 ${audioContext.sampleRate} 不等於要求的 ${SAMPLE_RATE}，可能導致識別失敗。`);
+                    log(`⚠️ 警告: 實際採樣率 ${audioContext.sampleRate} 不等於要求的 ${SAMPLE_RATE}，可能導致識別失敗。`, 'error');
                 }
                 const source = audioContext.createMediaStreamSource(stream);
                 scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -325,18 +336,17 @@
             });
         }
 
-        // ======================== WebSocket 評測（修正 isEvaluating 邏輯） ============================
+        // ======================== WebSocket 評測 ============================
         function startEvaluation() {
-            // 防止重複執行
             if (isEvaluating) {
-                log('⚠️ 已有評測進行中，忽略重複調用。');
+                log('⚠️ 已有評測進行中，忽略重複調用。', 'error');
                 return;
             }
             isEvaluating = true;
 
             if (!teacherRefContent.trim()) {
                 setStatus(studentStatus, '⚠️ 請教師先設定參考答案。');
-                log('錯誤: 參考答案為空');
+                log('錯誤: 參考答案為空', 'error');
                 isEvaluating = false;
                 return;
             }
@@ -347,11 +357,10 @@
                 loadCryptoJs((err) => {
                     if (err) {
                         setStatus(studentStatus, `❌ ${err.message}`);
-                        log(`錯誤: ${err.message}`);
+                        log(`錯誤: ${err.message}`, 'error');
                         isEvaluating = false;
                         return;
                     }
-                    // 重試
                     startEvaluation();
                 });
                 return;
@@ -368,7 +377,7 @@
                 if (timeoutId) clearTimeout(timeoutId);
                 timeoutId = setTimeout(() => {
                     if (!receivedAnyMessage && ws && ws.readyState === WebSocket.OPEN) {
-                        log('⚠️ 超過15秒未收到服務器任何回應，可能認證失敗或服務異常。');
+                        log('⚠️ 超過15秒未收到服務器任何回應，可能認證失敗或服務異常。', 'error');
                         setStatus(studentStatus, '⚠️ 服務器無回應，請檢查簽名和網絡。');
                         if (ws) ws.close();
                         stopRecording();
@@ -377,7 +386,7 @@
                 }, 15000);
 
                 ws.onopen = () => {
-                    log('WebSocket 已連接，發送握手幀...');
+                    log('WebSocket 已連接，發送握手幀...', 'success');
                     setStatus(studentStatus, '🔗 已連接服務器，發送握手...');
                     sendHandshake();
                     // 開始發送音頻數據
@@ -392,13 +401,13 @@
                         log(`收到服務器消息: ${JSON.stringify(data).substring(0, 200)}...`);
                         handleServerMessage(data);
                     } catch (e) {
-                        log(`解析訊息失敗: ${e.message}`);
+                        log(`解析訊息失敗: ${e.message}`, 'error');
                         setStatus(studentStatus, '⚠️ 服務器回應格式異常。');
                     }
                 };
 
                 ws.onerror = (err) => {
-                    log(`WebSocket 錯誤: ${err.type || 'unknown'}`);
+                    log(`WebSocket 錯誤: ${err.type || 'unknown'}`, 'error');
                     setStatus(studentStatus, '❌ WebSocket 錯誤，請查看控制台。');
                     if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
                     stopRecording();
@@ -406,7 +415,7 @@
                 };
 
                 ws.onclose = (e) => {
-                    log(`WebSocket 關閉: code=${e.code}, reason=${e.reason || 'none'}`);
+                    log(`WebSocket 關閉: code=${e.code}, reason=${e.reason || 'none'}`, e.code === 1006 ? 'error' : 'info');
                     if (!receivedAnyMessage) {
                         setStatus(studentStatus, `⚠️ 連接關閉 (code ${e.code})，未收到任何數據，可能認證失敗。`);
                     }
@@ -420,7 +429,7 @@
                     isEvaluating = false;
                 };
             } catch (e) {
-                log(`建立 WebSocket 失敗: ${e.message}`);
+                log(`建立 WebSocket 失敗: ${e.message}`, 'error');
                 setStatus(studentStatus, `❌ 建立連接失敗：${e.message}`);
                 stopRecording();
                 isEvaluating = false;
@@ -506,7 +515,7 @@
             // 檢查錯誤碼
             if (data.code && data.code !== 0) {
                 const msg = `服務器錯誤 (${data.code})：${data.message || '未知錯誤'}`;
-                log(`❌ ${msg}`);
+                log(`❌ ${msg}`, 'error');
                 setStatus(studentStatus, `❌ ${msg}`);
                 stopRecording();
                 isEvaluating = false;
@@ -526,7 +535,7 @@
             // 評測結果（最後一幀）
             if (data.data && data.data.grade) {
                 const grade = data.data.grade;
-                log('收到評測結果，顯示分數...');
+                log('收到評測結果，顯示分數...', 'success');
                 showResult(grade);
                 setStatus(studentStatus, '✅ 評測完成！');
                 if (ws && ws.readyState === WebSocket.OPEN) ws.close();
@@ -543,13 +552,12 @@
             currentTranscript = '';
             showTranscript('');
             resultCard.style.display = 'none';
-            // 重置狀態，但不重置 isEvaluating（由 startEvaluation 管理）
             receivedAnyMessage = false;
             chunkCount = 0;
 
             initAudio((err) => {
                 if (err) {
-                    log(`麥克風錯誤: ${err.message}`);
+                    log(`麥克風錯誤: ${err.message}`, 'error');
                     setStatus(studentStatus, `❌ 麥克風錯誤：${err.message}`);
                     return;
                 }
@@ -569,11 +577,10 @@
                 setStatus(studentStatus, '🔴 錄音中，請朗讀參考內容...');
                 log('錄音已啟動，開始建立 WebSocket 評測...');
 
-                // 啟動評測（內部會管理 isEvaluating）
                 try {
                     startEvaluation();
                 } catch (e) {
-                    log(`啟動評測失敗: ${e.message}`);
+                    log(`啟動評測失敗: ${e.message}`, 'error');
                     setStatus(studentStatus, `❌ 啟動評測失敗：${e.message}`);
                     stopRecording();
                 }
@@ -581,10 +588,7 @@
         }
 
         function stopRecording() {
-            if (!isRecording && !isEvaluating) {
-                // 如果已經停止，但可能還在等待評測，不重複執行
-                return;
-            }
+            if (!isRecording && !isEvaluating) return;
             isRecording = false;
             micDot.className = 'dot';
             micStatusText.textContent = '⏹️ 錄音已停止';
@@ -629,8 +633,6 @@
                     setStatus(studentStatus, '⏹️ 錄音已停止，等待評測結果...');
                 }
             }
-            // 注意：不在此處設置 isEvaluating = false，因為評測可能還在進行（等待結果）
-            // 在 onclose 或收到 grade 時會設置
             log('========== 錄音停止 ==========');
         }
 
@@ -711,14 +713,19 @@
         log('系統初始化完成');
         loadCryptoJs((err) => {
             if (err) {
-                log(`⚠️ ${err.message}`);
+                log(`⚠️ ${err.message}`, 'error');
                 setStatus(studentStatus, `⚠️ ${err.message}`);
             } else {
-                log('CryptoJS 預加載成功');
+                log('CryptoJS 預加載成功', 'success');
             }
         });
 
-        console.log('✅ 修正版已啟動，請查看頁面日誌區。');
+        console.log('✅ 最終版已啟動，請查看頁面日誌區。');
+        console.log('📌 若連接失敗，請檢查:');
+        console.log('  1. 訊飛控制台「語音評測（流式版）」服務是否已開通');
+        console.log('  2. APPID / APIKey / APISecret 是否正確無空格');
+        console.log('  3. 網絡能否訪問 wss://ise-api.xfyun.cn');
+        console.log('  4. 每日免費調用是否已超限');
     })();
 </script>
 </body>
