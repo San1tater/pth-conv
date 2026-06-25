@@ -15,8 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro-->
-    <script src="https://unpkg.com/pinyin-pro">
+    <!-- pinyin-pro 使用用户指定的 CDN -->
+    <script src="https://unpkg.com/pinyin-pro@3.19.3/dist/pinyin-pro.min.js">
     </script>
 
     <style>
@@ -243,6 +243,15 @@
             padding: 10px 14px;
             margin-bottom: 8px;
             border: 1px solid #e9edf2;
+            cursor: grab;
+            transition: background 0.2s;
+        }
+        .sub-question:active {
+            cursor: grabbing;
+        }
+        .sub-question.drag-over {
+            border-color: #3b82f6;
+            background: #eef4ff;
         }
         .sub-question .row {
             display: flex;
@@ -650,6 +659,16 @@
             font-size: 15px;
             font-weight: 500;
         }
+        .drag-handle {
+            cursor: grab;
+            color: #94a3b8;
+            font-size: 18px;
+            padding: 0 4px;
+            user-select: none;
+        }
+        .drag-handle:active {
+            cursor: grabbing;
+        }
     </style>
 </head>
 <body>
@@ -932,15 +951,19 @@
                     // 按空格分割音节
                     const syllables = word.split(/\s+/).filter(s => s.length > 0);
                     const converted = syllables.map(syl => {
-                        // 匹配字母（可能含v/ü）和数字
-                        const match = syl.match(/^([a-züv]+)(\d)$/);
+                        // 处理可能包含数字的拼音，如 yi4, zhi1
+                        // 注意：可能包含 ü 或 v，我们统一处理
+                        // 先替换 v 为 ü
+                        let s = syl.replace(/v/g, 'ü');
+                        // 匹配字母和数字，数字在末尾
+                        const match = s.match(/^([a-zü]+)(\d)$/);
                         if (match) {
                             const base = match[1];
                             const tone = match[2];
                             const key = base + tone;
-                            return toneMap[key] || syl;
+                            return toneMap[key] || s;
                         }
-                        return syl;
+                        return s;
                     }).join(' ');
                     return converted;
                 });
@@ -952,9 +975,11 @@
             // ================================================================
             let questions = [];
             let currentView = 'teacher';
-            let editingQuestionId = null; // 当前选中的题目ID（查看或编辑）
-            let isEditingMode = false; // true=编辑模式, false=查看模式
-            let isNewQuestion = false; // 是否为新创建未保存
+            let editingQuestionId = null;
+            let isEditingMode = false;
+            let isNewQuestion = false;
+            let originalQuestionData = null; // 编辑前的完整数据副本
+
             let studentSelectedQuestionId = null;
             let studentAnswerText = '';
             let selectedGrade = '';
@@ -998,6 +1023,7 @@
                     if (currentView === 'teacher') {
                         isEditingMode = false;
                         isNewQuestion = false;
+                        originalQuestionData = null;
                     }
                     render();
                 });
@@ -1052,6 +1078,8 @@
 
                 bindPinyinGenerateButtons();
                 bindGradeSemesterSync();
+                // 绑定拖拽事件（在渲染后绑定）
+                bindDragDropEvents();
             }
 
             function renderQuestionList() {
@@ -1083,6 +1111,11 @@
                     `;
                 });
                 return html;
+            }
+
+            // 深拷贝函数
+            function deepClone(obj) {
+                return JSON.parse(JSON.stringify(obj));
             }
 
             function renderEditor() {
@@ -1278,7 +1311,11 @@
                         const kwStr = (sq.keywords || []).join(', ');
                         const pinyinStrSub = (sq.pinyin || []).join(', ');
                         editHtml += `
-                            <div class="sub-question" data-index="${idx}">
+                            <div class="sub-question" data-index="${idx}" draggable="true">
+                                <div style="display:flex; align-items:center; gap:4px; margin-bottom:4px;">
+                                    <span class="drag-handle">⠿</span>
+                                    <span style="font-weight:600;">#${idx+1}</span>
+                                </div>
                                 <div class="row">
                                     <div class="form-group" style="flex:2;"><label>${t('question')}</label><input class="sq-question" value="${sq.question || ''}" /></div>
                                     <div class="form-group" style="flex:2;"><label>${t('answer')}</label><input class="sq-answer" value="${sq.answer || ''}" /></div>
@@ -1440,7 +1477,52 @@
             }
 
             // ================================================================
-            // 12. 教師操作函數（Firestore 非同步）
+            // 12. 拖拽排序功能
+            // ================================================================
+            function bindDragDropEvents() {
+                const subQuestions = document.querySelectorAll('.sub-question');
+                let dragSrcIndex = null;
+
+                subQuestions.forEach(el => {
+                    el.addEventListener('dragstart', function(e) {
+                        dragSrcIndex = parseInt(this.dataset.index, 10);
+                        e.dataTransfer.effectAllowed = 'move';
+                        this.classList.add('dragging');
+                    });
+                    el.addEventListener('dragend', function(e) {
+                        this.classList.remove('dragging');
+                        document.querySelectorAll('.sub-question').forEach(el => el.classList.remove('drag-over'));
+                    });
+                    el.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        this.classList.add('drag-over');
+                    });
+                    el.addEventListener('dragleave', function(e) {
+                        this.classList.remove('drag-over');
+                    });
+                    el.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        this.classList.remove('drag-over');
+                        const targetIndex = parseInt(this.dataset.index, 10);
+                        if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
+                            const q = questions.find(q => q.id === editingQuestionId);
+                            if (q && q.subQuestions) {
+                                // 交换顺序
+                                const subQs = q.subQuestions;
+                                const [removed] = subQs.splice(dragSrcIndex, 1);
+                                subQs.splice(targetIndex, 0, removed);
+                                // 更新索引后重新渲染
+                                render();
+                            }
+                        }
+                        dragSrcIndex = null;
+                    });
+                });
+            }
+
+            // ================================================================
+            // 13. 教師操作函數（Firestore 非同步）
             // ================================================================
             window.startNewQuestion = function() {
                 const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -1463,6 +1545,9 @@
                         editingQuestionId = newId;
                         isEditingMode = true;
                         isNewQuestion = true;
+                        // 保存原始数据副本
+                        const q = questions.find(q => q.id === newId);
+                        if (q) originalQuestionData = deepClone(q);
                         const fg = document.getElementById('filterGrade');
                         const fs = document.getElementById('filterSemester');
                         if (fg) fg.value = filterGrade;
@@ -1477,6 +1562,7 @@
             window.selectQuestion = function(id) {
                 isEditingMode = false;
                 isNewQuestion = false;
+                originalQuestionData = null;
                 editingQuestionId = id;
                 const q = questions.find(q => q.id === id);
                 if (q) {
@@ -1496,6 +1582,8 @@
                 editingQuestionId = id;
                 const q = questions.find(q => q.id === id);
                 if (q) {
+                    // 保存原始数据副本
+                    originalQuestionData = deepClone(q);
                     const fg = document.getElementById('filterGrade');
                     const fs = document.getElementById('filterSemester');
                     if (fg) fg.value = q.grade || '';
@@ -1514,6 +1602,7 @@
                             editingQuestionId = null;
                             isEditingMode = false;
                             isNewQuestion = false;
+                            originalQuestionData = null;
                         }
                         alert(t('deleteSuccess'));
                         render();
@@ -1561,18 +1650,28 @@
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = function(ev) {
-                    document.getElementById('editImageData').value = ev.target.result;
-                    const container = document.getElementById('imagePreviewContainer');
-                    container.innerHTML =
-                        `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>`;
+                    // 直接修改当前 q 对象（编辑中的）
+                    const q = questions.find(q => q.id === editingQuestionId);
+                    if (q) {
+                        q.image = ev.target.result;
+                        // 更新预览
+                        const container = document.getElementById('imagePreviewContainer');
+                        container.innerHTML =
+                            `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>`;
+                        document.getElementById('editImageData').value = ev.target.result;
+                    }
                 };
                 reader.readAsDataURL(file);
             };
 
             window.removeImage = function() {
-                document.getElementById('editImageData').value = '';
-                const container = document.getElementById('imagePreviewContainer');
-                container.innerHTML = '';
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (q) {
+                    q.image = '';
+                    document.getElementById('editImageData').value = '';
+                    const container = document.getElementById('imagePreviewContainer');
+                    container.innerHTML = '';
+                }
             };
 
             window.addSubQuestion = function() {
@@ -1667,6 +1766,7 @@
                         alert(t('saveSuccess'));
                         isNewQuestion = false;
                         Object.assign(q, updateData);
+                        originalQuestionData = null; // 清除原始数据
                         isEditingMode = false;
                         render();
                     })
@@ -1681,20 +1781,35 @@
                                 editingQuestionId = null;
                                 isNewQuestion = false;
                                 isEditingMode = false;
+                                originalQuestionData = null;
                                 render();
                             })
                             .catch(err => console.error('刪除新題目失敗:', err));
                     }
+                } else if (originalQuestionData && editingQuestionId) {
+                    // 恢复原始数据
+                    const q = questions.find(q => q.id === editingQuestionId);
+                    if (q) {
+                        Object.assign(q, originalQuestionData);
+                        originalQuestionData = null;
+                        isEditingMode = false;
+                        render();
+                    } else {
+                        editingQuestionId = null;
+                        isEditingMode = false;
+                        originalQuestionData = null;
+                        render();
+                    }
                 } else {
                     editingQuestionId = null;
                     isEditingMode = false;
-                    isNewQuestion = false;
+                    originalQuestionData = null;
                     render();
                 }
             };
 
             // ================================================================
-            // 13. 學生視圖
+            // 14. 學生視圖
             // ================================================================
             function renderStudent() {
                 if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -1758,7 +1873,7 @@
             };
 
             // ================================================================
-            // 14. 學生答題視圖
+            // 15. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -1892,7 +2007,7 @@
             }
 
             // ================================================================
-            // 15. 音頻工具（AudioWorklet）
+            // 16. 音頻工具（AudioWorklet）
             // ================================================================
             const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
                 class PCMProcessor extends AudioWorkletProcessor {
@@ -1914,7 +2029,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 16. 通用語音識別函數
+            // 17. 通用語音識別函數
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -1990,10 +2105,9 @@
             }
 
             // ================================================================
-            // 17. 開放式錄音綁定
+            // 18. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
-                // 与之前相同，省略详细代码（保持不变）
                 const startBtn = document.getElementById('startRecordBtn');
                 const stopBtn = document.getElementById('stopRecordBtn');
                 const dot = document.getElementById('recordDot');
@@ -2178,10 +2292,9 @@
             }
 
             // ================================================================
-            // 18. 半固定式錄音綁定
+            // 19. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
-                // 与之前相同，省略详细代码（保持不变）
                 const subs = q.subQuestions || [];
                 const recordBtns = document.querySelectorAll('.sq-record-btn');
                 const stopBtns = document.querySelectorAll('.sq-stop-btn');
@@ -2494,7 +2607,7 @@
             }
 
             // ================================================================
-            // 19. 初始化
+            // 20. 初始化
             // ================================================================
             initConverter();
             startListeningQuestions();
