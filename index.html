@@ -360,7 +360,6 @@
             border-radius: 10px;
             border-left: 4px solid #3b82f6;
             font-size: 14px;
-            overflow-x: auto;
         }
         .answer-area .transcript-box {
             background: #fff;
@@ -558,47 +557,43 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        /* 关键词表格 - 严格表格布局 */
+        /* 关键词表格样式 - 严格对齐 */
         .kw-table {
             border-collapse: collapse;
-            margin: 4px 0 0 0;
+            border: none;
+            margin: 0;
+            text-align: center;
             width: auto;
-            max-width: 100%;
             table-layout: auto;
         }
         .kw-table td {
+            border: none;
+            padding: 2px 6px;
             text-align: center;
             vertical-align: middle;
-            padding: 2px 8px;
             white-space: nowrap;
-            border: none;
         }
-        .kw-table .pinyin {
+        .kw-table td .pinyin {
             font-size: 12px;
             color: #3b82f6;
             letter-spacing: 0.5px;
         }
-        .kw-table .word {
+        .kw-table td .word {
             font-size: 16px;
             font-weight: 500;
         }
-        .sq-keywords-display .kw-table .pinyin {
+        .sq-keywords-display .kw-table td .pinyin {
             font-size: 11px;
             letter-spacing: 0.3px;
         }
-        .sq-keywords-display .kw-table .word {
+        .sq-keywords-display .kw-table td .word {
             font-size: 14px;
         }
-        .view-only .kw-table .pinyin {
+        .view-only .kw-table td .pinyin {
             font-size: 12px;
         }
-        .view-only .kw-table .word {
+        .view-only .kw-table td .word {
             font-size: 15px;
-        }
-        .kw-table-wrapper {
-            overflow-x: auto;
-            max-width: 100%;
-            margin-top: 4px;
         }
         .drag-handle {
             cursor: grab;
@@ -609,6 +604,10 @@
         }
         .drag-handle:active {
             cursor: grabbing;
+        }
+        /* 左对齐容器 */
+        .kw-wrapper {
+            text-align: left;
         }
     </style>
 </head>
@@ -882,30 +881,28 @@
             }
 
             // ================================================================
-            // 6. 生成关键词表格 HTML（严格表格，一一对应）
+            // 6. 生成关键词表格 HTML（严格一一对应，表格左对齐，无逗号）
             // ================================================================
-            function renderKeywordTable(keywords, pinyinArr, extraClass) {
+            function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
+                // 确保拼音数组长度与关键词一致，不足补空
                 const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
-                // 确保长度一致
-                const maxLen = Math.max(keywords.length, pinyinDisplay.length);
-                while (keywords.length < maxLen) keywords.push('');
-                while (pinyinDisplay.length < maxLen) pinyinDisplay.push('');
-
-                let html = `<div class="kw-table-wrapper"><table class="kw-table ${extraClass || ''}">`;
+                while (pinyinDisplay.length < keywords.length) pinyinDisplay.push('');
+                const cellClassStr = cellClass || '';
+                let html = '<table class="kw-table">';
                 // 拼音行
                 html += '<tr>';
                 pinyinDisplay.forEach(py => {
-                    html += `<td><span class="pinyin">${py}</span></td>`;
+                    html += `<td class="${cellClassStr}"><span class="pinyin">${py}</span></td>`;
                 });
                 html += '</tr>';
                 // 文字行
                 html += '<tr>';
                 keywords.forEach(kw => {
-                    html += `<td><span class="word">${forceToTraditional(kw)}</span></td>`;
+                    html += `<td class="${cellClassStr}"><span class="word">${forceToTraditional(kw)}</span></td>`;
                 });
                 html += '</tr>';
-                html += '</table></div>';
+                html += '</table>';
                 return html;
             }
 
@@ -1115,7 +1112,7 @@
                         viewHtml += `
                             <div class="form-group">
                                 <label>${t('keywords')}</label>
-                                ${renderKeywordTable(keywords, pinyinArr, '')}
+                                <div class="kw-wrapper">${renderKeywordTable(keywords, pinyinArr, '')}</div>
                             </div>
                         `;
                         if (q.refAnswer) {
@@ -1134,7 +1131,7 @@
                             const pn = sq.pinyin || [];
                             let kwHtml = '';
                             if (kw.length) {
-                                kwHtml = renderKeywordTable(kw, pn, '');
+                                kwHtml = `<div class="kw-wrapper">${renderKeywordTable(kw, pn, '')}</div>`;
                             }
                             viewHtml += `
                                 <div class="sub-question-view">
@@ -1802,7 +1799,7 @@
                     html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
                     if (keywords.length) {
                         html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
-                        html += renderKeywordTable(keywords, pinyinArr, '');
+                        html += `<div class="kw-wrapper">${renderKeywordTable(keywords, pinyinArr, '')}</div>`;
                         html += `</div>`;
                     }
                     html += `
@@ -1845,7 +1842,7 @@
                         let kwHtml = '';
                         if (kw.length) {
                             kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>`;
-                            kwHtml += renderKeywordTable(kw, pn, '');
+                            kwHtml += `<div class="kw-wrapper">${renderKeywordTable(kw, pn, '')}</div>`;
                             kwHtml += `</div>`;
                         }
 
