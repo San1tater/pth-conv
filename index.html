@@ -331,16 +331,14 @@
             padding: 6px 0;
             border-bottom: 1px solid #e9edf2;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 4px;
         }
         .answer-area .sub-questions .sq-item:last-child {
             border-bottom: none;
         }
         .answer-area .sub-questions .sq-item .sq-label {
             font-weight: 500;
-            flex: 1;
         }
         .answer-area .sub-questions .sq-item .sq-status {
             font-size: 13px;
@@ -353,6 +351,12 @@
         .answer-area .sub-questions .sq-item .sq-status.waiting {
             color: #eab308;
             font-weight: 600;
+        }
+        .answer-area .sub-questions .sq-item .sq-controls {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .answer-area .keywords {
             background: #f0f7ff;
@@ -606,6 +610,10 @@
         }
         .drag-handle:active {
             cursor: grabbing;
+        }
+        /* 调整半固定式题目中学生界面关键词位置 */
+        .sq-item .sq-keywords-display {
+            margin: 4px 0;
         }
     </style>
 </head>
@@ -1832,6 +1840,7 @@
                         </div>
                     `;
                 } else {
+                    // 半固定式
                     const subs = q.subQuestions || [];
                     html += `<div class="sub-questions">`;
                     subs.forEach((sq, idx) => {
@@ -1854,12 +1863,12 @@
                         html += `
                             <div class="sq-item">
                                 <div class="sq-label"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
-                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                ${kwHtml}
+                                <div class="sq-controls">
                                     <span class="sq-status ${statusClass}">${statusText}</span>
                                     <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
                                     <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
                                 </div>
-                                ${kwHtml}
                                 <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
                             </div>
                         `;
@@ -2501,7 +2510,7 @@
             initConverter();
             startListeningQuestions();
             render();
-            console.log('✅ 完整版加载成功，支持中英文逗号，表格无逗号');
+            console.log('✅ 完整版加载成功，半固定式关键词已移至题目和录音按钮之间');
         })();
     </script>
 </body>
