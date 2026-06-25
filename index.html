@@ -557,14 +557,13 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        /* 关键词表格样式 - 严格对齐 */
+        /* 关键词表格 - 严格两行，每列一个词 */
         .kw-table {
             border-collapse: collapse;
             border: none;
             margin: 0;
-            text-align: center;
-            width: auto;
             table-layout: auto;
+            width: auto;
         }
         .kw-table td {
             border: none;
@@ -595,6 +594,10 @@
         .view-only .kw-table td .word {
             font-size: 15px;
         }
+        /* 左对齐容器 */
+        .kw-wrapper {
+            text-align: left;
+        }
         .drag-handle {
             cursor: grab;
             color: #94a3b8;
@@ -604,10 +607,6 @@
         }
         .drag-handle:active {
             cursor: grabbing;
-        }
-        /* 左对齐容器 */
-        .kw-wrapper {
-            text-align: left;
         }
     </style>
 </head>
@@ -881,22 +880,22 @@
             }
 
             // ================================================================
-            // 6. 生成关键词表格 HTML（严格一一对应，表格左对齐，无逗号）
+            // 6. 生成关键词表格 HTML（严格两行，每列一个词，无逗号）
             // ================================================================
             function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
-                // 确保拼音数组长度与关键词一致，不足补空
+                // 确保拼音数组与关键词长度一致
                 const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
                 while (pinyinDisplay.length < keywords.length) pinyinDisplay.push('');
                 const cellClassStr = cellClass || '';
                 let html = '<table class="kw-table">';
-                // 拼音行
+                // 第一行：拼音
                 html += '<tr>';
                 pinyinDisplay.forEach(py => {
                     html += `<td class="${cellClassStr}"><span class="pinyin">${py}</span></td>`;
                 });
                 html += '</tr>';
-                // 文字行
+                // 第二行：文字
                 html += '<tr>';
                 keywords.forEach(kw => {
                     html += `<td class="${cellClassStr}"><span class="word">${forceToTraditional(kw)}</span></td>`;
