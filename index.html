@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro 使用用户指定的纯 CDN，不加任何后缀 -->
+    <!-- pinyin-pro 使用用户指定的纯 CDN -->
     <script src="https://unpkg.com/pinyin-pro">
     </script>
 
@@ -369,18 +369,21 @@
             justify-content: flex-start;
         }
         .answer-area .keywords .kw-item {
-            display: flex;
+            display: inline-flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: center;
+            min-width: 40px;
         }
         .answer-area .keywords .kw-item .pinyin {
             font-size: 12px;
             color: #3b82f6;
             letter-spacing: 0.5px;
+            white-space: nowrap;
         }
         .answer-area .keywords .kw-item .word {
             font-size: 16px;
             font-weight: 500;
+            white-space: nowrap;
         }
         .answer-area .transcript-box {
             background: #fff;
@@ -595,18 +598,21 @@
             justify-content: flex-start;
         }
         .sq-keywords-display .kw-item {
-            display: flex;
+            display: inline-flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: center;
+            min-width: 30px;
         }
         .sq-keywords-display .kw-item .pinyin {
             font-size: 11px;
             color: #3b82f6;
             letter-spacing: 0.3px;
+            white-space: nowrap;
         }
         .sq-keywords-display .kw-item .word {
             font-size: 14px;
             font-weight: 500;
+            white-space: nowrap;
         }
         .view-only .form-group {
             margin-bottom: 8px;
@@ -640,17 +646,20 @@
             justify-content: flex-start;
         }
         .kw-with-pinyin .kw-item {
-            display: flex;
+            display: inline-flex;
             flex-direction: column;
-            align-items: flex-start;
+            align-items: center;
+            min-width: 30px;
         }
         .kw-with-pinyin .kw-item .pinyin {
             font-size: 12px;
             color: #3b82f6;
+            white-space: nowrap;
         }
         .kw-with-pinyin .kw-item .word {
             font-size: 15px;
             font-weight: 500;
+            white-space: nowrap;
         }
         .drag-handle {
             cursor: grab;
@@ -898,17 +907,14 @@
             // 将数字声调拼音转为带声调符号的字符串（用于显示）
             function pinyinNumToHtml(numPinyin) {
                 if (!numPinyin) return '';
-                // 按逗号分割每个词（如果传入的是多个词，用逗号分隔）
                 const words = numPinyin.split(',').map(s => s.trim()).filter(s => s.length > 0);
                 const result = words.map(word => {
-                    // 按空格分割音节
                     const syllables = word.split(/\s+/).filter(s => s.length > 0);
                     const converted = syllables.map(syl => {
                         const match = syl.match(/^([a-zü]+)(\d)$/);
                         if (!match) return syl;
                         let base = match[1];
                         const tone = parseInt(match[2], 10);
-                        // 定义元音和声调符号
                         const vowelMap = {
                             'a': ['ā', 'á', 'ǎ', 'à', 'a'],
                             'o': ['ō', 'ó', 'ǒ', 'ò', 'o'],
@@ -917,10 +923,8 @@
                             'u': ['ū', 'ú', 'ǔ', 'ù', 'u'],
                             'ü': ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü']
                         };
-                        // 找主要元音（按a,o,e,i,u,ü顺序，但处理复合）
                         let mainVowel = '';
                         let idx = -1;
-                        // 先找a
                         if (base.includes('a')) { mainVowel = 'a';
                             idx = base.lastIndexOf('a'); } else if (base.includes('o')) { mainVowel = 'o';
                             idx = base.lastIndexOf('o'); } else if (base.includes('e')) { mainVowel = 'e';
@@ -929,7 +933,7 @@
                             idx = base.lastIndexOf('i'); } else if (base.includes('ü')) { mainVowel = 'ü';
                             idx = base.lastIndexOf('ü'); }
                         if (mainVowel === '') return syl;
-                        if (tone === 0) return base; // 轻声不标调
+                        if (tone === 0) return base;
                         const symbol = vowelMap[mainVowel][tone - 1];
                         return base.substring(0, idx) + symbol + base.substring(idx + 1);
                     });
