@@ -354,6 +354,13 @@
             color: #eab308;
             font-weight: 600;
         }
+        .answer-area .keywords {
+            background: #f0f7ff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+            font-size: 14px;
+        }
         .answer-area .transcript-box {
             background: #fff;
             border: 1px solid #dce1e8;
@@ -550,6 +557,45 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
+        /* 关键词表格样式 */
+        .kw-table {
+            display: table;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+        }
+        .kw-table-row {
+            display: table-row;
+        }
+        .kw-table-cell {
+            display: table-cell;
+            text-align: center;
+            vertical-align: middle;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+        .kw-table-cell .pinyin {
+            font-size: 12px;
+            color: #3b82f6;
+            letter-spacing: 0.5px;
+        }
+        .kw-table-cell .word {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .sq-keywords-display .kw-table-cell .pinyin {
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+        .sq-keywords-display .kw-table-cell .word {
+            font-size: 14px;
+        }
+        .view-only .kw-table-cell .pinyin {
+            font-size: 12px;
+        }
+        .view-only .kw-table-cell .word {
+            font-size: 15px;
+        }
         .drag-handle {
             cursor: grab;
             color: #94a3b8;
@@ -559,53 +605,6 @@
         }
         .drag-handle:active {
             cursor: grabbing;
-        }
-
-        /* ----- 关键词表格样式 ----- */
-        .kw-table {
-            display: table;
-            width: 100%;
-            table-layout: auto;
-            border-collapse: collapse;
-            margin-top: 4px;
-        }
-        .kw-row {
-            display: table-row;
-        }
-        .kw-cell {
-            display: table-cell;
-            text-align: center;
-            vertical-align: bottom;
-            white-space: nowrap;
-            padding: 2px 4px;
-            border: none;
-        }
-        .kw-cell.pinyin {
-            font-size: 12px;
-            color: #3b82f6;
-            letter-spacing: 0.5px;
-            padding-bottom: 0;
-        }
-        .kw-cell.word {
-            font-size: 16px;
-            font-weight: 500;
-            padding-top: 0;
-        }
-        .sq-keywords-display .kw-cell.pinyin {
-            font-size: 11px;
-            letter-spacing: 0.3px;
-        }
-        .sq-keywords-display .kw-cell.word {
-            font-size: 14px;
-        }
-
-        /* 半固定式子问题中的表格 */
-        .sq-keywords-display .kw-table {
-            width: auto;
-            margin-top: 2px;
-        }
-        .sq-keywords-display .kw-cell {
-            padding: 1px 4px;
         }
     </style>
 </head>
@@ -878,29 +877,25 @@
                 return result.join(' ');
             }
 
-            // 生成关键词表格HTML
-            function renderKeywordTable(keywords, pinyinArr) {
+            // ================================================================
+            // 6. 生成关键词表格 HTML（确保一一对应）
+            // ================================================================
+            function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
-                const pinyinList = pinyinArr || [];
-                // 保证数量一致
-                const maxLen = Math.max(keywords.length, pinyinList.length);
-                const kw = keywords.slice();
-                const py = pinyinList.slice();
-                while (kw.length < maxLen) kw.push('');
-                while (py.length < maxLen) py.push('');
-
+                const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
+                const cellClassStr = cellClass || '';
                 let html = '<div class="kw-table">';
                 // 拼音行
-                html += '<div class="kw-row">';
-                py.forEach(p => {
-                    const display = p ? pinyinNumToHtml(p) : '';
-                    html += `<div class="kw-cell pinyin">${display}</div>`;
+                html += '<div class="kw-table-row">';
+                pinyinDisplay.forEach(py => {
+                    html += `<div class="kw-table-cell ${cellClassStr}"><span class="pinyin">${py}</span></div>`;
                 });
                 html += '</div>';
-                // 汉字行
-                html += '<div class="kw-row">';
-                kw.forEach(w => {
-                    html += `<div class="kw-cell word">${forceToTraditional(w)}</div>`;
+                // 文字行
+                html += '<div class="kw-table-row">';
+                keywords.forEach(kw => {
+                    html +=
+                        `<div class="kw-table-cell ${cellClassStr}"><span class="word">${forceToTraditional(kw)}</span></div>`;
                 });
                 html += '</div>';
                 html += '</div>';
@@ -908,7 +903,7 @@
             }
 
             // ================================================================
-            // 6. 全域狀態
+            // 7. 全域狀態
             // ================================================================
             let questions = [];
             let currentView = 'teacher';
@@ -929,7 +924,7 @@
             let teacherFilterSemester = '';
 
             // ================================================================
-            // 7. Firestore 即時監聽
+            // 8. Firestore 即時監聽
             // ================================================================
             let unsubscribeQuestions = null;
 
@@ -950,7 +945,7 @@
             }
 
             // ================================================================
-            // 8. 視圖切換
+            // 9. 視圖切換
             // ================================================================
             document.querySelectorAll('[data-view]').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -980,7 +975,7 @@
             }
 
             // ================================================================
-            // 9. 教師視圖
+            // 10. 教師視圖
             // ================================================================
             const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
             const semesters = ['上學期', '下學期'];
@@ -1113,7 +1108,7 @@
                         viewHtml += `
                             <div class="form-group">
                                 <label>${t('keywords')}</label>
-                                ${renderKeywordTable(keywords, pinyinArr)}
+                                ${renderKeywordTable(keywords, pinyinArr, '')}
                             </div>
                         `;
                         if (q.refAnswer) {
@@ -1132,13 +1127,13 @@
                             const pn = sq.pinyin || [];
                             let kwHtml = '';
                             if (kw.length) {
-                                kwHtml = renderKeywordTable(kw, pn);
+                                kwHtml = renderKeywordTable(kw, pn, '');
                             }
                             viewHtml += `
                                 <div class="sub-question-view">
                                     <div class="sq-q"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
                                     ${sq.answer ? `<div class="sq-a">💬 ${forceToTraditional(sq.answer)}</div>` : ''}
-                                    ${kwHtml ? `<div style="margin-top:4px;">${kwHtml}</div>` : ''}
+                                    ${kwHtml}
                                 </div>
                             `;
                         });
@@ -1264,7 +1259,7 @@
             }
 
             // ================================================================
-            // 10. 拼音生成按鈕綁定
+            // 11. 拼音生成按鈕綁定
             // ================================================================
             function bindPinyinGenerateButtons() {}
 
@@ -1297,7 +1292,7 @@
             };
 
             // ================================================================
-            // 11. 年級學期同步
+            // 12. 年級學期同步
             // ================================================================
             function bindGradeSemesterSync() {
                 const editGrade = document.getElementById('editGrade');
@@ -1388,7 +1383,7 @@
             }
 
             // ================================================================
-            // 12. 拖拽排序功能
+            // 13. 拖拽排序功能
             // ================================================================
             function bindDragDropEvents() {
                 const subQuestions = document.querySelectorAll('.sub-question');
@@ -1431,7 +1426,7 @@
             }
 
             // ================================================================
-            // 13. 教師操作函數（Firestore 非同步）
+            // 14. 教師操作函數（Firestore 非同步）
             // ================================================================
             window.startNewQuestion = function() {
                 const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -1713,7 +1708,7 @@
             };
 
             // ================================================================
-            // 14. 學生視圖
+            // 15. 學生視圖
             // ================================================================
             function renderStudent() {
                 if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -1777,7 +1772,7 @@
             };
 
             // ================================================================
-            // 15. 學生答題視圖
+            // 16. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -1800,7 +1795,7 @@
                     html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
                     if (keywords.length) {
                         html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
-                        html += renderKeywordTable(keywords, pinyinArr);
+                        html += renderKeywordTable(keywords, pinyinArr, '');
                         html += `</div>`;
                     }
                     html += `
@@ -1842,7 +1837,9 @@
                         const pn = sq.pinyin || [];
                         let kwHtml = '';
                         if (kw.length) {
-                            kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>${renderKeywordTable(kw, pn)}</div>`;
+                            kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>`;
+                            kwHtml += renderKeywordTable(kw, pn, '');
+                            kwHtml += `</div>`;
                         }
 
                         html += `
@@ -1890,7 +1887,7 @@
             }
 
             // ================================================================
-            // 16. 音頻工具（AudioWorklet）
+            // 17. 音頻工具（AudioWorklet）
             // ================================================================
             const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
                 class PCMProcessor extends AudioWorkletProcessor {
@@ -1912,7 +1909,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 17. 通用語音識別函數
+            // 18. 通用語音識別函數
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -1988,7 +1985,7 @@
             }
 
             // ================================================================
-            // 18. 開放式錄音綁定
+            // 19. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
                 const startBtn = document.getElementById('startRecordBtn');
@@ -2175,7 +2172,7 @@
             }
 
             // ================================================================
-            // 19. 半固定式錄音綁定
+            // 20. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
                 const subs = q.subQuestions || [];
@@ -2490,7 +2487,7 @@
             }
 
             // ================================================================
-            // 20. 初始化
+            // 21. 初始化
             // ================================================================
             initConverter();
             startListeningQuestions();
