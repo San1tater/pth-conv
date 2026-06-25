@@ -662,10 +662,6 @@
         .drag-handle:active {
             cursor: grabbing;
         }
-        /* 移除多余的提示 */
-        .no-extra-hint {
-            display: none;
-        }
     </style>
 </head>
 <body>
@@ -900,60 +896,44 @@
             }
 
             // 将数字声调拼音转为带声调符号的字符串（用于显示）
-            function pinyinNumToHtml(pinyinNum) {
-                if (!pinyinNum) return '';
-                const words = pinyinNum.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                const toneMap = {
-                    'a1': 'ā',
-                    'a2': 'á',
-                    'a3': 'ǎ',
-                    'a4': 'à',
-                    'a0': 'a',
-                    'e1': 'ē',
-                    'e2': 'é',
-                    'e3': 'ě',
-                    'e4': 'è',
-                    'e0': 'e',
-                    'i1': 'ī',
-                    'i2': 'í',
-                    'i3': 'ǐ',
-                    'i4': 'ì',
-                    'i0': 'i',
-                    'o1': 'ō',
-                    'o2': 'ó',
-                    'o3': 'ǒ',
-                    'o4': 'ò',
-                    'o0': 'o',
-                    'u1': 'ū',
-                    'u2': 'ú',
-                    'u3': 'ǔ',
-                    'u4': 'ù',
-                    'u0': 'u',
-                    'ü1': 'ǖ',
-                    'ü2': 'ǘ',
-                    'ü3': 'ǚ',
-                    'ü4': 'ǜ',
-                    'ü0': 'ü',
-                    'v1': 'ǖ',
-                    'v2': 'ǘ',
-                    'v3': 'ǚ',
-                    'v4': 'ǜ',
-                    'v0': 'ü'
-                };
+            function pinyinNumToHtml(numPinyin) {
+                if (!numPinyin) return '';
+                // 按逗号分割每个词（如果传入的是多个词，用逗号分隔）
+                const words = numPinyin.split(',').map(s => s.trim()).filter(s => s.length > 0);
                 const result = words.map(word => {
+                    // 按空格分割音节
                     const syllables = word.split(/\s+/).filter(s => s.length > 0);
                     const converted = syllables.map(syl => {
-                        let s = syl.replace(/v/g, 'ü');
-                        const match = s.match(/^([a-zü]+)(\d)$/);
-                        if (match) {
-                            const base = match[1];
-                            const tone = match[2];
-                            const key = base + tone;
-                            return toneMap[key] || s;
-                        }
-                        return s;
-                    }).join(' ');
-                    return converted;
+                        const match = syl.match(/^([a-zü]+)(\d)$/);
+                        if (!match) return syl;
+                        let base = match[1];
+                        const tone = parseInt(match[2], 10);
+                        // 定义元音和声调符号
+                        const vowelMap = {
+                            'a': ['ā', 'á', 'ǎ', 'à', 'a'],
+                            'o': ['ō', 'ó', 'ǒ', 'ò', 'o'],
+                            'e': ['ē', 'é', 'ě', 'è', 'e'],
+                            'i': ['ī', 'í', 'ǐ', 'ì', 'i'],
+                            'u': ['ū', 'ú', 'ǔ', 'ù', 'u'],
+                            'ü': ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü']
+                        };
+                        // 找主要元音（按a,o,e,i,u,ü顺序，但处理复合）
+                        let mainVowel = '';
+                        let idx = -1;
+                        // 先找a
+                        if (base.includes('a')) { mainVowel = 'a';
+                            idx = base.lastIndexOf('a'); } else if (base.includes('o')) { mainVowel = 'o';
+                            idx = base.lastIndexOf('o'); } else if (base.includes('e')) { mainVowel = 'e';
+                            idx = base.lastIndexOf('e'); } else if (base.includes('u')) { mainVowel = 'u';
+                            idx = base.lastIndexOf('u'); } else if (base.includes('i')) { mainVowel = 'i';
+                            idx = base.lastIndexOf('i'); } else if (base.includes('ü')) { mainVowel = 'ü';
+                            idx = base.lastIndexOf('ü'); }
+                        if (mainVowel === '') return syl;
+                        if (tone === 0) return base; // 轻声不标调
+                        const symbol = vowelMap[mainVowel][tone - 1];
+                        return base.substring(0, idx) + symbol + base.substring(idx + 1);
+                    });
+                    return converted.join(' ');
                 });
                 return result.join(' ');
             }
