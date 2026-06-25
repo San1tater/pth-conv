@@ -360,6 +360,7 @@
             border-radius: 10px;
             border-left: 4px solid #3b82f6;
             font-size: 14px;
+            overflow-x: auto;
         }
         .answer-area .transcript-box {
             background: #fff;
@@ -557,53 +558,47 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        /* 关键词 flex 网格布局，保证一一对应 */
-        .kw-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 16px;
-            justify-content: flex-start;
-            margin-top: 4px;
+        /* 关键词表格 - 严格表格布局 */
+        .kw-table {
+            border-collapse: collapse;
+            margin: 4px 0 0 0;
+            width: auto;
+            max-width: 100%;
+            table-layout: auto;
         }
-        .kw-grid .kw-item {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            flex: 0 0 auto;
-            /* 宽度由内容撑开 */
+        .kw-table td {
+            text-align: center;
+            vertical-align: middle;
+            padding: 2px 8px;
             white-space: nowrap;
+            border: none;
         }
-        .kw-grid .kw-item .pinyin {
+        .kw-table .pinyin {
             font-size: 12px;
             color: #3b82f6;
             letter-spacing: 0.5px;
         }
-        .kw-grid .kw-item .word {
+        .kw-table .word {
             font-size: 16px;
             font-weight: 500;
         }
-        .sq-keywords-display .kw-grid .kw-item .pinyin {
+        .sq-keywords-display .kw-table .pinyin {
             font-size: 11px;
             letter-spacing: 0.3px;
         }
-        .sq-keywords-display .kw-grid .kw-item .word {
+        .sq-keywords-display .kw-table .word {
             font-size: 14px;
         }
-        .view-only .kw-grid .kw-item .pinyin {
+        .view-only .kw-table .pinyin {
             font-size: 12px;
         }
-        .view-only .kw-grid .kw-item .word {
+        .view-only .kw-table .word {
             font-size: 15px;
         }
-        /* 子问题中的关键词显示 */
-        .sq-keywords-display {
-            width: 100%;
-            margin-top: 6px;
-            padding: 6px 10px;
-            background: #f0f7ff;
-            border-radius: 8px;
-            border-left: 3px solid #3b82f6;
-            font-size: 13px;
+        .kw-table-wrapper {
+            overflow-x: auto;
+            max-width: 100%;
+            margin-top: 4px;
         }
         .drag-handle {
             cursor: grab;
@@ -887,24 +882,30 @@
             }
 
             // ================================================================
-            // 6. 生成关键词 flex 网格（拼音和文字一一对应，自动换行）
+            // 6. 生成关键词表格 HTML（严格表格，一一对应）
             // ================================================================
-            function renderKeywordGrid(keywords, pinyinArr) {
+            function renderKeywordTable(keywords, pinyinArr, extraClass) {
                 if (!keywords || keywords.length === 0) return '';
-                // 确保拼音数组长度与关键词一致
                 const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
-                // 补齐长度
-                while (pinyinDisplay.length < keywords.length) pinyinDisplay.push('');
-                let html = '<div class="kw-grid">';
-                for (let i = 0; i < keywords.length; i++) {
-                    const kw = forceToTraditional(keywords[i]);
-                    const py = pinyinDisplay[i] || '';
-                    html += `<div class="kw-item">
-                                <span class="pinyin">${py}</span>
-                                <span class="word">${kw}</span>
-                            </div>`;
-                }
-                html += '</div>';
+                // 确保长度一致
+                const maxLen = Math.max(keywords.length, pinyinDisplay.length);
+                while (keywords.length < maxLen) keywords.push('');
+                while (pinyinDisplay.length < maxLen) pinyinDisplay.push('');
+
+                let html = `<div class="kw-table-wrapper"><table class="kw-table ${extraClass || ''}">`;
+                // 拼音行
+                html += '<tr>';
+                pinyinDisplay.forEach(py => {
+                    html += `<td><span class="pinyin">${py}</span></td>`;
+                });
+                html += '</tr>';
+                // 文字行
+                html += '<tr>';
+                keywords.forEach(kw => {
+                    html += `<td><span class="word">${forceToTraditional(kw)}</span></td>`;
+                });
+                html += '</tr>';
+                html += '</table></div>';
                 return html;
             }
 
@@ -1114,7 +1115,7 @@
                         viewHtml += `
                             <div class="form-group">
                                 <label>${t('keywords')}</label>
-                                ${renderKeywordGrid(keywords, pinyinArr)}
+                                ${renderKeywordTable(keywords, pinyinArr, '')}
                             </div>
                         `;
                         if (q.refAnswer) {
@@ -1133,7 +1134,7 @@
                             const pn = sq.pinyin || [];
                             let kwHtml = '';
                             if (kw.length) {
-                                kwHtml = renderKeywordGrid(kw, pn);
+                                kwHtml = renderKeywordTable(kw, pn, '');
                             }
                             viewHtml += `
                                 <div class="sub-question-view">
@@ -1801,7 +1802,7 @@
                     html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
                     if (keywords.length) {
                         html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
-                        html += renderKeywordGrid(keywords, pinyinArr);
+                        html += renderKeywordTable(keywords, pinyinArr, '');
                         html += `</div>`;
                     }
                     html += `
@@ -1844,7 +1845,7 @@
                         let kwHtml = '';
                         if (kw.length) {
                             kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>`;
-                            kwHtml += renderKeywordGrid(kw, pn);
+                            kwHtml += renderKeywordTable(kw, pn, '');
                             kwHtml += `</div>`;
                         }
 
