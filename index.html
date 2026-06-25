@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro 使用用户指定的纯 CDN -->
+    <!-- pinyin-pro 纯 CDN -->
     <script src="https://unpkg.com/pinyin-pro">
     </script>
 
@@ -557,7 +557,7 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        /* 关键词表格 - 严格两行，每列一个词 */
+        /* 关键词表格 - 严格两行，每列一个词，无逗号 */
         .kw-table {
             border-collapse: collapse;
             border: none;
@@ -594,7 +594,6 @@
         .view-only .kw-table td .word {
             font-size: 15px;
         }
-        /* 左对齐容器 */
         .kw-wrapper {
             text-align: left;
         }
@@ -813,7 +812,15 @@
             }
 
             // ================================================================
-            // 5. 拼音工具（pinyin-pro）
+            // 5. 分割函数：同时支持英文逗号和中文逗号
+            // ================================================================
+            function splitKeywords(text) {
+                if (!text || typeof text !== 'string') return [];
+                return text.split(/[,，]/).map(s => s.trim()).filter(s => s.length > 0);
+            }
+
+            // ================================================================
+            // 6. 拼音工具（pinyin-pro）
             // ================================================================
             function generatePinyinNum(text) {
                 if (!text || typeof text !== 'string') return '';
@@ -823,7 +830,7 @@
                 }
                 try {
                     const p = window.pinyinPro.pinyin;
-                    const parts = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    const parts = splitKeywords(text);
                     const result = parts.map(word => {
                         const simplified = forceToSimplified(word);
                         if (!simplified) return '';
@@ -880,11 +887,10 @@
             }
 
             // ================================================================
-            // 6. 生成关键词表格 HTML（严格两行，每列一个词，无逗号）
+            // 7. 生成关键词表格 HTML（严格两行，每列一个词，无逗号）
             // ================================================================
             function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
-                // 确保拼音数组与关键词长度一致
                 const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
                 while (pinyinDisplay.length < keywords.length) pinyinDisplay.push('');
                 const cellClassStr = cellClass || '';
@@ -906,7 +912,7 @@
             }
 
             // ================================================================
-            // 7. 全域狀態
+            // 8. 全域狀態
             // ================================================================
             let questions = [];
             let currentView = 'teacher';
@@ -927,7 +933,7 @@
             let teacherFilterSemester = '';
 
             // ================================================================
-            // 8. Firestore 即時監聽
+            // 9. Firestore 即時監聽
             // ================================================================
             let unsubscribeQuestions = null;
 
@@ -948,7 +954,7 @@
             }
 
             // ================================================================
-            // 9. 視圖切換
+            // 10. 視圖切換
             // ================================================================
             document.querySelectorAll('[data-view]').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -978,7 +984,7 @@
             }
 
             // ================================================================
-            // 10. 教師視圖
+            // 11. 教師視圖
             // ================================================================
             const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
             const semesters = ['上學期', '下學期'];
@@ -1200,13 +1206,13 @@
                         <div class="form-group">
                             <label>${t('keywords')}</label>
                             <div style="display:flex; gap:6px;">
-                                <input id="editKeywords" value="${keywordsStr}" placeholder="逗號分隔" style="flex:1;" />
+                                <input id="editKeywords" value="${keywordsStr}" placeholder="逗號分隔 (中英文均可)" style="flex:1;" />
                                 <button class="btn btn-primary btn-sm" onclick="window.generatePinyinForOpen()">${t('generatePinyin')}</button>
                             </div>
                         </div>
                         <div class="form-group">
                             <label>${t('pinyin')}</label>
-                            <input id="editPinyin" value="${pinyinStr}" placeholder="逗號分隔，與關鍵詞對應" />
+                            <input id="editPinyin" value="${pinyinStr}" placeholder="逗號分隔 (中英文均可)" />
                         </div>
                         <div class="form-group">
                             <label>${t('referenceAnswer')}</label>
@@ -1235,13 +1241,13 @@
                                     <div class="form-group" style="flex:2;">
                                         <label>${t('keyword')}</label>
                                         <div style="display:flex; gap:6px;">
-                                            <input class="sq-keywords" value="${kwStr}" placeholder="逗號分隔" style="flex:1;" />
+                                            <input class="sq-keywords" value="${kwStr}" placeholder="逗號分隔 (中英文均可)" style="flex:1;" />
                                             <button class="btn btn-primary btn-sm" onclick="window.generatePinyinForSub(this)">${t('generatePinyin')}</button>
                                         </div>
                                     </div>
                                     <div class="form-group" style="flex:2;">
                                         <label>${t('pinyin')}</label>
-                                        <input class="sq-pinyin" value="${pinyinStrSub}" placeholder="逗號分隔，與關鍵詞對應" />
+                                        <input class="sq-pinyin" value="${pinyinStrSub}" placeholder="逗號分隔 (中英文均可)" />
                                     </div>
                                     <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
                                         <button class="btn btn-danger btn-sm" onclick="window.removeSubQuestion(this)">×</button>
@@ -1262,7 +1268,7 @@
             }
 
             // ================================================================
-            // 11. 拼音生成按鈕綁定
+            // 12. 拼音生成按鈕綁定
             // ================================================================
             function bindPinyinGenerateButtons() {}
 
@@ -1295,7 +1301,7 @@
             };
 
             // ================================================================
-            // 12. 年級學期同步
+            // 13. 年級學期同步
             // ================================================================
             function bindGradeSemesterSync() {
                 const editGrade = document.getElementById('editGrade');
@@ -1386,7 +1392,7 @@
             }
 
             // ================================================================
-            // 13. 拖拽排序功能
+            // 14. 拖拽排序功能
             // ================================================================
             function bindDragDropEvents() {
                 const subQuestions = document.querySelectorAll('.sub-question');
@@ -1429,7 +1435,7 @@
             }
 
             // ================================================================
-            // 14. 教師操作函數（Firestore 非同步）
+            // 15. 教師操作函數（Firestore 非同步）
             // ================================================================
             window.startNewQuestion = function() {
                 const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -1627,8 +1633,8 @@
                     const refAnswer = document.getElementById('editRefAnswer').value || '';
                     const keywordsStr = document.getElementById('editKeywords').value || '';
                     const pinyinStr = document.getElementById('editPinyin').value || '';
-                    const keywords = keywordsStr.split(',').map(s => s.trim()).filter(s => s);
-                    const pinyin = pinyinStr.split(',').map(s => s.trim()).filter(s => s);
+                    const keywords = splitKeywords(keywordsStr);
+                    const pinyin = splitKeywords(pinyinStr);
                     const maxLen = Math.max(keywords.length, pinyin.length);
                     while (keywords.length < maxLen) keywords.push('');
                     while (pinyin.length < maxLen) pinyin.push('');
@@ -1648,8 +1654,8 @@
                         const kInput = div.querySelector('.sq-keywords');
                         const pInput = div.querySelector('.sq-pinyin');
                         if (qInput) {
-                            let kw = kInput ? kInput.value.split(',').map(s => s.trim()).filter(s => s) : [];
-                            let pn = pInput ? pInput.value.split(',').map(s => s.trim()).filter(s => s) : [];
+                            let kw = splitKeywords(kInput ? kInput.value : '');
+                            let pn = splitKeywords(pInput ? pInput.value : '');
                             const maxLen = Math.max(kw.length, pn.length);
                             while (kw.length < maxLen) kw.push('');
                             while (pn.length < maxLen) pn.push('');
@@ -1711,7 +1717,7 @@
             };
 
             // ================================================================
-            // 15. 學生視圖
+            // 16. 學生視圖
             // ================================================================
             function renderStudent() {
                 if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -1775,7 +1781,7 @@
             };
 
             // ================================================================
-            // 16. 學生答題視圖
+            // 17. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -1890,7 +1896,7 @@
             }
 
             // ================================================================
-            // 17. 音頻工具（AudioWorklet）
+            // 18. 音頻工具（AudioWorklet）
             // ================================================================
             const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
                 class PCMProcessor extends AudioWorkletProcessor {
@@ -1912,7 +1918,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 18. 通用語音識別函數
+            // 19. 通用語音識別函數
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -1988,7 +1994,7 @@
             }
 
             // ================================================================
-            // 19. 開放式錄音綁定
+            // 20. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
                 const startBtn = document.getElementById('startRecordBtn');
@@ -2175,7 +2181,7 @@
             }
 
             // ================================================================
-            // 20. 半固定式錄音綁定
+            // 21. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
                 const subs = q.subQuestions || [];
@@ -2490,12 +2496,12 @@
             }
 
             // ================================================================
-            // 21. 初始化
+            // 22. 初始化
             // ================================================================
             initConverter();
             startListeningQuestions();
             render();
-            console.log('✅ Firebase 即時同步啟動，後端代理:', BACKEND_URL);
+            console.log('✅ 完整版加载成功，支持中英文逗号，表格无逗号');
         })();
     </script>
 </body>
