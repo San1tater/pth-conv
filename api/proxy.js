@@ -1,33 +1,11 @@
-// api/proxy.js
 const crypto = require('crypto');
 const WebSocket = require('ws');
 
 const APPID = process.env.XUNFEI_APPID;
 const API_KEY = process.env.XUNFEI_API_KEY;
 const API_SECRET = process.env.XUNFEI_API_SECRET;
-const IAT_URL = 'wss://iat-api.xfyun.cn/v2/iat';
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
-// ============================================================
-// 1. 生成訊飛 IAT WebSocket 簽名 URL（供前端直接使用）
-// ============================================================
-function buildIatUrl() {
-    const host = new URL(IAT_URL).host;
-    const path = new URL(IAT_URL).pathname;
-    const date = new Date().toUTCString();
-    const requestLine = `GET ${path} HTTP/1.1`;
-    const signatureOrigin = `host: ${host}\ndate: ${date}\n${requestLine}`;
-    const hmac = crypto.createHmac('sha256', API_SECRET);
-    hmac.update(signatureOrigin);
-    const signature = hmac.digest('base64');
-    const authorizationOrigin = `api_key="${API_KEY}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-    const authorization = Buffer.from(authorizationOrigin).toString('base64');
-    return `wss://${host}${path}?authorization=${encodeURIComponent(authorization)}&host=${host}&date=${encodeURIComponent(date)}`;
-}
-
-// ============================================================
-// 2. 星火評分（僅文字）
-// ============================================================
 function scoreAnswer(questionInfo, answerText) {
     return new Promise((resolve, reject) => {
         const urlObj = new URL(SPARK_URL);
@@ -51,7 +29,6 @@ function scoreAnswer(questionInfo, answerText) {
         if (questionInfo.type === 'open') {
             prompt = `你是一位專業的普通話教師，請用鼓勵性語氣評分。\n題目類型：開放式看圖說故事\n主題：${questionInfo.refAnswer || ''}\n關鍵字：${(questionInfo.keywords||[]).join('、')}\n學生回答：${answerText}\n請從內容相關性、豐富度、語音準確度三項評分(0-10)，給出總分(0-10)，並提供具體建議。\n要求：\n1. 建議必須使用繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。\n2. 評分結果請以 JSON 格式輸出，格式：{"accuracy":分數,"fluency":分數,"integrity":分數,"total_score":平均分,"suggestion":"建議"}`;
         } else {
-            // 半固定式：要求每個子問題給出評語和分數
             const subQs = questionInfo.subQuestions || [];
             let subPrompt = '';
             subQs.forEach((sq, i) => {
@@ -104,72 +81,52 @@ function scoreAnswer(questionInfo, answerText) {
     });
 }
 
-// ============================================================
-// 3. Vercel 入口（處理兩個路徑）
-// ============================================================
 module.exports = async (req, res) => {
-    // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
-
-    // 路由：GET /api/getIatUrl
-    if (req.method === 'GET' && req.url === '/api/getIatUrl') {
-        try {
-            const url = buildIatUrl();
-            res.status(200).json({ url });
-        } catch (err) {
-            res.status(500).json({ error: err.message });
-        }
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
         return;
     }
 
-    // 路由：POST /api/proxy （僅評分）
-    if (req.method === 'POST' && req.url === '/api/proxy') {
-        try {
-            const { question, textAnswer } = req.body;
-            if (!question || !textAnswer) {
-                res.status(400).json({ error: 'Missing question or textAnswer' });
-                return;
-            }
-            // 檢查是否包含中文，若無則直接返回0分
-            const hasChinese = /[\u4e00-\u9fa5]/.test(textAnswer);
-            if (!hasChinese) {
-                const subCount = (question.subQuestions || []).length;
-                const subScores = subCount > 0 ? question.subQuestions.map(() => ({ accuracy: 0, fluency: 0, integrity: 0, comment: '未使用普通話作答' })) : [];
-                res.status(200).json({
-                    score: {
-                        total_score: 0,
-                        suggestion: '檢測到英文或非中文回應，請以普通話作答。',
-                        sub_scores: subScores
-                    }
-                });
-                return;
-            }
-
-            const scoreRaw = await scoreAnswer(question, textAnswer);
-            let scoreJSON;
-            try {
-                let jsonStr = scoreRaw.trim();
-                jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-                const match = jsonStr.match(/\{[\s\S]*\}/);
-                if (match) jsonStr = match[0];
-                scoreJSON = JSON.parse(jsonStr);
-            } catch (e) {
-                scoreJSON = { error: '評分解析失敗', raw: scoreRaw };
-            }
-            res.status(200).json({ score: scoreJSON });
-        } catch (err) {
-            res.status(500).json({ error: err.message });
+    try {
+        const { question, textAnswer } = req.body;
+        if (!question || !textAnswer) {
+            res.status(400).json({ error: 'Missing question or textAnswer' });
+            return;
         }
-        return;
+        const hasChinese = /[\u4e00-\u9fa5]/.test(textAnswer);
+        if (!hasChinese) {
+            const subCount = (question.subQuestions || []).length;
+            const subScores = subCount > 0 ? question.subQuestions.map(() => ({ accuracy: 0, fluency: 0, integrity: 0, comment: '未使用普通話作答' })) : [];
+            res.status(200).json({
+                score: {
+                    total_score: 0,
+                    suggestion: '檢測到英文或非中文回應，請以普通話作答。',
+                    sub_scores: subScores
+                }
+            });
+            return;
+        }
+        const scoreRaw = await scoreAnswer(question, textAnswer);
+        let scoreJSON;
+        try {
+            let jsonStr = scoreRaw.trim();
+            jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            const match = jsonStr.match(/\{[\s\S]*\}/);
+            if (match) jsonStr = match[0];
+            scoreJSON = JSON.parse(jsonStr);
+        } catch (e) {
+            scoreJSON = { error: '評分解析失敗', raw: scoreRaw };
+        }
+        res.status(200).json({ score: scoreJSON });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-
-    // 其他
-    res.status(404).json({ error: 'Not found' });
 };
