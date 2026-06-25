@@ -6,1323 +6,2403 @@
     <title>普通話語音評測 · 音頻直連訊飛版</title>
 
     <!-- Firebase SDK (Compat) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js">
+    </script>
 
     <!-- OpenCC 簡繁轉換 -->
-    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
+    </script>
+
+    <!-- pinyin-pro 拼音生成 -->
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.3/dist/pinyin-pro.min.js">
+    </script>
 
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 16px; color: #1e2a3a; }
-        #app { width: 100%; max-width: 1200px; flex: 1; display: flex; flex-direction: column; gap: 14px; }
-        .top-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 2px solid #dce1e8; }
-        .top-bar h1 { font-size: 26px; font-weight: 700; color: #0b1e2e; }
-        .top-bar .lang-switch { display: flex; gap: 8px; align-items: center; }
-        .top-bar .lang-switch button { padding: 5px 14px; border: 1px solid #cbd5e1; background: #fff; border-radius: 20px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
-        .top-bar .lang-switch button.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
-        .top-bar .lang-switch button:hover:not(.active) { background: #eef2f6; }
-        .view-tabs { display: flex; gap: 4px; background: #e9edf2; border-radius: 30px; padding: 4px; }
-        .view-tabs button { padding: 7px 20px; border: none; border-radius: 30px; background: transparent; font-size: 15px; font-weight: 600; color: #4b5a6a; cursor: pointer; transition: 0.2s; }
-        .view-tabs button.active { background: #fff; color: #0b1e2e; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .main-content { flex: 1; background: #fff; border-radius: 20px; padding: 20px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); min-height: 450px; }
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 14px; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 9px 12px; border: 1px solid #dce1e8; border-radius: 10px; font-size: 15px; font-family: inherit; background: #fafcff; transition: 0.2s; }
-        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
-        .form-group textarea { resize: vertical; min-height: 50px; }
-        .btn { padding: 8px 20px; border: none; border-radius: 30px; font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-primary { background: #3b82f6; color: #fff; }
-        .btn-primary:hover { background: #2563eb; }
-        .btn-success { background: #22c55e; color: #fff; }
-        .btn-success:hover { background: #16a34a; }
-        .btn-danger { background: #ef4444; color: #fff; }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-outline { background: transparent; border: 1.5px solid #cbd5e1; }
-        .btn-outline:hover { background: #f1f5f9; }
-        .btn-sm { padding: 4px 12px; font-size: 12px; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .teacher-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width:800px) { .teacher-grid { grid-template-columns: 1fr; } }
-        .question-list { border-right: 1px solid #e9edf2; padding-right: 20px; }
-        .question-list .list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid #f0f2f5; cursor: pointer; transition: 0.1s; }
-        .question-list .list-item:hover { background: #f8fafc; }
-        .question-list .list-item.selected { background: #eef4ff; border-left: 4px solid #3b82f6; }
-        .question-list .list-item .info { flex: 1; }
-        .question-list .list-item .info .title { font-weight: 600; }
-        .question-list .list-item .info .meta { font-size: 12px; color: #6b7a8a; }
-        .question-list .list-item .actions { display: flex; gap: 4px; }
-        .editor-panel { padding-left: 8px; }
-        .sub-question { background: #f8fafc; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; border: 1px solid #e9edf2; }
-        .sub-question .row { display: flex; gap: 8px; flex-wrap: wrap; }
-        .sub-question .row > * { flex: 1; min-width: 100px; }
-        .student-selector { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
-        .student-selector .form-group { margin-bottom: 0; flex: 1; min-width: 120px; }
-        .question-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
-        .question-card { background: #f8fafc; border-radius: 14px; padding: 14px; border: 1px solid #e9edf2; cursor: pointer; transition: 0.2s; }
-        .question-card:hover { background: #eef4ff; border-color: #3b82f6; }
-        .question-card .qtitle { font-weight: 600; font-size: 15px; }
-        .question-card .qmeta { font-size: 12px; color: #6b7a8a; }
-        .question-card img { max-width: 100%; max-height: 100px; border-radius: 6px; margin-top: 6px; }
-        .answer-area { display: flex; flex-direction: column; gap: 16px; }
-        .answer-area .question-image { max-width: 100%; max-height: 250px; border-radius: 12px; object-fit: contain; background: #f0f2f5; }
-        .answer-area .question-text { font-size: 18px; font-weight: 600; }
-        .answer-area .sub-questions { background: #f8fafc; border-radius: 12px; padding: 14px; border: 1px solid #e9edf2; }
-        .answer-area .sub-questions .sq-item { padding: 6px 0; border-bottom: 1px solid #e9edf2; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
-        .answer-area .sub-questions .sq-item:last-child { border-bottom: none; }
-        .answer-area .sub-questions .sq-item .sq-label { font-weight: 500; flex: 1; }
-        .answer-area .sub-questions .sq-item .sq-status { font-size: 13px; color: #6b7a8a; }
-        .answer-area .sub-questions .sq-item .sq-status.done { color: #22c55e; font-weight: 600; }
-        .answer-area .sub-questions .sq-item .sq-status.waiting { color: #eab308; font-weight: 600; }
-        .answer-area .keywords { background: #f0f7ff; padding: 10px 14px; border-radius: 10px; border-left: 4px solid #3b82f6; font-size: 14px; }
-        .answer-area .transcript-box { background: #fff; border: 1px solid #dce1e8; border-radius: 12px; padding: 12px 16px; min-height: 60px; font-size: 16px; line-height: 1.7; }
-        .answer-area .record-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-        .answer-area .record-controls .status-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #94a3b8; transition: 0.2s; }
-        .answer-area .record-controls .status-dot.recording { background: #ef4444; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.2); } }
-        .answer-area .record-controls .timer { font-size: 18px; font-weight: 600; color: #0b1e2e; min-width: 50px; }
-        .result-box { background: #f8fafc; border-radius: 16px; padding: 16px 20px; border: 1px solid #e2e8f0; margin-top: 12px; }
-        .result-box .score-row { display: flex; flex-wrap: wrap; gap: 14px 24px; margin-bottom: 6px; }
-        .result-box .score-item { display: flex; align-items: baseline; gap: 4px; }
-        .result-box .score-item .num { font-size: 24px; font-weight: 700; }
-        .result-box .score-item .num.good { color: #22c55e; }
-        .result-box .score-item .num.mid { color: #eab308; }
-        .result-box .score-item .num.poor { color: #ef4444; }
-        .result-box .suggestion { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
-        .result-box .sub-feedback { margin-top: 8px; font-size: 14px; }
-        .result-box .sub-feedback .fb-item { padding: 4px 0; border-bottom: 1px solid #f0f2f5; }
-        .progress-container { width: 100%; margin: 10px 0 4px 0; }
-        .progress-bar-bg { width: 100%; height: 8px; background: #e9edf2; border-radius: 10px; overflow: hidden; }
-        .progress-bar-fill { height: 100%; width: 0%; background: #3b82f6; border-radius: 10px; transition: width 0.3s; }
-        .progress-text { font-size: 14px; color: #4b5a6a; margin-top: 4px; text-align: center; }
-        .hidden { display: none !important; }
-        .status-bar { padding: 6px 12px; background: #f0f2f5; border-radius: 10px; font-size: 13px; color: #4b5a6a; display: flex; align-items: center; gap: 10px; }
-        .status-bar .label { font-weight: 600; }
-        @media (max-width:600px) { body { padding: 8px; } .main-content { padding: 14px; } .top-bar h1 { font-size: 20px; } .view-tabs button { padding: 5px 12px; font-size: 13px; } .teacher-grid { grid-template-columns: 1fr; } .question-list { border-right: none; padding-right: 0; } .editor-panel { padding-left: 0; } }
-        .readonly-field { background: #f0f2f5; padding: 9px 12px; border-radius: 10px; border: 1px solid #dce1e8; font-size: 15px; color: #1e2a3a; }
-        .image-preview-container { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
-        .image-preview-container img { max-height: 80px; border-radius: 6px; }
-        .image-preview-container .btn-remove-image { padding: 2px 10px; font-size: 12px; background: #ef4444; color: #fff; border: none; border-radius: 20px; cursor: pointer; }
-        .image-preview-container .btn-remove-image:hover { background: #dc2626; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', 'PingFang HK', 'Microsoft YaHei', sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            color: #1e2a3a;
+        }
+        #app {
+            width: 100%;
+            max-width: 1200px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #dce1e8;
+        }
+        .top-bar h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0b1e2e;
+        }
+        .top-bar .lang-switch {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .top-bar .lang-switch button {
+            padding: 5px 14px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .top-bar .lang-switch button.active {
+            background: #3b82f6;
+            color: #fff;
+            border-color: #3b82f6;
+        }
+        .top-bar .lang-switch button:hover:not(.active) {
+            background: #eef2f6;
+        }
+        .view-tabs {
+            display: flex;
+            gap: 4px;
+            background: #e9edf2;
+            border-radius: 30px;
+            padding: 4px;
+        }
+        .view-tabs button {
+            padding: 7px 20px;
+            border: none;
+            border-radius: 30px;
+            background: transparent;
+            font-size: 15px;
+            font-weight: 600;
+            color: #4b5a6a;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .view-tabs button.active {
+            background: #fff;
+            color: #0b1e2e;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .main-content {
+            flex: 1;
+            background: #fff;
+            border-radius: 20px;
+            padding: 20px 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            min-height: 450px;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #dce1e8;
+            border-radius: 10px;
+            font-size: 15px;
+            font-family: inherit;
+            background: #fafcff;
+            transition: 0.2s;
+        }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 50px;
+        }
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+        }
+        .btn-success {
+            background: #22c55e;
+            color: #fff;
+        }
+        .btn-success:hover {
+            background: #16a34a;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #cbd5e1;
+        }
+        .btn-outline:hover {
+            background: #f1f5f9;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 12px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .teacher-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width:800px) {
+            .teacher-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .question-list {
+            border-right: 1px solid #e9edf2;
+            padding-right: 20px;
+        }
+        .question-list .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #f0f2f5;
+            cursor: pointer;
+            transition: 0.1s;
+        }
+        .question-list .list-item:hover {
+            background: #f8fafc;
+        }
+        .question-list .list-item.selected {
+            background: #eef4ff;
+            border-left: 4px solid #3b82f6;
+        }
+        .question-list .list-item .info {
+            flex: 1;
+        }
+        .question-list .list-item .info .title {
+            font-weight: 600;
+        }
+        .question-list .list-item .info .meta {
+            font-size: 12px;
+            color: #6b7a8a;
+        }
+        .question-list .list-item .actions {
+            display: flex;
+            gap: 4px;
+        }
+        .editor-panel {
+            padding-left: 8px;
+        }
+        .sub-question {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+            border: 1px solid #e9edf2;
+        }
+        .sub-question .row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .sub-question .row>* {
+            flex: 1;
+            min-width: 100px;
+        }
+        .student-selector {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+            align-items: flex-end;
+        }
+        .student-selector .form-group {
+            margin-bottom: 0;
+            flex: 1;
+            min-width: 120px;
+        }
+        .question-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 14px;
+        }
+        .question-card {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 14px;
+            border: 1px solid #e9edf2;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .question-card:hover {
+            background: #eef4ff;
+            border-color: #3b82f6;
+        }
+        .question-card .qtitle {
+            font-weight: 600;
+            font-size: 15px;
+        }
+        .question-card .qmeta {
+            font-size: 12px;
+            color: #6b7a8a;
+        }
+        .question-card img {
+            max-width: 100%;
+            max-height: 100px;
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+        .answer-area {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .answer-area .question-image {
+            max-width: 100%;
+            max-height: 250px;
+            border-radius: 12px;
+            object-fit: contain;
+            background: #f0f2f5;
+        }
+        .answer-area .question-text {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .answer-area .sub-questions {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 14px;
+            border: 1px solid #e9edf2;
+        }
+        .answer-area .sub-questions .sq-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #e9edf2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .answer-area .sub-questions .sq-item:last-child {
+            border-bottom: none;
+        }
+        .answer-area .sub-questions .sq-item .sq-label {
+            font-weight: 500;
+            flex: 1;
+        }
+        .answer-area .sub-questions .sq-item .sq-status {
+            font-size: 13px;
+            color: #6b7a8a;
+        }
+        .answer-area .sub-questions .sq-item .sq-status.done {
+            color: #22c55e;
+            font-weight: 600;
+        }
+        .answer-area .sub-questions .sq-item .sq-status.waiting {
+            color: #eab308;
+            font-weight: 600;
+        }
+        .answer-area .keywords {
+            background: #f0f7ff;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border-left: 4px solid #3b82f6;
+            font-size: 14px;
+        }
+        .answer-area .keywords .kw-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 20px;
+            margin-top: 4px;
+        }
+        .answer-area .keywords .kw-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .answer-area .keywords .kw-item .pinyin {
+            font-size: 12px;
+            color: #3b82f6;
+            letter-spacing: 0.5px;
+        }
+        .answer-area .keywords .kw-item .word {
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .answer-area .transcript-box {
+            background: #fff;
+            border: 1px solid #dce1e8;
+            border-radius: 12px;
+            padding: 12px 16px;
+            min-height: 60px;
+            font-size: 16px;
+            line-height: 1.7;
+        }
+        .answer-area .record-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .answer-area .record-controls .status-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #94a3b8;
+            transition: 0.2s;
+        }
+        .answer-area .record-controls .status-dot.recording {
+            background: #ef4444;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%,
+            100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.2);
+            }
+        }
+        .answer-area .record-controls .timer {
+            font-size: 18px;
+            font-weight: 600;
+            color: #0b1e2e;
+            min-width: 50px;
+        }
+        .result-box {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 16px 20px;
+            border: 1px solid #e2e8f0;
+            margin-top: 12px;
+        }
+        .result-box .score-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px 24px;
+            margin-bottom: 6px;
+        }
+        .result-box .score-item {
+            display: flex;
+            align-items: baseline;
+            gap: 4px;
+        }
+        .result-box .score-item .num {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .result-box .score-item .num.good {
+            color: #22c55e;
+        }
+        .result-box .score-item .num.mid {
+            color: #eab308;
+        }
+        .result-box .score-item .num.poor {
+            color: #ef4444;
+        }
+        .result-box .suggestion {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .result-box .sub-feedback {
+            margin-top: 8px;
+            font-size: 14px;
+        }
+        .result-box .sub-feedback .fb-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #f0f2f5;
+        }
+        .progress-container {
+            width: 100%;
+            margin: 10px 0 4px 0;
+        }
+        .progress-bar-bg {
+            width: 100%;
+            height: 8px;
+            background: #e9edf2;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: #3b82f6;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            font-size: 14px;
+            color: #4b5a6a;
+            margin-top: 4px;
+            text-align: center;
+        }
+        .hidden {
+            display: none !important;
+        }
+        .status-bar {
+            padding: 6px 12px;
+            background: #f0f2f5;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #4b5a6a;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-bar .label {
+            font-weight: 600;
+        }
+        @media (max-width:600px) {
+            body {
+                padding: 8px;
+            }
+            .main-content {
+                padding: 14px;
+            }
+            .top-bar h1 {
+                font-size: 20px;
+            }
+            .view-tabs button {
+                padding: 5px 12px;
+                font-size: 13px;
+            }
+            .teacher-grid {
+                grid-template-columns: 1fr;
+            }
+            .question-list {
+                border-right: none;
+                padding-right: 0;
+            }
+            .editor-panel {
+                padding-left: 0;
+            }
+        }
+        .readonly-field {
+            background: #f0f2f5;
+            padding: 9px 12px;
+            border-radius: 10px;
+            border: 1px solid #dce1e8;
+            font-size: 15px;
+            color: #1e2a3a;
+        }
+        .image-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .image-preview-container img {
+            max-height: 80px;
+            border-radius: 6px;
+        }
+        .image-preview-container .btn-remove-image {
+            padding: 2px 10px;
+            font-size: 12px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        .image-preview-container .btn-remove-image:hover {
+            background: #dc2626;
+        }
+        .empty-editor {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 300px;
+            color: #8a9aa8;
+            font-size: 16px;
+            text-align: center;
+        }
+        .empty-editor .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .sq-keywords-display {
+            width: 100%;
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            border-left: 3px solid #3b82f6;
+            font-size: 13px;
+        }
+        .sq-keywords-display .kw-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            margin-top: 2px;
+        }
+        .sq-keywords-display .kw-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sq-keywords-display .kw-item .pinyin {
+            font-size: 11px;
+            color: #3b82f6;
+            letter-spacing: 0.3px;
+        }
+        .sq-keywords-display .kw-item .word {
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .pinyin-hint {
+            font-size: 12px;
+            color: #6b7a8a;
+            margin-top: 2px;
+            font-weight: 400;
+        }
     </style>
 </head>
 <body>
-<div id="app">
-    <div class="top-bar">
-        <h1>🎙️ 普通話語音評測</h1>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <div class="view-tabs">
-                <button class="active" data-view="teacher">👩‍🏫 教師</button>
-                <button data-view="student">🧑‍🎓 學生</button>
-            </div>
-            <div class="lang-switch">
-                <button class="active" data-lang="zh">繁體</button>
-                <button data-lang="en">English</button>
+    <div id="app">
+        <div class="top-bar">
+            <h1>🎙️ 普通話語音評測</h1>
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <div class="view-tabs">
+                    <button class="active" data-view="teacher">👩‍🏫 教師</button>
+                    <button data-view="student">🧑‍🎓 學生</button>
+                </div>
+                <div class="lang-switch">
+                    <button class="active" data-lang="zh">繁體</button>
+                    <button data-lang="en">English</button>
+                </div>
             </div>
         </div>
+        <div class="main-content" id="mainContent"></div>
     </div>
-    <div class="main-content" id="mainContent"></div>
-</div>
 
-<script>
-    (function() {
-        'use strict';
+    <script>
+        (function() {
+            'use strict';
 
-        // ================================================================
-        // 1. Firebase 初始化
-        // ================================================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyCMe4hsET48PpM6Rh7J_vjr0TmUIwcn5D4",
-            authDomain: "pth-conv.firebaseapp.com",
-            projectId: "pth-conv",
-            storageBucket: "pth-conv.firebasestorage.app",
-            messagingSenderId: "63797240463",
-            appId: "1:63797240463:web:0b6f616ab02f079017c6fa"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+            // ================================================================
+            // 1. Firebase 初始化
+            // ================================================================
+            const firebaseConfig = {
+                apiKey: "AIzaSyCMe4hsET48PpM6Rh7J_vjr0TmUIwcn5D4",
+                authDomain: "pth-conv.firebaseapp.com",
+                projectId: "pth-conv",
+                storageBucket: "pth-conv.firebasestorage.app",
+                messagingSenderId: "63797240463",
+                appId: "1:63797240463:web:0b6f616ab02f079017c6fa"
+            };
+            firebase.initializeApp(firebaseConfig);
+            const db = firebase.firestore();
 
-        // ================================================================
-        // 2. 後端代理位址（Vercel）
-        // ================================================================
-        const BACKEND_URL = '/api/proxy';
+            // ================================================================
+            // 2. 後端代理位址（Vercel）
+            // ================================================================
+            const BACKEND_URL = '/api/proxy';
 
-        // ================================================================
-        // 3. 語言包
-        // ================================================================
-        const LANG = {
-            zh: {
-                grade: '年級', semester: '學期', questionList: '題目列表', newQuestion: '新增題目',
-                editQuestion: '編輯題目', delete: '刪除', save: '儲存', cancel: '取消', title: '標題',
-                type: '題型', open: '開放式 (看圖說故事)', fixed: '半固定式 (看圖答問題)',
-                referenceAnswer: '整體參考答案', keywords: '關鍵字 (逗號分隔)', image: '圖片',
-                uploadImage: '上傳圖片', subQuestions: '子問題', addSubQuestion: '新增子問題',
-                subQuestion: '子問題', question: '問題', answer: '參考答案', keyword: '關鍵字 (逗號)',
-                selectGradeSemester: '請選擇年級與學期', noQuestions: '目前暫無題目',
-                startRecording: '開始錄音', stopRecording: '停止錄音', recording: '錄音中...',
-                recognizing: '語音識別中...', scoring: '評分中...', done: '完成',
-                score: '評分結果', accuracy: '內容相關性', fluency: '豐富度', integrity: '語音準確度',
-                suggestion: '建議', source: '評分來源', back: '返回',
-                chooseQuestion: '選擇題目作答', answerHere: '請看圖說話/回答問題',
-                keywordsHint: '提示關鍵字', transcriptResult: '語音識別結果',
-                pleaseSelect: '請選擇', submitAll: '提交全部答案', answering: '作答中',
-                alreadyAnswered: '已作答', notStarted: '未開始', progress: '評測進行中，請稍等。',
-                englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。',
-                waiting: '請稍等...'
-            },
-            en: {
-                grade: 'Grade', semester: 'Semester', questionList: 'Question List', newQuestion: 'New Question',
-                editQuestion: 'Edit', delete: 'Delete', save: 'Save', cancel: 'Cancel', title: 'Title',
-                type: 'Type', open: 'Open (Story Telling)', fixed: 'Fixed (Q&A)',
-                referenceAnswer: 'Reference Answer', keywords: 'Keywords (comma)', image: 'Image',
-                uploadImage: 'Upload Image', subQuestions: 'Sub-questions', addSubQuestion: 'Add Sub-question',
-                subQuestion: 'Sub-question', question: 'Question', answer: 'Answer', keyword: 'Keywords (comma)',
-                selectGradeSemester: 'Select grade & semester', noQuestions: 'No questions',
-                startRecording: 'Start', stopRecording: 'Stop', recording: 'Recording...',
-                recognizing: 'Recognizing...', scoring: 'Scoring...', done: 'Done',
-                score: 'Score', accuracy: 'Content Relevance', fluency: 'Richness', integrity: 'Pronunciation',
-                suggestion: 'Suggestion', source: 'Source', back: 'Back',
-                chooseQuestion: 'Choose a question', answerHere: 'Look and speak/answer',
-                keywordsHint: 'Keywords', transcriptResult: 'Transcript',
-                pleaseSelect: 'Select', submitAll: 'Submit All', answering: 'Answering',
-                alreadyAnswered: 'Done', notStarted: 'Not started', progress: 'Processing, please wait...',
-                englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.',
-                waiting: 'Please wait...'
-            }
-        };
-        let currentLang = 'zh';
-        function t(key) { return LANG[currentLang][key] || key; }
+            // ================================================================
+            // 3. 語言包
+            // ================================================================
+            const LANG = {
+                zh: {
+                    grade: '年級',
+                    semester: '學期',
+                    questionList: '題目列表',
+                    newQuestion: '新增題目',
+                    editQuestion: '編輯題目',
+                    delete: '刪除',
+                    save: '儲存',
+                    cancel: '取消',
+                    title: '標題',
+                    type: '題型',
+                    open: '開放式 (看圖說故事)',
+                    fixed: '半固定式 (看圖答問題)',
+                    referenceAnswer: '整體參考答案',
+                    keywords: '關鍵字 (逗號分隔)',
+                    pinyin: '拼音 (聲調:0輕聲 1-4聲, v=ü)',
+                    image: '圖片',
+                    uploadImage: '上傳圖片',
+                    subQuestions: '子問題',
+                    addSubQuestion: '新增子問題',
+                    subQuestion: '子問題',
+                    question: '問題',
+                    answer: '參考答案',
+                    keyword: '關鍵字 (逗號)',
+                    selectGradeSemester: '請選擇年級與學期',
+                    noQuestions: '目前暫無題目',
+                    startRecording: '開始錄音',
+                    stopRecording: '停止錄音',
+                    recording: '錄音中...',
+                    recognizing: '語音識別中...',
+                    scoring: '評分中...',
+                    done: '完成',
+                    score: '評分結果',
+                    accuracy: '內容相關性',
+                    fluency: '豐富度',
+                    integrity: '語音準確度',
+                    suggestion: '建議',
+                    source: '評分來源',
+                    back: '返回',
+                    chooseQuestion: '選擇題目作答',
+                    answerHere: '請看圖說話/回答問題',
+                    keywordsHint: '提示關鍵字',
+                    transcriptResult: '語音識別結果',
+                    pleaseSelect: '請選擇',
+                    submitAll: '提交全部答案',
+                    answering: '作答中',
+                    alreadyAnswered: '已作答',
+                    notStarted: '未開始',
+                    progress: '評測進行中，請稍等。',
+                    englishDetected: '檢測到英文回應，評分項目均為 0 分，請以普通話作答。',
+                    waiting: '請稍等...',
+                    selectOrNew: '請選擇或新增題目',
+                    saveSuccess: '✅ 題目儲存成功！',
+                    deleteSuccess: '✅ 題目已刪除！',
+                    emptyEditorHint: '左側選擇題目開始編輯，或點擊「新增題目」',
+                    pinyinNote: '（聲調：0輕聲 1-4聲，v=ü）'
+                },
+                en: {
+                    grade: 'Grade',
+                    semester: 'Semester',
+                    questionList: 'Question List',
+                    newQuestion: 'New Question',
+                    editQuestion: 'Edit',
+                    delete: 'Delete',
+                    save: 'Save',
+                    cancel: 'Cancel',
+                    title: 'Title',
+                    type: 'Type',
+                    open: 'Open (Story Telling)',
+                    fixed: 'Fixed (Q&A)',
+                    referenceAnswer: 'Reference Answer',
+                    keywords: 'Keywords (comma)',
+                    pinyin: 'Pinyin (tone:0 neutral 1-4, v=ü)',
+                    image: 'Image',
+                    uploadImage: 'Upload Image',
+                    subQuestions: 'Sub-questions',
+                    addSubQuestion: 'Add Sub-question',
+                    subQuestion: 'Sub-question',
+                    question: 'Question',
+                    answer: 'Answer',
+                    keyword: 'Keywords (comma)',
+                    selectGradeSemester: 'Select grade & semester',
+                    noQuestions: 'No questions',
+                    startRecording: 'Start',
+                    stopRecording: 'Stop',
+                    recording: 'Recording...',
+                    recognizing: 'Recognizing...',
+                    scoring: 'Scoring...',
+                    done: 'Done',
+                    score: 'Score',
+                    accuracy: 'Content Relevance',
+                    fluency: 'Richness',
+                    integrity: 'Pronunciation',
+                    suggestion: 'Suggestion',
+                    source: 'Source',
+                    back: 'Back',
+                    chooseQuestion: 'Choose a question',
+                    answerHere: 'Look and speak/answer',
+                    keywordsHint: 'Keywords',
+                    transcriptResult: 'Transcript',
+                    pleaseSelect: 'Select',
+                    submitAll: 'Submit All',
+                    answering: 'Answering',
+                    alreadyAnswered: 'Done',
+                    notStarted: 'Not started',
+                    progress: 'Processing, please wait...',
+                    englishDetected: 'English detected, all scores are 0. Please answer in Mandarin.',
+                    waiting: 'Please wait...',
+                    selectOrNew: 'Select or add a question',
+                    saveSuccess: '✅ Question saved!',
+                    deleteSuccess: '✅ Question deleted!',
+                    emptyEditorHint: 'Select a question from left or click "New Question"',
+                    pinyinNote: '(tone:0 neutral 1-4, v=ü)'
+                }
+            };
+            let currentLang = 'zh';
 
-        // ================================================================
-        // 4. 簡繁轉換
-        // ================================================================
-        let cnToHkConverter = null;
-        function initConverter() {
-            if (typeof OpenCC !== 'undefined') {
-                try {
-                    cnToHkConverter = OpenCC.Converter({ from: 'cn', to: 'hk' });
-                } catch(e) {
-                    cnToHkConverter = null;
+            function t(key) { return LANG[currentLang][key] || key; }
+
+            // ================================================================
+            // 4. 簡繁轉換
+            // ================================================================
+            let cnToHkConverter = null;
+            let hkToCnConverter = null;
+
+            function initConverter() {
+                if (typeof OpenCC !== 'undefined') {
+                    try {
+                        cnToHkConverter = OpenCC.Converter({ from: 'cn', to: 'hk' });
+                        hkToCnConverter = OpenCC.Converter({ from: 'hk', to: 'cn' });
+                    } catch (e) {
+                        cnToHkConverter = null;
+                        hkToCnConverter = null;
+                    }
                 }
             }
-        }
-        function forceToTraditional(text) {
-            if (!text) return text;
-            if (cnToHkConverter) {
-                try { return cnToHkConverter(text); } catch(e) { return text; }
+
+            function forceToTraditional(text) {
+                if (!text) return text;
+                if (cnToHkConverter) {
+                    try { return cnToHkConverter(text); } catch (e) { return text; }
+                }
+                return text;
             }
-            return text;
-        }
 
-        // ================================================================
-        // 5. 全域狀態
-        // ================================================================
-        let questions = [];
-        let currentView = 'teacher';
-        let editingQuestionId = null;
-        let studentSelectedQuestionId = null;
-        let studentAnswerText = '';
-        let selectedGrade = '';
-        let selectedSemester = '';
-        let subAnswers = {};
-        let subAnswered = {};
-        let subRecordingIndex = null;
-        let subLocked = false;
-        let teacherFilterGrade = '';
-        let teacherFilterSemester = '';
+            function forceToSimplified(text) {
+                if (!text) return text;
+                if (hkToCnConverter) {
+                    try { return hkToCnConverter(text); } catch (e) { return text; }
+                }
+                return text;
+            }
 
-        // ================================================================
-        // 6. Firestore 即時監聽
-        // ================================================================
-        let unsubscribeQuestions = null;
-
-        function startListeningQuestions() {
-            if (unsubscribeQuestions) unsubscribeQuestions();
-            unsubscribeQuestions = db.collection('questions')
-                .orderBy('updatedAt', 'desc')
-                .onSnapshot((snapshot) => {
-                    questions = [];
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        questions.push({ id: doc.id, ...data });
+            // ================================================================
+            // 5. 拼音工具（pinyin-pro）
+            // ================================================================
+            function generatePinyinForText(text, toneType) {
+                if (!text || typeof text !== 'string') return '';
+                if (typeof window.pinyinPro === 'undefined') {
+                    console.warn('pinyin-pro 未加載，返回空拼音');
+                    return '';
+                }
+                try {
+                    const p = window.pinyinPro.pinyin;
+                    // 將文字按逗號分割，分別生成拼音
+                    const parts = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    const result = parts.map(word => {
+                        // 先轉簡體再生成拼音
+                        const simplified = forceToSimplified(word);
+                        if (!simplified) return '';
+                        const py = p(simplified, {
+                            toneType: toneType || 'num',
+                            v: true,
+                            mode: 'normal'
+                        });
+                        return py || '';
                     });
-                    render();
-                }, (error) => {
-                    console.error('Firestore 監聽錯誤:', error);
-                });
-        }
-
-        // ================================================================
-        // 7. 視圖切換
-        // ================================================================
-        document.querySelectorAll('[data-view]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                currentView = this.dataset.view;
-                render();
-            });
-        });
-        document.querySelectorAll('[data-lang]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                currentLang = this.dataset.lang;
-                render();
-            });
-        });
-
-        function render() {
-            if (currentView === 'teacher') renderTeacher();
-            else renderStudent();
-        }
-
-        // ================================================================
-        // 8. 教師視圖（完整）
-        // ================================================================
-        function renderTeacher() {
-            const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
-            const semesters = ['上學期','下學期'];
-            if (!teacherFilterGrade) teacherFilterGrade = '';
-            if (!teacherFilterSemester) teacherFilterSemester = '';
-
-            let html = `
-                <div class="teacher-grid">
-                    <div class="question-list">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                            <h3>${t('questionList')}</h3>
-                            <button class="btn btn-primary btn-sm" onclick="window.startNewQuestion()">+ ${t('newQuestion')}</button>
-                        </div>
-                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-                            <select id="filterGrade" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
-                                <option value="">${t('grade')}</option>
-                                ${grades.map(g => `<option value="${g}" ${teacherFilterGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
-                            </select>
-                            <select id="filterSemester" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
-                                <option value="">${t('semester')}</option>
-                                ${semesters.map(s => `<option value="${s}" ${teacherFilterSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div id="questionListContainer">${renderQuestionList()}</div>
-                    </div>
-                    <div class="editor-panel">${renderEditor()}</div>
-                </div>
-            `;
-            document.getElementById('mainContent').innerHTML = html;
-        }
-
-        function renderQuestionList() {
-            const gradeFilter = document.getElementById('filterGrade')?.value || '';
-            const semFilter = document.getElementById('filterSemester')?.value || '';
-            teacherFilterGrade = gradeFilter;
-            teacherFilterSemester = semFilter;
-
-            let filtered = questions;
-            if (gradeFilter) filtered = filtered.filter(q => q.grade === gradeFilter);
-            if (semFilter) filtered = filtered.filter(q => q.semester === semFilter);
-            if (filtered.length === 0) {
-                return `<div style="padding:20px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
+                    return result.join(', ');
+                } catch (e) {
+                    console.warn('生成拼音失敗:', e);
+                    return '';
+                }
             }
-            let html = '';
-            filtered.forEach(q => {
-                const sel = (editingQuestionId === q.id) ? 'selected' : '';
-                html += `
-                    <div class="list-item ${sel}" onclick="window.selectQuestion('${q.id}')">
-                        <div class="info">
-                            <div class="title">${forceToTraditional(q.title)}</div>
-                            <div class="meta">${q.grade} · ${q.semester} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
+
+            function generatePinyinNum(text) {
+                return generatePinyinForText(text, 'num');
+            }
+
+            function generatePinyinSymbol(text) {
+                return generatePinyinForText(text, 'symbol');
+            }
+
+            // 將帶數字聲調的拼音轉為帶聲調符號
+            function numToSymbolPinyin(pinyinNum) {
+                if (!pinyinNum) return '';
+                try {
+                    if (typeof window.pinyinPro !== 'undefined') {
+                        const { pinyin } = window.pinyinPro;
+                        // 直接使用 pinyin-pro 轉換
+                        // 但我們需要的是將數字聲調轉為符號，可以逐詞處理
+                        const parts = pinyinNum.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                        const result = parts.map(word => {
+                            // 用 pinyin-pro 重新生成帶符號的拼音
+                            // 但我們沒有原始中文，所以只能嘗試用數字轉符號
+                            // 簡單方式：用 pinyin-pro 的 convert 功能？
+                            // 實際上 pinyin-pro 沒有直接的數字轉符號函數，我們自己實現
+                            // 但更好的辦法是直接保存中文和拼音的映射
+                            // 這裡我們簡單地返回原來的數字拼音，學生端顯示時再轉換
+                            // 實際上我們可以在學生端直接顯示帶符號的拼音
+                            return word;
+                        });
+                        return result.join(', ');
+                    }
+                    return pinyinNum;
+                } catch (e) {
+                    return pinyinNum;
+                }
+            }
+
+            // 將帶數字聲調的拼音轉為 HTML 帶聲調符號的顯示
+            function pinyinNumToHtml(pinyinNum) {
+                if (!pinyinNum) return '';
+                // 簡單映射：將數字轉為聲調符號
+                const toneMap = {
+                    'a1': 'ā',
+                    'a2': 'á',
+                    'a3': 'ǎ',
+                    'a4': 'à',
+                    'a0': 'a',
+                    'e1': 'ē',
+                    'e2': 'é',
+                    'e3': 'ě',
+                    'e4': 'è',
+                    'e0': 'e',
+                    'i1': 'ī',
+                    'i2': 'í',
+                    'i3': 'ǐ',
+                    'i4': 'ì',
+                    'i0': 'i',
+                    'o1': 'ō',
+                    'o2': 'ó',
+                    'o3': 'ǒ',
+                    'o4': 'ò',
+                    'o0': 'o',
+                    'u1': 'ū',
+                    'u2': 'ú',
+                    'u3': 'ǔ',
+                    'u4': 'ù',
+                    'u0': 'u',
+                    'ü1': 'ǖ',
+                    'ü2': 'ǘ',
+                    'ü3': 'ǚ',
+                    'ü4': 'ǜ',
+                    'ü0': 'ü',
+                    'v1': 'ǖ',
+                    'v2': 'ǘ',
+                    'v3': 'ǚ',
+                    'v4': 'ǜ',
+                    'v0': 'ü'
+                };
+
+                // 處理每個音節
+                const syllables = pinyinNum.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                const result = syllables.map(syl => {
+                    // 匹配字母+數字
+                    let processed = syl;
+                    // 處理 ü/v
+                    processed = processed.replace(/v/g, 'ü');
+                    // 處理聲調
+                    for (const [key, val] of Object.entries(toneMap)) {
+                        // 匹配字母+數字，但數字在末尾
+                        const regex = new RegExp(key.replace('1', '1').replace('2', '2').replace('3', '3').replace('4', '4')
+                            .replace('0', '0') + '\\b');
+                        // 更精確：匹配字母+數字
+                        const pattern = key.replace(/\d/g, '');
+                        const num = key.replace(/\D/g, '');
+                        const re = new RegExp(pattern + num + '(?![a-z])', 'gi');
+                        if (re.test(processed)) {
+                            processed = processed.replace(re, val);
+                            break;
+                        }
+                    }
+                    return processed;
+                });
+                return result.join(' ');
+            }
+
+            // ================================================================
+            // 6. 全域狀態
+            // ================================================================
+            let questions = [];
+            let currentView = 'teacher';
+            let editingQuestionId = null;
+            let studentSelectedQuestionId = null;
+            let studentAnswerText = '';
+            let selectedGrade = '';
+            let selectedSemester = '';
+            let subAnswers = {};
+            let subAnswered = {};
+            let subRecordingIndex = null;
+            let subLocked = false;
+            let teacherFilterGrade = '';
+            let teacherFilterSemester = '';
+            // 用於追蹤拼音是否手動修改過
+            let pinyinManuallyEdited = {};
+
+            // ================================================================
+            // 7. Firestore 即時監聽
+            // ================================================================
+            let unsubscribeQuestions = null;
+
+            function startListeningQuestions() {
+                if (unsubscribeQuestions) unsubscribeQuestions();
+                unsubscribeQuestions = db.collection('questions')
+                    .orderBy('updatedAt', 'desc')
+                    .onSnapshot((snapshot) => {
+                        questions = [];
+                        snapshot.forEach(doc => {
+                            const data = doc.data();
+                            questions.push({ id: doc.id, ...data });
+                        });
+                        render();
+                    }, (error) => {
+                        console.error('Firestore 監聽錯誤:', error);
+                    });
+            }
+
+            // ================================================================
+            // 8. 視圖切換
+            // ================================================================
+            document.querySelectorAll('[data-view]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentView = this.dataset.view;
+                    render();
+                });
+            });
+            document.querySelectorAll('[data-lang]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    currentLang = this.dataset.lang;
+                    render();
+                });
+            });
+
+            function render() {
+                if (currentView === 'teacher') renderTeacher();
+                else renderStudent();
+            }
+
+            // ================================================================
+            // 9. 教師視圖
+            // ================================================================
+            const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
+            const semesters = ['上學期', '下學期'];
+
+            function renderTeacher() {
+                if (!teacherFilterGrade) teacherFilterGrade = '';
+                if (!teacherFilterSemester) teacherFilterSemester = '';
+
+                let html = `
+                    <div class="teacher-grid">
+                        <div class="question-list">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                                <h3>${t('questionList')}</h3>
+                                <button class="btn btn-primary btn-sm" onclick="window.startNewQuestion()">+ ${t('newQuestion')}</button>
+                            </div>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
+                                <select id="filterGrade" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
+                                    <option value="">${t('grade')}</option>
+                                    ${grades.map(g => `<option value="${g}" ${teacherFilterGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                                </select>
+                                <select id="filterSemester" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
+                                    <option value="">${t('semester')}</option>
+                                    ${semesters.map(s => `<option value="${s}" ${teacherFilterSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div id="questionListContainer">${renderQuestionList()}</div>
                         </div>
-                        <div class="actions">
-                            <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.editQuestion('${q.id}')">✎</button>
-                            <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteQuestion('${q.id}')">×</button>
-                        </div>
+                        <div class="editor-panel">${renderEditor()}</div>
                     </div>
                 `;
-            });
-            return html;
-        }
+                document.getElementById('mainContent').innerHTML = html;
 
-        function renderEditor() {
-            const q = questions.find(q => q.id === editingQuestionId);
-            const isOpen = q ? q.type === 'open' : true;
-            const filterGrade = document.getElementById('filterGrade')?.value || '';
-            const filterSemester = document.getElementById('filterSemester')?.value || '';
-            const displayGrade = q ? q.grade : (filterGrade || '一年級');
-            const displaySemester = q ? q.semester : (filterSemester || '上學期');
+                // 如果右側有編輯器，綁定拼音自動生成
+                bindPinyinAutoGen();
+                // 綁定年級學期同步
+                bindGradeSemesterSync();
+            }
 
-            let html = `
-                <h3>${q ? t('editQuestion') : t('newQuestion')}</h3>
-                <div class="form-group">
-                    <label>${t('grade')}</label>
-                    <div class="readonly-field">${displayGrade}</div>
-                </div>
-                <div class="form-group">
-                    <label>${t('semester')}</label>
-                    <div class="readonly-field">${displaySemester}</div>
-                </div>
-                <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q ? q.title : ''}" /></div>
-                <div class="form-group"><label>${t('type')}</label>
-                    <select id="editType" onchange="window.toggleQuestionType()">
-                        <option value="open" ${q && q.type==='open' ? 'selected' : ''}>${t('open')}</option>
-                        <option value="fixed" ${q && q.type==='fixed' ? 'selected' : ''}>${t('fixed')}</option>
-                    </select>
-                </div>
-                <div class="form-group" id="refAnswerGroup" style="${isOpen ? '' : 'display:none;'}">
-                    <label>${t('referenceAnswer')}</label><textarea id="editRefAnswer" rows="2">${q ? q.refAnswer || '' : ''}</textarea>
-                </div>
-                ${isOpen ? `
-                <div class="form-group"><label>${t('keywords')}</label><input id="editKeywords" value="${q ? (q.keywords||[]).join(', ') : ''}" placeholder="逗號分隔" /></div>
-                ` : ''}
-                <div class="form-group">
-                    <label>${t('image')}</label>
-                    <input type="file" id="editImage" accept="image/*" onchange="window.handleImageUpload(event)" />
-                    <div class="image-preview-container" id="imagePreviewContainer">
-                        ${q && q.image ? `<img src="${q.image}" />` : ''}
-                        ${q && q.image ? `<button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>` : ''}
-                    </div>
-                    <input type="hidden" id="editImageData" value="${q ? q.image || '' : ''}" />
-                </div>
-            `;
-            if (!isOpen) {
-                html += `<div style="margin-top:12px;"><strong>${t('subQuestions')}</strong> <button class="btn btn-outline btn-sm" onclick="window.addSubQuestion()">+ ${t('addSubQuestion')}</button></div>`;
-                const subQs = q ? q.subQuestions || [] : [];
-                subQs.forEach((sq, idx) => {
+            function renderQuestionList() {
+                const gradeFilter = document.getElementById('filterGrade')?.value || '';
+                const semFilter = document.getElementById('filterSemester')?.value || '';
+                teacherFilterGrade = gradeFilter;
+                teacherFilterSemester = semFilter;
+
+                let filtered = questions;
+                if (gradeFilter) filtered = filtered.filter(q => q.grade === gradeFilter);
+                if (semFilter) filtered = filtered.filter(q => q.semester === semFilter);
+                if (filtered.length === 0) {
+                    return `<div style="padding:20px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
+                }
+                let html = '';
+                filtered.forEach(q => {
+                    const sel = (editingQuestionId === q.id) ? 'selected' : '';
                     html += `
-                        <div class="sub-question" data-index="${idx}">
-                            <div class="row">
-                                <div class="form-group" style="flex:2;"><label>${t('question')}</label><input class="sq-question" value="${sq.question || ''}" /></div>
-                                <div class="form-group" style="flex:2;"><label>${t('answer')}</label><input class="sq-answer" value="${sq.answer || ''}" /></div>
-                                <div class="form-group" style="flex:1;"><label>${t('keyword')}</label><input class="sq-keywords" value="${(sq.keywords||[]).join(', ')}" /></div>
-                                <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
-                                    <button class="btn btn-danger btn-sm" onclick="window.removeSubQuestion(this)">×</button>
-                                </div>
+                        <div class="list-item ${sel}" onclick="window.selectQuestion('${q.id}')">
+                            <div class="info">
+                                <div class="title">${forceToTraditional(q.title)}</div>
+                                <div class="meta">${q.grade} · ${q.semester} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
+                            </div>
+                            <div class="actions">
+                                <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.editQuestion('${q.id}')">✎</button>
+                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); window.deleteQuestion('${q.id}')">×</button>
                             </div>
                         </div>
                     `;
                 });
+                return html;
             }
-            html += `
-                <div style="display:flex; gap:8px; margin-top:14px;">
-                    <button class="btn btn-success" onclick="window.saveQuestion('${displayGrade}', '${displaySemester}')">💾 ${t('save')}</button>
-                    <button class="btn btn-outline" onclick="window.cancelEdit()">${t('cancel')}</button>
-                </div>
-            `;
-            return html;
-        }
 
-        // ================================================================
-        // 9. 教師操作函數（Firestore 非同步）
-        // ================================================================
-        window.startNewQuestion = function() {
-            const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
-            const filterSemester = document.getElementById('filterSemester')?.value || '上學期';
-            const newId = db.collection('questions').doc().id;
-            const newQ = {
-                grade: filterGrade,
-                semester: filterSemester,
-                title: '新題目',
-                type: 'open',
-                refAnswer: '',
-                keywords: [],
-                image: '',
-                subQuestions: [],
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            db.collection('questions').doc(newId).set(newQ)
-                .then(() => {
-                    editingQuestionId = newId;
-                })
-                .catch(err => console.error('新增題目失敗:', err));
-        };
+            function renderEditor() {
+                // 如果沒有選中任何題目，顯示空狀態
+                if (!editingQuestionId) {
+                    return `
+                        <div class="empty-editor">
+                            <div class="icon">📂</div>
+                            <div>${t('emptyEditorHint')}</div>
+                        </div>
+                    `;
+                }
 
-        window.selectQuestion = function(id) {
-            editingQuestionId = id;
-            render();
-        };
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (!q) {
+                    // 如果題目不存在（可能已被刪除），顯示空狀態
+                    return `
+                        <div class="empty-editor">
+                            <div class="icon">📂</div>
+                            <div>${t('emptyEditorHint')}</div>
+                        </div>
+                    `;
+                }
 
-        window.editQuestion = function(id) {
-            editingQuestionId = id;
-            render();
-        };
+                const isOpen = q.type === 'open';
+                // 使用當前編輯題目的年級學期，若無則使用篩選值
+                const displayGrade = q.grade || teacherFilterGrade || '一年級';
+                const displaySemester = q.semester || teacherFilterSemester || '上學期';
 
-        window.deleteQuestion = function(id) {
-            if (!confirm('確定刪除該題目？')) return;
-            db.collection('questions').doc(id).delete()
-                .then(() => {
-                    if (editingQuestionId === id) editingQuestionId = null;
-                })
-                .catch(err => console.error('刪除失敗:', err));
-        };
+                // 獲取拼音數據
+                const pinyinArr = q.pinyin || [];
+                const pinyinStr = pinyinArr.join(', ');
 
-        window.applyFilter = function() {
-            const grade = document.getElementById('filterGrade')?.value || '';
-            const sem = document.getElementById('filterSemester')?.value || '';
-            teacherFilterGrade = grade;
-            teacherFilterSemester = sem;
-            render();
-        };
+                let html = `
+                    <h3>${t('editQuestion')}</h3>
+                    <div class="form-group">
+                        <label>${t('grade')}</label>
+                        <select id="editGrade" class="sync-grade">
+                            ${grades.map(g => `<option value="${g}" ${displayGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>${t('semester')}</label>
+                        <select id="editSemester" class="sync-semester">
+                            ${semesters.map(s => `<option value="${s}" ${displaySemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q.title || ''}" /></div>
+                    <div class="form-group"><label>${t('type')}</label>
+                        <select id="editType" onchange="window.toggleQuestionType()">
+                            <option value="open" ${q.type==='open' ? 'selected' : ''}>${t('open')}</option>
+                            <option value="fixed" ${q.type==='fixed' ? 'selected' : ''}>${t('fixed')}</option>
+                        </select>
+                    </div>
+                `;
 
-        window.toggleQuestionType = function() {
-            const type = document.getElementById('editType').value;
-            const q = questions.find(q => q.id === editingQuestionId);
-            if (q) {
-                q.type = type;
-                if (type === 'open') {
-                    q.subQuestions = [];
-                    q.refAnswer = document.getElementById('editRefAnswer')?.value || '';
+                if (isOpen) {
+                    // 開放式：關鍵詞 + 拼音
+                    const keywordsStr = (q.keywords || []).join(', ');
+                    html += `
+                        <div class="form-group">
+                            <label>${t('keywords')}</label>
+                            <input id="editKeywords" value="${keywordsStr}" placeholder="逗號分隔" class="pinyin-trigger" />
+                        </div>
+                        <div class="form-group">
+                            <label>${t('pinyin')} <span class="pinyin-hint">${t('pinyinNote')}</span></label>
+                            <input id="editPinyin" value="${pinyinStr}" placeholder="逗號分隔，與關鍵詞對應" />
+                        </div>
+                        <div class="form-group">
+                            <label>${t('referenceAnswer')}</label>
+                            <textarea id="editRefAnswer" rows="2">${q.refAnswer || ''}</textarea>
+                        </div>
+                    `;
                 } else {
-                    q.refAnswer = '';
-                    if (!q.subQuestions || q.subQuestions.length === 0) {
-                        q.subQuestions = [{ question: '', answer: '', keywords: [] }];
+                    // 半固定式：子問題
+                    html += `
+                        <div style="margin-top:12px;"><strong>${t('subQuestions')}</strong> <button class="btn btn-outline btn-sm" onclick="window.addSubQuestion()">+ ${t('addSubQuestion')}</button></div>
+                    `;
+                    const subQs = q.subQuestions || [];
+                    subQs.forEach((sq, idx) => {
+                        const kwStr = (sq.keywords || []).join(', ');
+                        const pinyinStrSub = (sq.pinyin || []).join(', ');
+                        html += `
+                            <div class="sub-question" data-index="${idx}">
+                                <div class="row">
+                                    <div class="form-group" style="flex:2;"><label>${t('question')}</label><input class="sq-question" value="${sq.question || ''}" /></div>
+                                    <div class="form-group" style="flex:2;"><label>${t('answer')}</label><input class="sq-answer" value="${sq.answer || ''}" /></div>
+                                </div>
+                                <div class="row">
+                                    <div class="form-group" style="flex:2;"><label>${t('keyword')}</label><input class="sq-keywords pinyin-trigger" value="${kwStr}" placeholder="逗號分隔" /></div>
+                                    <div class="form-group" style="flex:2;"><label>${t('pinyin')} <span class="pinyin-hint">${t('pinyinNote')}</span></label><input class="sq-pinyin" value="${pinyinStrSub}" placeholder="逗號分隔，與關鍵詞對應" /></div>
+                                    <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
+                                        <button class="btn btn-danger btn-sm" onclick="window.removeSubQuestion(this)">×</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                    <div style="display:flex; gap:8px; margin-top:14px;">
+                        <button class="btn btn-success" onclick="window.saveQuestion()">💾 ${t('save')}</button>
+                        <button class="btn btn-outline" onclick="window.cancelEdit()">${t('cancel')}</button>
+                    </div>
+                `;
+                return html;
+            }
+
+            // ================================================================
+            // 10. 拼音自動生成綁定
+            // ================================================================
+            function bindPinyinAutoGen() {
+                // 綁定所有 .pinyin-trigger 輸入框，當值變化時自動生成拼音
+                const triggers = document.querySelectorAll('.pinyin-trigger');
+                triggers.forEach(input => {
+                    // 移除舊的事件監聽（避免重複）
+                    input.removeEventListener('input', window._pinyinAutoGenHandler);
+                    const handler = function(e) {
+                        const target = e.target;
+                        // 找到同一個子題目或同一層級的拼音輸入框
+                        const parent = target.closest('.sub-question') || target.closest('.editor-panel');
+                        if (!parent) return;
+                        // 找到拼音輸入框
+                        let pinyinInput = null;
+                        if (parent.querySelector('.sub-question')) {
+                            // 在子題目中
+                            const subDiv = target.closest('.sub-question');
+                            if (subDiv) {
+                                pinyinInput = subDiv.querySelector('.sq-pinyin');
+                            }
+                        } else {
+                            // 在開放式題目中
+                            pinyinInput = document.getElementById('editPinyin');
+                        }
+                        if (!pinyinInput) return;
+                        // 如果拼音被手動修改過且關鍵詞沒有變化，不自動生成
+                        const key = target.id || target.className + '_' + (target.dataset.index || '');
+                        if (pinyinManuallyEdited[key]) {
+                            // 但如果關鍵詞內容變化了，重新生成
+                            // 簡單判斷：如果關鍵詞為空，清空拼音
+                            if (!target.value.trim()) {
+                                pinyinInput.value = '';
+                                return;
+                            }
+                            // 否則保留手動修改
+                            return;
+                        }
+                        // 自動生成拼音
+                        const kwText = target.value;
+                        if (kwText.trim()) {
+                            const pinyin = generatePinyinNum(kwText);
+                            pinyinInput.value = pinyin;
+                        } else {
+                            pinyinInput.value = '';
+                        }
+                    };
+                    input.addEventListener('input', handler);
+                    window._pinyinAutoGenHandler = handler; // 存儲以便清理
+                    // 同時，當拼音框被手動編輯時，標記為手動修改
+                    const parent = input.closest('.sub-question') || input.closest('.editor-panel');
+                    let pinyinInput = null;
+                    if (parent) {
+                        if (input.closest('.sub-question')) {
+                            const subDiv = input.closest('.sub-question');
+                            if (subDiv) pinyinInput = subDiv.querySelector('.sq-pinyin');
+                        } else {
+                            pinyinInput = document.getElementById('editPinyin');
+                        }
                     }
+                    if (pinyinInput) {
+                        pinyinInput.addEventListener('input', function(e) {
+                            const key = input.id || input.className + '_' + (input.dataset.index || '');
+                            pinyinManuallyEdited[key] = true;
+                        });
+                    }
+                });
+            }
+
+            // ================================================================
+            // 11. 年級學期同步
+            // ================================================================
+            function bindGradeSemesterSync() {
+                // 右側編輯區的年級學期下拉框
+                const editGrade = document.getElementById('editGrade');
+                const editSemester = document.getElementById('editSemester');
+                const filterGrade = document.getElementById('filterGrade');
+                const filterSemester = document.getElementById('filterSemester');
+
+                if (editGrade && filterGrade) {
+                    // 移除舊監聽
+                    editGrade.removeEventListener('change', window._gradeSyncHandler);
+                    const handler = function() {
+                        const val = this.value;
+                        if (filterGrade) filterGrade.value = val;
+                        // 更新當前題目的年級
+                        const q = questions.find(q => q.id === editingQuestionId);
+                        if (q) {
+                            q.grade = val;
+                            // 更新到 Firestore（不保存，只更新本地）
+                            // 但為了即時反饋，我們更新本地數據後重新渲染
+                        }
+                        teacherFilterGrade = val;
+                        // 重新渲染列表
+                        renderQuestionList();
+                        // 重新渲染編輯器（但保持編輯狀態）
+                        // 用更簡單的方式：只更新列表
+                        const container = document.getElementById('questionListContainer');
+                        if (container) container.innerHTML = renderQuestionList();
+                        // 同步左側篩選
+                        if (filterGrade) filterGrade.value = val;
+                        // 重新高亮選中項
+                        highlightSelected();
+                    };
+                    editGrade.addEventListener('change', handler);
+                    window._gradeSyncHandler = handler;
+                }
+
+                if (editSemester && filterSemester) {
+                    editSemester.removeEventListener('change', window._semesterSyncHandler);
+                    const handler = function() {
+                        const val = this.value;
+                        if (filterSemester) filterSemester.value = val;
+                        const q = questions.find(q => q.id === editingQuestionId);
+                        if (q) {
+                            q.semester = val;
+                        }
+                        teacherFilterSemester = val;
+                        const container = document.getElementById('questionListContainer');
+                        if (container) container.innerHTML = renderQuestionList();
+                        if (filterSemester) filterSemester.value = val;
+                        highlightSelected();
+                    };
+                    editSemester.addEventListener('change', handler);
+                    window._semesterSyncHandler = handler;
+                }
+
+                // 左側篩選變化時，同步右側
+                if (filterGrade) {
+                    filterGrade.removeEventListener('change', window._filterGradeSyncHandler);
+                    const handler = function() {
+                        const val = this.value;
+                        teacherFilterGrade = val;
+                        if (editGrade) editGrade.value = val;
+                        // 如果當前正在編輯題目，更新題目的年級
+                        const q = questions.find(q => q.id === editingQuestionId);
+                        if (q) {
+                            q.grade = val;
+                        }
+                        // 重新渲染列表
+                        const container = document.getElementById('questionListContainer');
+                        if (container) container.innerHTML = renderQuestionList();
+                        highlightSelected();
+                    };
+                    filterGrade.addEventListener('change', handler);
+                    window._filterGradeSyncHandler = handler;
+                }
+
+                if (filterSemester) {
+                    filterSemester.removeEventListener('change', window._filterSemesterSyncHandler);
+                    const handler = function() {
+                        const val = this.value;
+                        teacherFilterSemester = val;
+                        if (editSemester) editSemester.value = val;
+                        const q = questions.find(q => q.id === editingQuestionId);
+                        if (q) {
+                            q.semester = val;
+                        }
+                        const container = document.getElementById('questionListContainer');
+                        if (container) container.innerHTML = renderQuestionList();
+                        highlightSelected();
+                    };
+                    filterSemester.addEventListener('change', handler);
+                    window._filterSemesterSyncHandler = handler;
+                }
+            }
+
+            function highlightSelected() {
+                document.querySelectorAll('.list-item').forEach(el => {
+                    el.classList.remove('selected');
+                    if (el.dataset.id === editingQuestionId) {
+                        el.classList.add('selected');
+                    }
+                });
+            }
+
+            // ================================================================
+            // 12. 教師操作函數（Firestore 非同步）
+            // ================================================================
+            window.startNewQuestion = function() {
+                const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
+                const filterSemester = document.getElementById('filterSemester')?.value || '上學期';
+                const newId = db.collection('questions').doc().id;
+                const newQ = {
+                    grade: filterGrade,
+                    semester: filterSemester,
+                    title: '新題目',
+                    type: 'open',
+                    refAnswer: '',
+                    keywords: [],
+                    pinyin: [],
+                    image: '',
+                    subQuestions: [],
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                db.collection('questions').doc(newId).set(newQ)
+                    .then(() => {
+                        editingQuestionId = newId;
+                        // 重置手動編輯標記
+                        pinyinManuallyEdited = {};
+                        // 同步篩選
+                        const fg = document.getElementById('filterGrade');
+                        const fs = document.getElementById('filterSemester');
+                        if (fg) fg.value = filterGrade;
+                        if (fs) fs.value = filterSemester;
+                        teacherFilterGrade = filterGrade;
+                        teacherFilterSemester = filterSemester;
+                        render();
+                    })
+                    .catch(err => console.error('新增題目失敗:', err));
+            };
+
+            window.selectQuestion = function(id) {
+                editingQuestionId = id;
+                pinyinManuallyEdited = {};
+                // 同步篩選
+                const q = questions.find(q => q.id === id);
+                if (q) {
+                    const fg = document.getElementById('filterGrade');
+                    const fs = document.getElementById('filterSemester');
+                    if (fg) fg.value = q.grade || '';
+                    if (fs) fs.value = q.semester || '';
+                    teacherFilterGrade = q.grade || '';
+                    teacherFilterSemester = q.semester || '';
                 }
                 render();
-            }
-        };
-
-        window.handleImageUpload = function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(ev) {
-                document.getElementById('editImageData').value = ev.target.result;
-                const container = document.getElementById('imagePreviewContainer');
-                container.innerHTML = `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>`;
             };
-            reader.readAsDataURL(file);
-        };
 
-        window.removeImage = function() {
-            document.getElementById('editImageData').value = '';
-            const container = document.getElementById('imagePreviewContainer');
-            container.innerHTML = '';
-        };
-
-        window.addSubQuestion = function() {
-            const q = questions.find(q => q.id === editingQuestionId);
-            if (!q) return;
-            const sqDivs = document.querySelectorAll('.sub-question');
-            const subs = [];
-            sqDivs.forEach(div => {
-                const qInput = div.querySelector('.sq-question');
-                const aInput = div.querySelector('.sq-answer');
-                const kInput = div.querySelector('.sq-keywords');
-                if (qInput) subs.push({ question: qInput.value || '', answer: aInput ? aInput.value : '', keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : [] });
-            });
-            q.subQuestions = subs;
-            q.subQuestions.push({ question: '', answer: '', keywords: [] });
-            render();
-        };
-
-        window.removeSubQuestion = function(btn) {
-            const div = btn.closest('.sub-question');
-            const idx = parseInt(div.dataset.index, 10);
-            if (isNaN(idx)) return;
-            const q = questions.find(q => q.id === editingQuestionId);
-            if (q && q.subQuestions && q.subQuestions.length > idx) {
-                q.subQuestions.splice(idx, 1);
+            window.editQuestion = function(id) {
+                editingQuestionId = id;
+                pinyinManuallyEdited = {};
+                const q = questions.find(q => q.id === id);
+                if (q) {
+                    const fg = document.getElementById('filterGrade');
+                    const fs = document.getElementById('filterSemester');
+                    if (fg) fg.value = q.grade || '';
+                    if (fs) fs.value = q.semester || '';
+                    teacherFilterGrade = q.grade || '';
+                    teacherFilterSemester = q.semester || '';
+                }
                 render();
-            }
-        };
-
-        window.saveQuestion = function(displayGrade, displaySemester) {
-            const q = questions.find(q => q.id === editingQuestionId);
-            if (!q) return;
-
-            const title = document.getElementById('editTitle').value;
-            const type = document.getElementById('editType').value;
-            const image = document.getElementById('editImageData').value || '';
-
-            let updateData = {
-                grade: displayGrade,
-                semester: displaySemester,
-                title: title,
-                type: type,
-                image: image,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
-            if (type === 'open') {
-                const refAnswer = document.getElementById('editRefAnswer').value || '';
-                const keywords = document.getElementById('editKeywords').value.split(',').map(s=>s.trim()).filter(s=>s);
-                updateData.refAnswer = refAnswer;
-                updateData.keywords = keywords;
-                updateData.subQuestions = [];
-            } else {
-                updateData.refAnswer = '';
-                updateData.keywords = [];
-                const sqDivs = document.querySelectorAll('.sub-question');
-                const subs = [];
-                sqDivs.forEach(div => {
-                    const qInput = div.querySelector('.sq-question');
-                    const aInput = div.querySelector('.sq-answer');
-                    const kInput = div.querySelector('.sq-keywords');
-                    if (qInput) subs.push({
-                        question: qInput.value || '',
-                        answer: aInput ? aInput.value : '',
-                        keywords: kInput ? kInput.value.split(',').map(s=>s.trim()).filter(s=>s) : []
+            window.deleteQuestion = function(id) {
+                if (!confirm('確定刪除該題目？')) return;
+                db.collection('questions').doc(id).delete()
+                    .then(() => {
+                        if (editingQuestionId === id) {
+                            editingQuestionId = null;
+                            pinyinManuallyEdited = {};
+                        }
+                        alert(t('deleteSuccess'));
+                        render();
+                    })
+                    .catch(err => console.error('刪除失敗:', err));
+            };
+
+            window.applyFilter = function() {
+                const grade = document.getElementById('filterGrade')?.value || '';
+                const sem = document.getElementById('filterSemester')?.value || '';
+                teacherFilterGrade = grade;
+                teacherFilterSemester = sem;
+                // 同步右側
+                const eg = document.getElementById('editGrade');
+                const es = document.getElementById('editSemester');
+                if (eg) eg.value = grade;
+                if (es) es.value = sem;
+                // 如果正在編輯題目，更新題目的年級學期
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (q) {
+                    q.grade = grade || q.grade;
+                    q.semester = sem || q.semester;
+                }
+                render();
+            };
+
+            window.toggleQuestionType = function() {
+                const type = document.getElementById('editType').value;
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (q) {
+                    q.type = type;
+                    if (type === 'open') {
+                        if (!q.subQuestions) q.subQuestions = [];
+                        q.refAnswer = document.getElementById('editRefAnswer')?.value || '';
+                        // 保留 keywords 和 pinyin
+                    } else {
+                        q.refAnswer = '';
+                        if (!q.subQuestions || q.subQuestions.length === 0) {
+                            q.subQuestions = [{ question: '', answer: '', keywords: [], pinyin: [] }];
+                        }
+                    }
+                    render();
+                }
+            };
+
+            window.handleImageUpload = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    document.getElementById('editImageData').value = ev.target.result;
+                    const container = document.getElementById('imagePreviewContainer');
+                    container.innerHTML =
+                        `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>`;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            window.removeImage = function() {
+                document.getElementById('editImageData').value = '';
+                const container = document.getElementById('imagePreviewContainer');
+                container.innerHTML = '';
+            };
+
+            window.addSubQuestion = function() {
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (!q) return;
+                if (!q.subQuestions) q.subQuestions = [];
+                q.subQuestions.push({ question: '', answer: '', keywords: [], pinyin: [] });
+                render();
+            };
+
+            window.removeSubQuestion = function(btn) {
+                const div = btn.closest('.sub-question');
+                const idx = parseInt(div.dataset.index, 10);
+                if (isNaN(idx)) return;
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (q && q.subQuestions && q.subQuestions.length > idx) {
+                    q.subQuestions.splice(idx, 1);
+                    render();
+                }
+            };
+
+            window.saveQuestion = function() {
+                const q = questions.find(q => q.id === editingQuestionId);
+                if (!q) return;
+
+                const title = document.getElementById('editTitle').value;
+                const type = document.getElementById('editType').value;
+                const imageData = document.getElementById('editImageData')?.value || '';
+
+                // 獲取當前年級學期（從下拉框）
+                const grade = document.getElementById('editGrade')?.value || q.grade || '一年級';
+                const semester = document.getElementById('editSemester')?.value || q.semester || '上學期';
+
+                // 同步篩選
+                const fg = document.getElementById('filterGrade');
+                const fs = document.getElementById('filterSemester');
+                if (fg) fg.value = grade;
+                if (fs) fs.value = semester;
+                teacherFilterGrade = grade;
+                teacherFilterSemester = semester;
+
+                let updateData = {
+                    grade: grade,
+                    semester: semester,
+                    title: title,
+                    type: type,
+                    image: imageData,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                if (type === 'open') {
+                    const refAnswer = document.getElementById('editRefAnswer').value || '';
+                    const keywordsStr = document.getElementById('editKeywords').value || '';
+                    const pinyinStr = document.getElementById('editPinyin').value || '';
+                    const keywords = keywordsStr.split(',').map(s => s.trim()).filter(s => s);
+                    const pinyin = pinyinStr.split(',').map(s => s.trim()).filter(s => s);
+                    updateData.refAnswer = refAnswer;
+                    updateData.keywords = keywords;
+                    updateData.pinyin = pinyin;
+                    updateData.subQuestions = [];
+                } else {
+                    updateData.refAnswer = '';
+                    updateData.keywords = [];
+                    updateData.pinyin = [];
+                    const sqDivs = document.querySelectorAll('.sub-question');
+                    const subs = [];
+                    sqDivs.forEach(div => {
+                        const qInput = div.querySelector('.sq-question');
+                        const aInput = div.querySelector('.sq-answer');
+                        const kInput = div.querySelector('.sq-keywords');
+                        const pInput = div.querySelector('.sq-pinyin');
+                        if (qInput) {
+                            const kw = kInput ? kInput.value.split(',').map(s => s.trim()).filter(s => s) : [];
+                            const pn = pInput ? pInput.value.split(',').map(s => s.trim()).filter(s => s) : [];
+                            subs.push({
+                                question: qInput.value || '',
+                                answer: aInput ? aInput.value : '',
+                                keywords: kw,
+                                pinyin: pn
+                            });
+                        }
                     });
-                });
-                updateData.subQuestions = subs;
+                    updateData.subQuestions = subs;
+                }
+
+                db.collection('questions').doc(editingQuestionId).update(updateData)
+                    .then(() => {
+                        alert(t('saveSuccess'));
+                        // 更新本地數據
+                        Object.assign(q, updateData);
+                        render();
+                    })
+                    .catch(err => console.error('更新失敗:', err));
+            };
+
+            window.cancelEdit = function() {
+                editingQuestionId = null;
+                pinyinManuallyEdited = {};
+                render();
+            };
+
+            // ================================================================
+            // 13. 學生視圖
+            // ================================================================
+            function renderStudent() {
+                if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
+                let html = `
+                    <div class="student-selector">
+                        <div class="form-group"><label>${t('grade')}</label>
+                            <select id="studentGrade" onchange="window.filterStudentQuestions()">
+                                <option value="">${t('pleaseSelect')}</option>
+                                ${grades.map(g => `<option value="${g}" ${selectedGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div class="form-group"><label>${t('semester')}</label>
+                            <select id="studentSemester" onchange="window.filterStudentQuestions()">
+                                <option value="">${t('pleaseSelect')}</option>
+                                ${semesters.map(s => `<option value="${s}" ${selectedSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                    <div id="studentQuestionGrid">${renderStudentQuestions(selectedGrade, selectedSemester)}</div>
+                `;
+                document.getElementById('mainContent').innerHTML = html;
             }
 
-            db.collection('questions').doc(editingQuestionId).update(updateData)
-                .catch(err => console.error('更新失敗:', err));
-        };
-
-        window.cancelEdit = function() {
-            editingQuestionId = null;
-            render();
-        };
-
-        // ================================================================
-        // 10. 學生視圖
-        // ================================================================
-        function renderStudent() {
-            if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
-            const grades = ['一年級','二年級','三年級','四年級','五年級','六年級'];
-            const semesters = ['上學期','下學期'];
-            let html = `
-                <div class="student-selector">
-                    <div class="form-group"><label>${t('grade')}</label>
-                        <select id="studentGrade" onchange="window.filterStudentQuestions()">
-                            <option value="">${t('pleaseSelect')}</option>
-                            ${grades.map(g => `<option value="${g}" ${selectedGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group"><label>${t('semester')}</label>
-                        <select id="studentSemester" onchange="window.filterStudentQuestions()">
-                            <option value="">${t('pleaseSelect')}</option>
-                            ${semesters.map(s => `<option value="${s}" ${selectedSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-                <div id="studentQuestionGrid">${renderStudentQuestions(selectedGrade, selectedSemester)}</div>
-            `;
-            document.getElementById('mainContent').innerHTML = html;
-        }
-
-        function renderStudentQuestions(grade, sem) {
-            let filtered = questions.filter(q => q.grade === grade && q.semester === sem);
-            if (filtered.length === 0) return `<div style="padding:30px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
-            let html = `<div class="question-grid">`;
-            filtered.forEach(q => {
-                html += `
-                    <div class="question-card" onclick="window.selectStudentQuestion('${q.id}')">
-                        <div class="qtitle">${forceToTraditional(q.title)}</div>
-                        <div class="qmeta">${q.type === 'open' ? t('open') : t('fixed')}</div>
-                        ${q.image ? `<img src="${q.image}" />` : ''}
-                    </div>
-                `;
-            });
-            html += `</div>`;
-            return html;
-        }
-
-        window.filterStudentQuestions = function() {
-            const grade = document.getElementById('studentGrade')?.value || '';
-            const sem = document.getElementById('studentSemester')?.value || '';
-            selectedGrade = grade;
-            selectedSemester = sem;
-            renderStudent();
-        };
-
-        window.selectStudentQuestion = function(id) {
-            studentSelectedQuestionId = id;
-            subAnswers = {};
-            subAnswered = {};
-            subRecordingIndex = null;
-            subLocked = false;
-            renderStudent();
-        };
-
-        window.backToStudentList = function() {
-            studentSelectedQuestionId = null;
-            renderStudent();
-        };
-
-        // ================================================================
-        // 11. 學生答題視圖
-        // ================================================================
-        function renderStudentAnswer() {
-            const q = questions.find(q => q.id === studentSelectedQuestionId);
-            if (!q) { studentSelectedQuestionId = null; renderStudent(); return; }
-            const isOpen = q.type === 'open';
-            let html = `
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <button class="btn btn-outline" onclick="window.backToStudentList()">← ${t('back')}</button>
-                    <span style="font-weight:600;">${forceToTraditional(q.title)}</span>
-                </div>
-                <div class="answer-area">
-                    ${q.image ? `<img src="${q.image}" class="question-image" />` : ''}
-                    <div class="question-text">${forceToTraditional(q.title)}</div>
-            `;
-            if (isOpen) {
-                html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
-                if (q.keywords && q.keywords.length) html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>${forceToTraditional(q.keywords.join('、'))}</div>`;
-                html += `
-                    <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
-                    <div class="record-controls">
-                        <span class="status-dot" id="recordDot"></span>
-                        <span class="timer" id="recordTimer">00:00</span>
-                        <button class="btn btn-primary" id="startRecordBtn">🎙️ ${t('startRecording')}</button>
-                        <button class="btn btn-danger" id="stopRecordBtn" disabled>⏹️ ${t('stopRecording')}</button>
-                        <span id="statusText" style="font-size:13px; color:#6b7a8a;">${t('recording')}</span>
-                    </div>
-                    <div id="progressContainer" class="progress-container hidden">
-                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
-                        <div class="progress-text" id="progressText">${t('progress')}</div>
-                    </div>
-                    <div id="scoreResult" class="result-box hidden">
-                        <div class="score-row">
-                            <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
-                            <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
-                            <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
-                            <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
-                        </div>
-                        <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
-                        <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
-                    </div>
-                `;
-            } else {
-                const subs = q.subQuestions || [];
-                html += `<div class="sub-questions">`;
-                subs.forEach((sq, idx) => {
-                    const answered = subAnswered[idx] || false;
-                    const statusClass = answered ? 'done' : (subRecordingIndex === idx ? 'waiting' : '');
-                    const statusText = answered ? t('alreadyAnswered') : (subRecordingIndex === idx ? t('waiting') : t('notStarted'));
-                    let disabled = answered || subLocked || (subRecordingIndex !== null && subRecordingIndex !== idx);
-                    if (idx > 0 && !subAnswered[idx-1]) disabled = true;
+            function renderStudentQuestions(grade, sem) {
+                let filtered = questions.filter(q => q.grade === grade && q.semester === sem);
+                if (filtered.length === 0) return `<div style="padding:30px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
+                let html = `<div class="question-grid">`;
+                filtered.forEach(q => {
                     html += `
-                        <div class="sq-item">
-                            <div class="sq-label"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
-                            <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                                <span class="sq-status ${statusClass}">${statusText}</span>
-                                <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
-                                <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
-                            </div>
-                            <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
+                        <div class="question-card" onclick="window.selectStudentQuestion('${q.id}')">
+                            <div class="qtitle">${forceToTraditional(q.title)}</div>
+                            <div class="qmeta">${q.type === 'open' ? t('open') : t('fixed')}</div>
+                            ${q.image ? `<img src="${q.image}" />` : ''}
                         </div>
                     `;
                 });
                 html += `</div>`;
-                const allDone = subs.every((_, idx) => subAnswered[idx]);
-                html += `
-                    <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
-                        <button class="btn btn-success" id="submitAllBtn" ${allDone ? '' : 'disabled'}>📤 ${t('submitAll')}</button>
-                        <span id="submitStatus" style="font-size:13px; color:#6b7a8a;">${allDone ? t('done') : t('answering')}</span>
-                    </div>
-                    <div id="progressContainer" class="progress-container hidden">
-                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
-                        <div class="progress-text" id="progressText">${t('progress')}</div>
-                    </div>
-                    <div id="scoreResult" class="result-box hidden">
-                        <div class="score-row">
-                            <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
-                            <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
-                            <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
-                            <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
-                        </div>
-                        <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
-                        <div class="sub-feedback" id="subFeedback"></div>
-                        <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
-                    </div>
-                `;
+                return html;
             }
-            html += `</div>`;
-            document.getElementById('mainContent').innerHTML = html;
 
-            if (isOpen) bindOpenRecording(q);
-            else bindFixedRecording(q);
-        }
+            window.filterStudentQuestions = function() {
+                const grade = document.getElementById('studentGrade')?.value || '';
+                const sem = document.getElementById('studentSemester')?.value || '';
+                selectedGrade = grade;
+                selectedSemester = sem;
+                renderStudent();
+            };
 
-        // ================================================================
-        // 12. 音頻工具（AudioWorklet）
-        // ================================================================
-        const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
-            class PCMProcessor extends AudioWorkletProcessor {
-                process(inputs, outputs, parameters) {
-                    const input = inputs[0];
-                    if (input && input.length > 0) {
-                        const channelData = input[0];
-                        const pcm = new Int16Array(channelData.length);
-                        for (let i = 0; i < channelData.length; i++) {
-                            const s = Math.max(-1, Math.min(1, channelData[i]));
-                            pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                        }
-                        this.port.postMessage(pcm);
+            window.selectStudentQuestion = function(id) {
+                studentSelectedQuestionId = id;
+                subAnswers = {};
+                subAnswered = {};
+                subRecordingIndex = null;
+                subLocked = false;
+                renderStudent();
+            };
+
+            window.backToStudentList = function() {
+                studentSelectedQuestionId = null;
+                renderStudent();
+            };
+
+            // ================================================================
+            // 14. 學生答題視圖
+            // ================================================================
+            function renderStudentAnswer() {
+                const q = questions.find(q => q.id === studentSelectedQuestionId);
+                if (!q) { studentSelectedQuestionId = null;
+                    renderStudent(); return; }
+                const isOpen = q.type === 'open';
+                let html = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <button class="btn btn-outline" onclick="window.backToStudentList()">← ${t('back')}</button>
+                        <span style="font-weight:600;">${forceToTraditional(q.title)}</span>
+                    </div>
+                    <div class="answer-area">
+                        ${q.image ? `<img src="${q.image}" class="question-image" />` : ''}
+                        <div class="question-text">${forceToTraditional(q.title)}</div>
+                `;
+
+                if (isOpen) {
+                    // 開放式：顯示關鍵詞 + 拼音
+                    const keywords = q.keywords || [];
+                    const pinyinArr = q.pinyin || [];
+                    html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
+                    if (keywords.length) {
+                        html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
+                        html += `<div class="kw-group">`;
+                        keywords.forEach((kw, idx) => {
+                            const py = pinyinArr[idx] || '';
+                            const pyDisplay = py ? pinyinNumToHtml(py) : '';
+                            html += `
+                                <div class="kw-item">
+                                    <span class="pinyin">${pyDisplay}</span>
+                                    <span class="word">${forceToTraditional(kw)}</span>
+                                </div>
+                            `;
+                        });
+                        html += `</div></div>`;
                     }
-                    return true;
+                    html += `
+                        <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
+                        <div class="record-controls">
+                            <span class="status-dot" id="recordDot"></span>
+                            <span class="timer" id="recordTimer">00:00</span>
+                            <button class="btn btn-primary" id="startRecordBtn">🎙️ ${t('startRecording')}</button>
+                            <button class="btn btn-danger" id="stopRecordBtn" disabled>⏹️ ${t('stopRecording')}</button>
+                            <span id="statusText" style="font-size:13px; color:#6b7a8a;">${t('recording')}</span>
+                        </div>
+                        <div id="progressContainer" class="progress-container hidden">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                            <div class="progress-text" id="progressText">${t('progress')}</div>
+                        </div>
+                        <div id="scoreResult" class="result-box hidden">
+                            <div class="score-row">
+                                <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
+                                <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
+                                <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
+                                <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
+                            </div>
+                            <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
+                            <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
+                        </div>
+                    `;
+                } else {
+                    // 半固定式
+                    const subs = q.subQuestions || [];
+                    html += `<div class="sub-questions">`;
+                    subs.forEach((sq, idx) => {
+                        const answered = subAnswered[idx] || false;
+                        const statusClass = answered ? 'done' : (subRecordingIndex === idx ? 'waiting' : '');
+                        const statusText = answered ? t('alreadyAnswered') : (subRecordingIndex === idx ? t(
+                            'waiting') : t('notStarted'));
+                        let disabled = answered || subLocked || (subRecordingIndex !== null && subRecordingIndex !==
+                            idx);
+                        if (idx > 0 && !subAnswered[idx - 1]) disabled = true;
+                        // 關鍵詞 + 拼音
+                        const kw = sq.keywords || [];
+                        const pn = sq.pinyin || [];
+                        let kwHtml = '';
+                        if (kw.length) {
+                            kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong><div class="kw-group">`;
+                            kw.forEach((k, ki) => {
+                                const py = pn[ki] || '';
+                                const pyDisplay = py ? pinyinNumToHtml(py) : '';
+                                kwHtml += `
+                                    <div class="kw-item">
+                                        <span class="pinyin">${pyDisplay}</span>
+                                        <span class="word">${forceToTraditional(k)}</span>
+                                    </div>
+                                `;
+                            });
+                            kwHtml += `</div></div>`;
+                        }
+
+                        html += `
+                            <div class="sq-item">
+                                <div class="sq-label"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
+                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                    <span class="sq-status ${statusClass}">${statusText}</span>
+                                    <button class="btn btn-primary btn-sm sq-record-btn" data-idx="${idx}" ${disabled ? 'disabled' : ''}>🎙️</button>
+                                    <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
+                                </div>
+                                ${kwHtml}
+                                <div class="sq-transcript" style="width:100%; margin-top:4px; font-size:14px; color:#4b5a6a; min-height:20px;">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
+                            </div>
+                        `;
+                    });
+                    html += `</div>`;
+                    const allDone = subs.every((_, idx) => subAnswered[idx]);
+                    html += `
+                        <div style="display:flex; gap:10px; align-items:center; margin-top:8px;">
+                            <button class="btn btn-success" id="submitAllBtn" ${allDone ? '' : 'disabled'}>📤 ${t('submitAll')}</button>
+                            <span id="submitStatus" style="font-size:13px; color:#6b7a8a;">${allDone ? t('done') : t('answering')}</span>
+                        </div>
+                        <div id="progressContainer" class="progress-container hidden">
+                            <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+                            <div class="progress-text" id="progressText">${t('progress')}</div>
+                        </div>
+                        <div id="scoreResult" class="result-box hidden">
+                            <div class="score-row">
+                                <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
+                                <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
+                                <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
+                                <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
+                            </div>
+                            <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
+                            <div class="sub-feedback" id="subFeedback"></div>
+                            <div style="font-size:12px; color:#8a9aa8; margin-top:4px;" id="scoreSource"></div>
+                        </div>
+                    `;
+                }
+                html += `</div>`;
+                document.getElementById('mainContent').innerHTML = html;
+
+                if (isOpen) bindOpenRecording(q);
+                else bindFixedRecording(q);
+            }
+
+            // ================================================================
+            // 15. 音頻工具（AudioWorklet）
+            // ================================================================
+            const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
+                class PCMProcessor extends AudioWorkletProcessor {
+                    process(inputs, outputs, parameters) {
+                        const input = inputs[0];
+                        if (input && input.length > 0) {
+                            const channelData = input[0];
+                            const pcm = new Int16Array(channelData.length);
+                            for (let i = 0; i < channelData.length; i++) {
+                                const s = Math.max(-1, Math.min(1, channelData[i]));
+                                pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                            }
+                            this.port.postMessage(pcm);
+                        }
+                        return true;
+                    }
+                }
+                registerProcessor('pcm-processor', PCMProcessor);
+            `], { type: 'application/javascript' }));
+
+            // ================================================================
+            // 16. 通用語音識別函數（前端直連訊飛 WebSocket）
+            // ================================================================
+            function recognizeWithIat(audioBase64, wsUrl) {
+                return new Promise((resolve, reject) => {
+                    const ws = new WebSocket(wsUrl);
+                    let transcript = '';
+                    let finished = false;
+                    const timeout = setTimeout(() => {
+                        if (!finished) {
+                            ws.close();
+                            reject(new Error('語音識別超時'));
+                        }
+                    }, 15000);
+
+                    ws.onopen = () => {
+                        ws.send(JSON.stringify({
+                            common: { app_id: 'b35875f2' },
+                            business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' },
+                            data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                        }));
+                        const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+                        const chunkSize = 4000;
+                        let offset = 0;
+                        while (offset < audioBuffer.length) {
+                            const chunk = audioBuffer.slice(offset, offset + chunkSize);
+                            const chunkBase64 = btoa(String.fromCharCode.apply(null, chunk));
+                            ws.send(JSON.stringify({
+                                data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw',
+                                    audio: chunkBase64 }
+                            }));
+                            offset += chunkSize;
+                        }
+                        ws.send(JSON.stringify({
+                            data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
+                        }));
+                    };
+
+                    ws.onmessage = (event) => {
+                        try {
+                            const msg = JSON.parse(event.data);
+                            if (msg.code && msg.code !== 0) {
+                                reject(new Error(`IAT error: ${msg.code}`));
+                                return;
+                            }
+                            if (msg.data && msg.data.result && msg.data.result.ws) {
+                                let text = '';
+                                for (const w of msg.data.result.ws) {
+                                    for (const cw of w.cw) text += cw.w;
+                                }
+                                transcript += text;
+                            }
+                            if (msg.data && msg.data.status === 2) {
+                                finished = true;
+                                clearTimeout(timeout);
+                                ws.close();
+                                resolve(transcript);
+                            }
+                        } catch (e) {
+                            reject(e);
+                        }
+                    };
+
+                    ws.onerror = (err) => {
+                        clearTimeout(timeout);
+                        reject(err);
+                    };
+                    ws.onclose = () => {
+                        if (!finished) {
+                            clearTimeout(timeout);
+                            reject(new Error('WebSocket 關閉'));
+                        }
+                    };
+                });
+            }
+
+            // ================================================================
+            // 17. 開放式錄音綁定
+            // ================================================================
+            function bindOpenRecording(q) {
+                const startBtn = document.getElementById('startRecordBtn');
+                const stopBtn = document.getElementById('stopRecordBtn');
+                const dot = document.getElementById('recordDot');
+                const timer = document.getElementById('recordTimer');
+                const statusText = document.getElementById('statusText');
+                const transcript = document.getElementById('studentTranscript');
+                const progressContainer = document.getElementById('progressContainer');
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                let mediaStream = null,
+                    audioContext = null,
+                    workletNode = null;
+                let isRecording = false,
+                    recordTimer = null,
+                    seconds = 0;
+                let audioBuffer = [];
+                const SAMPLE_RATE = 16000;
+                let isProcessing = false;
+
+                startBtn.onclick = function() { if (!isRecording) startRecording(); };
+                stopBtn.onclick = function() { if (isRecording) stopRecording(); };
+
+                async function startRecording() {
+                    audioBuffer = [];
+                    document.getElementById('scoreResult').classList.add('hidden');
+                    progressContainer.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    try {
+                        await initAudioWorklet();
+                        isRecording = true;
+                        dot.className = 'status-dot recording';
+                        startBtn.disabled = true;
+                        stopBtn.disabled = false;
+                        seconds = 0;
+                        timer.textContent = '00:00';
+                        if (recordTimer) clearInterval(recordTimer);
+                        recordTimer = setInterval(() => {
+                            seconds++;
+                            timer.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(
+                                seconds % 60).padStart(2, '0');
+                        }, 1000);
+                        statusText.textContent = '🔴 ' + t('recording');
+                    } catch (err) {
+                        console.error('麥克風錯誤:', err);
+                        statusText.textContent = '❌ 麥克風錯誤';
+                        startBtn.disabled = false;
+                    }
+                }
+
+                function stopRecording() {
+                    isRecording = false;
+                    dot.className = 'status-dot';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                    if (recordTimer) { clearInterval(recordTimer);
+                        recordTimer = null; }
+                    statusText.textContent = '⏹️ ' + t('stopRecording');
+                    progressContainer.classList.remove('hidden');
+                    progressBar.style.width = '10%';
+                    progressText.textContent = t('progress');
+                    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
+                        mediaStream = null; }
+                    if (audioContext) { audioContext.close();
+                        audioContext = null; }
+                    if (workletNode) { workletNode.disconnect();
+                        workletNode = null; }
+                    processAudio();
+                }
+
+                async function initAudioWorklet() {
+                    if (audioContext && audioContext.state === 'running') return;
+                    audioContext = new(window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false,
+                            noiseSuppression: false, autoGainControl: false }
+                    });
+                    mediaStream = stream;
+                    const source = audioContext.createMediaStreamSource(stream);
+                    workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                    workletNode.port.onmessage = (event) => {
+                        if (!isRecording) return;
+                        const pcm = event.data;
+                        audioBuffer.push(pcm);
+                    };
+                    workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
+                    source.connect(workletNode);
+                    workletNode.connect(audioContext.destination);
+                }
+
+                function processAudio() {
+                    if (isProcessing) return;
+                    isProcessing = true;
+                    const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                    if (totalLength === 0) {
+                        progressContainer.classList.add('hidden');
+                        statusText.textContent = '⚠️ 未錄到聲音';
+                        isProcessing = false;
+                        return;
+                    }
+                    const merged = new Int16Array(totalLength);
+                    let offset = 0;
+                    for (const arr of audioBuffer) { merged.set(arr, offset);
+                        offset += arr.length; }
+                    const bytes = new Uint8Array(merged.buffer);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                    const audioBase64 = btoa(binary);
+
+                    progressBar.style.width = '30%';
+                    statusText.textContent = '📡 獲取連接...';
+
+                    fetch('/api/getIatUrl')
+                        .then(res => {
+                            if (!res.ok) throw new Error('獲取 URL 失敗');
+                            return res.json();
+                        })
+                        .then(data => {
+                            const wsUrl = data.url;
+                            statusText.textContent = '🎤 ' + t('recognizing');
+                            progressBar.style.width = '50%';
+                            return recognizeWithIat(audioBase64, wsUrl);
+                        })
+                        .then(transcriptText => {
+                            progressBar.style.width = '70%';
+                            studentAnswerText = transcriptText;
+                            const tradText = forceToTraditional(transcriptText);
+                            transcript.innerHTML = tradText;
+                            const questionInfo = {
+                                type: q.type,
+                                refAnswer: q.refAnswer || '',
+                                keywords: q.keywords || [],
+                                subQuestions: q.subQuestions || []
+                            };
+                            return fetch(BACKEND_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ question: questionInfo, textAnswer: transcriptText })
+                            });
+                        })
+                        .then(res => {
+                            if (!res.ok) throw new Error('評分錯誤');
+                            return res.json();
+                        })
+                        .then(data => {
+                            progressBar.style.width = '90%';
+                            if (data.score) {
+                                displayScore(data.score);
+                            } else {
+                                throw new Error('評分結果缺失');
+                            }
+                            progressContainer.classList.add('hidden');
+                            statusText.textContent = '✅ ' + t('done');
+                        })
+                        .catch(err => {
+                            console.error('處理失敗:', err);
+                            statusText.textContent = '❌ 服務錯誤';
+                            progressContainer.classList.add('hidden');
+                        })
+                        .finally(() => {
+                            isProcessing = false;
+                        });
+                }
+
+                function displayScore(grade) {
+                    const resultDiv = document.getElementById('scoreResult');
+                    resultDiv.classList.remove('hidden');
+                    const factor = 10;
+                    document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
+                    document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
+                    document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
+                    document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
+                    document.getElementById('suggestionText').innerHTML =
+                        `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
+                    document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
+                    document.querySelectorAll('#scoreResult .num').forEach(el => {
+                        const val = parseFloat(el.textContent);
+                        el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                    });
                 }
             }
-            registerProcessor('pcm-processor', PCMProcessor);
-        `], { type: 'application/javascript' }));
 
-        // ================================================================
-        // 13. 通用語音識別函數（前端直連訊飛 WebSocket）
-        // ================================================================
-        function recognizeWithIat(audioBase64, wsUrl) {
-            return new Promise((resolve, reject) => {
-                const ws = new WebSocket(wsUrl);
-                let transcript = '';
-                let finished = false;
-                const timeout = setTimeout(() => {
-                    if (!finished) {
-                        ws.close();
-                        reject(new Error('語音識別超時'));
+            // ================================================================
+            // 18. 半固定式錄音綁定
+            // ================================================================
+            function bindFixedRecording(q) {
+                const subs = q.subQuestions || [];
+                const recordBtns = document.querySelectorAll('.sq-record-btn');
+                const stopBtns = document.querySelectorAll('.sq-stop-btn');
+                const transcripts = document.querySelectorAll('.sq-transcript');
+                const submitBtn = document.getElementById('submitAllBtn');
+                const submitStatus = document.getElementById('submitStatus');
+                const progressContainer = document.getElementById('progressContainer');
+                const progressBar = document.getElementById('progressBar');
+                const progressText = document.getElementById('progressText');
+
+                let currentRecordingIdx = null;
+                let mediaStream = null,
+                    audioContext = null,
+                    workletNode = null;
+                let isRecording = false,
+                    recordTimer = null,
+                    seconds = 0;
+                let audioBuffer = [];
+                const SAMPLE_RATE = 16000;
+                let isProcessing = false;
+
+                function updateButtons() {
+                    recordBtns.forEach((btn, idx) => {
+                        const answered = subAnswered[idx] || false;
+                        let disabled = answered || subLocked || isProcessing;
+                        if (idx > 0 && !subAnswered[idx - 1]) disabled = true;
+                        if (currentRecordingIdx !== null && currentRecordingIdx !== idx) disabled = true;
+                        btn.disabled = disabled;
+                    });
+                    const allDone = subs.every((_, idx) => subAnswered[idx]);
+                    if (submitBtn) {
+                        submitBtn.disabled = !allDone || subLocked || isProcessing;
                     }
-                }, 15000);
-
-                ws.onopen = () => {
-                    // 握手
-                    ws.send(JSON.stringify({
-                        common: { app_id: 'b35875f2' }, // 可從後端返回，此處硬編碼可接受（非敏感）
-                        business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' },
-                        data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
-                    }));
-                    // 發送音頻
-                    const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
-                    const chunkSize = 4000;
-                    let offset = 0;
-                    while (offset < audioBuffer.length) {
-                        const chunk = audioBuffer.slice(offset, offset + chunkSize);
-                        const chunkBase64 = btoa(String.fromCharCode.apply(null, chunk));
-                        ws.send(JSON.stringify({
-                            data: { status: 1, format: 'audio/L16;rate=16000', encoding: 'raw', audio: chunkBase64 }
-                        }));
-                        offset += chunkSize;
+                    if (submitStatus) {
+                        submitStatus.textContent = allDone ? t('done') : t('answering');
                     }
-                    // 結束
-                    ws.send(JSON.stringify({
-                        data: { status: 2, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
-                    }));
-                };
+                    document.querySelectorAll('.sq-status').forEach((span, idx) => {
+                        const answered = subAnswered[idx] || false;
+                        if (answered) {
+                            span.textContent = t('alreadyAnswered');
+                            span.className = 'sq-status done';
+                        } else if (currentRecordingIdx === idx && isRecording) {
+                            span.textContent = t('recording');
+                            span.className = 'sq-status';
+                        } else if (currentRecordingIdx === idx && !isRecording && !answered) {
+                            span.textContent = t('waiting');
+                            span.className = 'sq-status waiting';
+                        } else {
+                            span.textContent = t('notStarted');
+                            span.className = 'sq-status';
+                        }
+                    });
+                }
 
-                ws.onmessage = (event) => {
+                recordBtns.forEach((btn, idx) => {
+                    btn.onclick = function() {
+                        if (this.disabled) return;
+                        currentRecordingIdx = idx;
+                        this.style.display = 'none';
+                        const stopBtn = stopBtns[idx];
+                        stopBtn.style.display = 'inline-block';
+                        transcripts[idx].textContent = '';
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) {
+                            statusSpan.textContent = t('waiting');
+                            statusSpan.className = 'sq-status waiting';
+                        }
+                        startRecordingForSub(idx);
+                    };
+                });
+                stopBtns.forEach((btn, idx) => {
+                    btn.onclick = function() {
+                        if (!isRecording) return;
+                        stopRecordingForSub(idx);
+                    };
+                });
+
+                async function startRecordingForSub(idx) {
+                    audioBuffer = [];
+                    progressContainer.classList.add('hidden');
                     try {
-                        const msg = JSON.parse(event.data);
-                        if (msg.code && msg.code !== 0) {
-                            reject(new Error(`IAT error: ${msg.code}`));
+                        await initAudioWorklet();
+                        isRecording = true;
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) {
+                            statusSpan.textContent = t('recording');
+                            statusSpan.className = 'sq-status';
+                        }
+                        recordBtns.forEach(b => b.disabled = true);
+                        updateButtons();
+                    } catch (err) {
+                        console.error('麥克風錯誤:', err);
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) statusSpan.textContent = '❌ 錯誤';
+                    }
+                }
+
+                function stopRecordingForSub(idx) {
+                    isRecording = false;
+                    const recordBtn = recordBtns[idx];
+                    const stopBtn = stopBtns[idx];
+                    recordBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'none';
+                    if (recordTimer) { clearInterval(recordTimer);
+                        recordTimer = null; }
+                    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
+                        mediaStream = null; }
+                    if (audioContext) { audioContext.close();
+                        audioContext = null; }
+                    if (workletNode) { workletNode.disconnect();
+                        workletNode = null; }
+                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                    if (statusSpan) {
+                        statusSpan.textContent = t('waiting');
+                        statusSpan.className = 'sq-status waiting';
+                    }
+                    processAudioForSub(idx);
+                    updateButtons();
+                }
+
+                async function initAudioWorklet() {
+                    if (audioContext && audioContext.state === 'running') return;
+                    audioContext = new(window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+                    await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false,
+                            noiseSuppression: false, autoGainControl: false }
+                    });
+                    mediaStream = stream;
+                    const source = audioContext.createMediaStreamSource(stream);
+                    workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
+                    workletNode.port.onmessage = (event) => {
+                        if (!isRecording) return;
+                        const pcm = event.data;
+                        audioBuffer.push(pcm);
+                    };
+                    workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
+                    source.connect(workletNode);
+                    workletNode.connect(audioContext.destination);
+                }
+
+                function processAudioForSub(idx) {
+                    if (isProcessing) return;
+                    isProcessing = true;
+                    const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
+                    if (totalLength === 0) {
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) statusSpan.textContent = '⚠️ 無聲音';
+                        isProcessing = false;
+                        updateButtons();
+                        return;
+                    }
+                    const merged = new Int16Array(totalLength);
+                    let offset = 0;
+                    for (const arr of audioBuffer) { merged.set(arr, offset);
+                        offset += arr.length; }
+                    const bytes = new Uint8Array(merged.buffer);
+                    let binary = '';
+                    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                    const audioBase64 = btoa(binary);
+
+                    fetch('/api/getIatUrl')
+                        .then(res => res.json())
+                        .then(data => {
+                            const wsUrl = data.url;
+                            return recognizeWithIat(audioBase64, wsUrl);
+                        })
+                        .then(transcriptText => {
+                            subAnswers[idx] = transcriptText;
+                            subAnswered[idx] = true;
+                            currentRecordingIdx = null;
+                            const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                            if (statusSpan) {
+                                statusSpan.textContent = t('alreadyAnswered');
+                                statusSpan.className = 'sq-status done';
+                            }
+                            const transcriptEl = transcripts[idx];
+                            if (transcriptEl) {
+                                transcriptEl.textContent = forceToTraditional(transcriptText);
+                            }
+                            const recordBtn = recordBtns[idx];
+                            const stopBtn = stopBtns[idx];
+                            if (recordBtn) recordBtn.style.display = 'inline-block';
+                            if (stopBtn) stopBtn.style.display = 'none';
+                            updateButtons();
+                        })
+                        .catch(err => {
+                            console.error('子題目識別失敗:', err);
+                            const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                            if (statusSpan) statusSpan.textContent = '❌ 錯誤';
+                        })
+                        .finally(() => {
+                            isProcessing = false;
+                            updateButtons();
+                        });
+                }
+
+                if (submitBtn) {
+                    submitBtn.onclick = function() {
+                        if (this.disabled) return;
+                        subLocked = true;
+                        updateButtons();
+                        progressContainer.classList.remove('hidden');
+                        progressBar.style.width = '10%';
+                        progressText.textContent = t('progress');
+
+                        let fullAnswer = '';
+                        subs.forEach((sq, idx) => {
+                            fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
+                        });
+                        const hasChinese = /[\u4e00-\u9fa5]/.test(fullAnswer);
+                        if (!hasChinese) {
+                            const grade = {
+                                total_score: 0,
+                                suggestion: t('englishDetected'),
+                                sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0,
+                                    comment: '未使用普通話作答' }))
+                            };
+                            displayFixedScore(grade);
+                            progressContainer.classList.add('hidden');
+                            subLocked = false;
+                            updateButtons();
                             return;
                         }
-                        if (msg.data && msg.data.result && msg.data.result.ws) {
-                            let text = '';
-                            for (const w of msg.data.result.ws) {
-                                for (const cw of w.cw) text += cw.w;
-                            }
-                            transcript += text;
-                        }
-                        if (msg.data && msg.data.status === 2) {
-                            finished = true;
-                            clearTimeout(timeout);
-                            ws.close();
-                            resolve(transcript);
-                        }
-                    } catch (e) {
-                        reject(e);
-                    }
-                };
 
-                ws.onerror = (err) => {
-                    clearTimeout(timeout);
-                    reject(err);
-                };
-                ws.onclose = () => {
-                    if (!finished) {
-                        clearTimeout(timeout);
-                        reject(new Error('WebSocket 關閉'));
-                    }
-                };
-            });
-        }
-
-        // ================================================================
-        // 14. 開放式錄音綁定（音頻直連訊飛）
-        // ================================================================
-        function bindOpenRecording(q) {
-            const startBtn = document.getElementById('startRecordBtn');
-            const stopBtn = document.getElementById('stopRecordBtn');
-            const dot = document.getElementById('recordDot');
-            const timer = document.getElementById('recordTimer');
-            const statusText = document.getElementById('statusText');
-            const transcript = document.getElementById('studentTranscript');
-            const progressContainer = document.getElementById('progressContainer');
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-
-            let mediaStream = null, audioContext = null, workletNode = null;
-            let isRecording = false, recordTimer = null, seconds = 0;
-            let audioBuffer = [];
-            const SAMPLE_RATE = 16000;
-            let isProcessing = false;
-
-            startBtn.onclick = function() { if (!isRecording) startRecording(); };
-            stopBtn.onclick = function() { if (isRecording) stopRecording(); };
-
-            async function startRecording() {
-                audioBuffer = [];
-                document.getElementById('scoreResult').classList.add('hidden');
-                progressContainer.classList.add('hidden');
-                progressBar.style.width = '0%';
-                try {
-                    await initAudioWorklet();
-                    isRecording = true;
-                    dot.className = 'status-dot recording';
-                    startBtn.disabled = true; stopBtn.disabled = false;
-                    seconds = 0; timer.textContent = '00:00';
-                    if (recordTimer) clearInterval(recordTimer);
-                    recordTimer = setInterval(() => {
-                        seconds++;
-                        timer.textContent = String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
-                    }, 1000);
-                    statusText.textContent = '🔴 '+t('recording');
-                } catch(err) {
-                    console.error('麥克風錯誤:', err);
-                    statusText.textContent = '❌ 麥克風錯誤';
-                    startBtn.disabled = false;
-                }
-            }
-
-            function stopRecording() {
-                isRecording = false;
-                dot.className = 'status-dot';
-                startBtn.disabled = false; stopBtn.disabled = true;
-                if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
-                statusText.textContent = '⏹️ '+t('stopRecording');
-                progressContainer.classList.remove('hidden');
-                progressBar.style.width = '10%';
-                progressText.textContent = t('progress');
-                if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
-                if (audioContext) { audioContext.close(); audioContext=null; }
-                if (workletNode) { workletNode.disconnect(); workletNode=null; }
-                processAudio();
-            }
-
-            async function initAudioWorklet() {
-                if (audioContext && audioContext.state === 'running') return;
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                });
-                mediaStream = stream;
-                const source = audioContext.createMediaStreamSource(stream);
-                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-                workletNode.port.onmessage = (event) => {
-                    if (!isRecording) return;
-                    const pcm = event.data;
-                    audioBuffer.push(pcm);
-                };
-                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
-                source.connect(workletNode);
-                workletNode.connect(audioContext.destination);
-            }
-
-            function processAudio() {
-                if (isProcessing) return;
-                isProcessing = true;
-                const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
-                if (totalLength === 0) {
-                    progressContainer.classList.add('hidden');
-                    statusText.textContent = '⚠️ 未錄到聲音';
-                    isProcessing = false;
-                    return;
-                }
-                const merged = new Int16Array(totalLength);
-                let offset = 0;
-                for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
-                const bytes = new Uint8Array(merged.buffer);
-                let binary = '';
-                for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-                const audioBase64 = btoa(binary);
-
-                progressBar.style.width = '30%';
-                statusText.textContent = '📡 獲取連接...';
-
-                // 1. 獲取 IAT URL
-                fetch('/api/getIatUrl')
-                    .then(res => {
-                        if (!res.ok) throw new Error('獲取 URL 失敗');
-                        return res.json();
-                    })
-                    .then(data => {
-                        const wsUrl = data.url;
-                        statusText.textContent = '🎤 ' + t('recognizing');
-                        progressBar.style.width = '50%';
-                        return recognizeWithIat(audioBase64, wsUrl);
-                    })
-                    .then(transcriptText => {
-                        progressBar.style.width = '70%';
-                        studentAnswerText = transcriptText;
-                        const tradText = forceToTraditional(transcriptText);
-                        transcript.innerHTML = tradText;
-                        // 2. 呼叫評分（只傳文字）
                         const questionInfo = {
                             type: q.type,
                             refAnswer: q.refAnswer || '',
                             keywords: q.keywords || [],
                             subQuestions: q.subQuestions || []
                         };
-                        return fetch(BACKEND_URL, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ question: questionInfo, textAnswer: transcriptText })
-                        });
-                    })
-                    .then(res => {
-                        if (!res.ok) throw new Error('評分錯誤');
-                        return res.json();
-                    })
-                    .then(data => {
-                        progressBar.style.width = '90%';
-                        if (data.score) {
-                            displayScore(data.score);
-                        } else {
-                            throw new Error('評分結果缺失');
-                        }
-                        progressContainer.classList.add('hidden');
-                        statusText.textContent = '✅ '+t('done');
-                    })
-                    .catch(err => {
-                        console.error('處理失敗:', err);
-                        statusText.textContent = '❌ 服務錯誤';
-                        progressContainer.classList.add('hidden');
-                    })
-                    .finally(() => {
-                        isProcessing = false;
-                    });
-            }
-
-            function displayScore(grade) {
-                const resultDiv = document.getElementById('scoreResult');
-                resultDiv.classList.remove('hidden');
-                const factor = 10;
-                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
-                document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
-                document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
-                document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
-                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
-                document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra (經後端代理)';
-                document.querySelectorAll('#scoreResult .num').forEach(el => {
-                    const val = parseFloat(el.textContent);
-                    el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
-                });
-            }
-        }
-
-        // ================================================================
-        // 15. 半固定式錄音綁定（音頻直連訊飛，即時更新狀態，逐題評語）
-        // ================================================================
-        function bindFixedRecording(q) {
-            const subs = q.subQuestions || [];
-            const recordBtns = document.querySelectorAll('.sq-record-btn');
-            const stopBtns = document.querySelectorAll('.sq-stop-btn');
-            const transcripts = document.querySelectorAll('.sq-transcript');
-            const submitBtn = document.getElementById('submitAllBtn');
-            const submitStatus = document.getElementById('submitStatus');
-            const progressContainer = document.getElementById('progressContainer');
-            const progressBar = document.getElementById('progressBar');
-            const progressText = document.getElementById('progressText');
-
-            let currentRecordingIdx = null;
-            let mediaStream = null, audioContext = null, workletNode = null;
-            let isRecording = false, recordTimer = null, seconds = 0;
-            let audioBuffer = [];
-            const SAMPLE_RATE = 16000;
-            let isProcessing = false;
-
-            function updateButtons() {
-                recordBtns.forEach((btn, idx) => {
-                    const answered = subAnswered[idx] || false;
-                    let disabled = answered || subLocked || isProcessing;
-                    if (idx > 0 && !subAnswered[idx-1]) disabled = true;
-                    if (currentRecordingIdx !== null && currentRecordingIdx !== idx) disabled = true;
-                    btn.disabled = disabled;
-                });
-                const allDone = subs.every((_, idx) => subAnswered[idx]);
-                if (submitBtn) {
-                    submitBtn.disabled = !allDone || subLocked || isProcessing;
+                        fetch(BACKEND_URL, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    question: questionInfo,
+                                    textAnswer: fullAnswer
+                                })
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                progressBar.style.width = '80%';
+                                if (data.score) {
+                                    displayFixedScore(data.score);
+                                } else {
+                                    throw new Error('評分結果缺失');
+                                }
+                                progressContainer.classList.add('hidden');
+                                subLocked = false;
+                                updateButtons();
+                            })
+                            .catch(err => {
+                                console.error('評分錯誤:', err);
+                                progressContainer.classList.add('hidden');
+                                subLocked = false;
+                                updateButtons();
+                            });
+                    };
                 }
-                if (submitStatus) {
-                    submitStatus.textContent = allDone ? t('done') : t('answering');
-                }
-                document.querySelectorAll('.sq-status').forEach((span, idx) => {
-                    const answered = subAnswered[idx] || false;
-                    if (answered) {
-                        span.textContent = t('alreadyAnswered');
-                        span.className = 'sq-status done';
-                    } else if (currentRecordingIdx === idx && isRecording) {
-                        span.textContent = t('recording');
-                        span.className = 'sq-status';
-                    } else if (currentRecordingIdx === idx && !isRecording && !answered) {
-                        // 錄音停止但尚未完成識別
-                        span.textContent = t('waiting');
-                        span.className = 'sq-status waiting';
+
+                function displayFixedScore(grade) {
+                    const resultDiv = document.getElementById('scoreResult');
+                    resultDiv.classList.remove('hidden');
+                    const factor = 10;
+                    document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
+                    let avgAcc = 0,
+                        avgFlu = 0,
+                        avgInt = 0;
+                    const subScores = grade.sub_scores || [];
+                    if (subScores.length > 0) {
+                        let sumAcc = 0,
+                            sumFlu = 0,
+                            sumInt = 0;
+                        subScores.forEach(s => { sumAcc += s.accuracy || 0;
+                            sumFlu += s.fluency || 0;
+                            sumInt += s.integrity || 0; });
+                        avgAcc = sumAcc / subScores.length;
+                        avgFlu = sumFlu / subScores.length;
+                        avgInt = sumInt / subScores.length;
                     } else {
-                        span.textContent = t('notStarted');
-                        span.className = 'sq-status';
+                        avgAcc = grade.accuracy || 0;
+                        avgFlu = grade.fluency || 0;
+                        avgInt = grade.integrity || 0;
                     }
-                });
-            }
-
-            recordBtns.forEach((btn, idx) => {
-                btn.onclick = function() {
-                    if (this.disabled) return;
-                    currentRecordingIdx = idx;
-                    this.style.display = 'none';
-                    const stopBtn = stopBtns[idx];
-                    stopBtn.style.display = 'inline-block';
-                    transcripts[idx].textContent = '';
-                    // 顯示「請稍等」狀態
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) {
-                        statusSpan.textContent = t('waiting');
-                        statusSpan.className = 'sq-status waiting';
-                    }
-                    startRecordingForSub(idx);
-                };
-            });
-            stopBtns.forEach((btn, idx) => {
-                btn.onclick = function() {
-                    if (!isRecording) return;
-                    stopRecordingForSub(idx);
-                };
-            });
-
-            async function startRecordingForSub(idx) {
-                audioBuffer = [];
-                progressContainer.classList.add('hidden');
-                try {
-                    await initAudioWorklet();
-                    isRecording = true;
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) {
-                        statusSpan.textContent = t('recording');
-                        statusSpan.className = 'sq-status';
-                    }
-                    recordBtns.forEach(b => b.disabled = true);
-                    updateButtons();
-                } catch(err) {
-                    console.error('麥克風錯誤:', err);
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) statusSpan.textContent = '❌ 錯誤';
+                    document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
+                    document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
+                    document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
+                    document.getElementById('suggestionText').innerHTML =
+                        `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
+                    document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
+                    document.querySelectorAll('#scoreResult .num').forEach(el => {
+                        const val = parseFloat(el.textContent);
+                        el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                    });
+                    let fbHtml = '';
+                    (q.subQuestions || []).forEach((sq, idx) => {
+                        const s = subScores[idx] || { accuracy: 0, fluency: 0, integrity: 0, comment: '' };
+                        fbHtml += `
+                            <div class="fb-item">
+                                <strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>
+                                內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}
+                                <br>💬 ${forceToTraditional(s.comment || '')}
+                            </div>
+                        `;
+                    });
+                    document.getElementById('subFeedback').innerHTML = fbHtml;
                 }
-            }
 
-            function stopRecordingForSub(idx) {
-                isRecording = false;
-                const recordBtn = recordBtns[idx];
-                const stopBtn = stopBtns[idx];
-                recordBtn.style.display = 'inline-block';
-                stopBtn.style.display = 'none';
-                if (recordTimer) { clearInterval(recordTimer); recordTimer = null; }
-                if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
-                if (audioContext) { audioContext.close(); audioContext=null; }
-                if (workletNode) { workletNode.disconnect(); workletNode=null; }
-                // 狀態設為「請稍等」
-                const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                if (statusSpan) {
-                    statusSpan.textContent = t('waiting');
-                    statusSpan.className = 'sq-status waiting';
-                }
-                // 處理音頻
-                processAudioForSub(idx);
                 updateButtons();
             }
 
-            async function initAudioWorklet() {
-                if (audioContext && audioContext.state === 'running') return;
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-                await audioContext.audioWorklet.addModule(audioWorkletBlobUrl);
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: { sampleRate: SAMPLE_RATE, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-                });
-                mediaStream = stream;
-                const source = audioContext.createMediaStreamSource(stream);
-                workletNode = new AudioWorkletNode(audioContext, 'pcm-processor');
-                workletNode.port.onmessage = (event) => {
-                    if (!isRecording) return;
-                    const pcm = event.data;
-                    audioBuffer.push(pcm);
-                };
-                workletNode.onprocessorerror = (err) => console.error('AudioWorklet 錯誤:', err);
-                source.connect(workletNode);
-                workletNode.connect(audioContext.destination);
-            }
-
-            function processAudioForSub(idx) {
-                if (isProcessing) return;
-                isProcessing = true;
-                const totalLength = audioBuffer.reduce((sum, arr) => sum + arr.length, 0);
-                if (totalLength === 0) {
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) statusSpan.textContent = '⚠️ 無聲音';
-                    isProcessing = false;
-                    updateButtons();
-                    return;
-                }
-                const merged = new Int16Array(totalLength);
-                let offset = 0;
-                for (const arr of audioBuffer) { merged.set(arr, offset); offset += arr.length; }
-                const bytes = new Uint8Array(merged.buffer);
-                let binary = '';
-                for (let i=0; i<bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-                const audioBase64 = btoa(binary);
-
-                // 獲取 IAT URL
-                fetch('/api/getIatUrl')
-                    .then(res => res.json())
-                    .then(data => {
-                        const wsUrl = data.url;
-                        return recognizeWithIat(audioBase64, wsUrl);
-                    })
-                    .then(transcriptText => {
-                        subAnswers[idx] = transcriptText;
-                        subAnswered[idx] = true;
-                        currentRecordingIdx = null;
-                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                        if (statusSpan) {
-                            statusSpan.textContent = t('alreadyAnswered');
-                            statusSpan.className = 'sq-status done';
-                        }
-                        const transcriptEl = transcripts[idx];
-                        if (transcriptEl) {
-                            transcriptEl.textContent = forceToTraditional(transcriptText);
-                        }
-                        const recordBtn = recordBtns[idx];
-                        const stopBtn = stopBtns[idx];
-                        if (recordBtn) recordBtn.style.display = 'inline-block';
-                        if (stopBtn) stopBtn.style.display = 'none';
-                        updateButtons();
-                    })
-                    .catch(err => {
-                        console.error('子題目識別失敗:', err);
-                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                        if (statusSpan) statusSpan.textContent = '❌ 錯誤';
-                    })
-                    .finally(() => {
-                        isProcessing = false;
-                        updateButtons();
-                    });
-            }
-
-            // 提交全部答案（此時顯示進度條）
-            if (submitBtn) {
-                submitBtn.onclick = function() {
-                    if (this.disabled) return;
-                    subLocked = true;
-                    updateButtons();
-                    progressContainer.classList.remove('hidden');
-                    progressBar.style.width = '10%';
-                    progressText.textContent = t('progress');
-
-                    let fullAnswer = '';
-                    subs.forEach((sq, idx) => {
-                        fullAnswer += `問題${idx+1}：${sq.question}\n回答：${subAnswers[idx] || ''}\n`;
-                    });
-                    const hasChinese = /[\u4e00-\u9fa5]/.test(fullAnswer);
-                    if (!hasChinese) {
-                        const grade = {
-                            total_score: 0,
-                            suggestion: t('englishDetected'),
-                            sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0, comment: '未使用普通話作答' }))
-                        };
-                        displayFixedScore(grade);
-                        progressContainer.classList.add('hidden');
-                        subLocked = false;
-                        updateButtons();
-                        return;
-                    }
-
-                    const questionInfo = {
-                        type: q.type,
-                        refAnswer: q.refAnswer || '',
-                        keywords: q.keywords || [],
-                        subQuestions: q.subQuestions || []
-                    };
-                    fetch(BACKEND_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            question: questionInfo,
-                            textAnswer: fullAnswer
-                        })
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        progressBar.style.width = '80%';
-                        if (data.score) {
-                            displayFixedScore(data.score);
-                        } else {
-                            throw new Error('評分結果缺失');
-                        }
-                        progressContainer.classList.add('hidden');
-                        subLocked = false;
-                        updateButtons();
-                    })
-                    .catch(err => {
-                        console.error('評分錯誤:', err);
-                        progressContainer.classList.add('hidden');
-                        subLocked = false;
-                        updateButtons();
-                    });
-                };
-            }
-
-            function displayFixedScore(grade) {
-                const resultDiv = document.getElementById('scoreResult');
-                resultDiv.classList.remove('hidden');
-                const factor = 10;
-                document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
-                let avgAcc = 0, avgFlu = 0, avgInt = 0;
-                const subScores = grade.sub_scores || [];
-                if (subScores.length > 0) {
-                    let sumAcc = 0, sumFlu = 0, sumInt = 0;
-                    subScores.forEach(s => { sumAcc += s.accuracy || 0; sumFlu += s.fluency || 0; sumInt += s.integrity || 0; });
-                    avgAcc = sumAcc / subScores.length;
-                    avgFlu = sumFlu / subScores.length;
-                    avgInt = sumInt / subScores.length;
-                } else {
-                    avgAcc = grade.accuracy || 0;
-                    avgFlu = grade.fluency || 0;
-                    avgInt = grade.integrity || 0;
-                }
-                document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
-                document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
-                document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
-                document.getElementById('suggestionText').innerHTML = `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
-                document.getElementById('scoreSource').textContent = t('source')+'：訊飛星火 4.0Ultra (經後端代理)';
-                document.querySelectorAll('#scoreResult .num').forEach(el => {
-                    const val = parseFloat(el.textContent);
-                    el.className = 'num' + (val>=80?' good': val>=60?' mid':' poor');
-                });
-                // 顯示每個子題目的評語
-                let fbHtml = '';
-                (q.subQuestions || []).forEach((sq, idx) => {
-                    const s = subScores[idx] || {accuracy:0, fluency:0, integrity:0, comment: ''};
-                    fbHtml += `
-                        <div class="fb-item">
-                            <strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>
-                            內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}
-                            <br>💬 ${forceToTraditional(s.comment || '')}
-                        </div>
-                    `;
-                });
-                document.getElementById('subFeedback').innerHTML = fbHtml;
-            }
-
-            // 初始化
-            updateButtons();
-        }
-
-        // ================================================================
-        // 16. 初始化
-        // ================================================================
-        initConverter();
-        startListeningQuestions();
-        render();
-        console.log('✅ Firebase 即時同步啟動，後端代理:', BACKEND_URL);
-    })();
-</script>
+            // ================================================================
+            // 19. 初始化
+            // ================================================================
+            initConverter();
+            startListeningQuestions();
+            render();
+            console.log('✅ Firebase 即時同步啟動，後端代理:', BACKEND_URL);
+        })();
+    </script>
 </body>
 </html>
