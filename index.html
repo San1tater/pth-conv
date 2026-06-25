@@ -15,7 +15,7 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro 使用用户指定的 CDN -->
+    <!-- pinyin-pro 使用用户指定的纯 CDN，不加任何后缀 -->
     <script src="https://unpkg.com/pinyin-pro">
     </script>
 
@@ -608,13 +608,6 @@
             font-size: 14px;
             font-weight: 500;
         }
-        .pinyin-hint {
-            font-size: 12px;
-            color: #6b7a8a;
-            margin-top: 2px;
-            font-weight: 400;
-        }
-        /* 查看模式下的只读样式 */
         .view-only .form-group {
             margin-bottom: 8px;
         }
@@ -668,6 +661,10 @@
         }
         .drag-handle:active {
             cursor: grabbing;
+        }
+        /* 移除多余的提示 */
+        .no-extra-hint {
+            display: none;
         }
     </style>
 </head>
@@ -731,7 +728,7 @@
                     fixed: '半固定式 (看圖答問題)',
                     referenceAnswer: '整體參考答案',
                     keywords: '關鍵字 (逗號分隔)',
-                    pinyin: '拼音 (聲調:0輕聲 1-4聲, v=ü)',
+                    pinyin: '拼音 (數字聲調)',
                     image: '圖片',
                     uploadImage: '上傳圖片',
                     subQuestions: '子問題',
@@ -771,7 +768,6 @@
                     saveSuccess: '✅ 題目儲存成功！',
                     deleteSuccess: '✅ 題目已刪除！',
                     emptyEditorHint: '左側選擇題目以檢視，或點擊「新增題目」',
-                    pinyinNote: '（聲調：0輕聲 1-4聲，v=ü）',
                     generatePinyin: '生成拼音',
                     viewMode: '檢視模式',
                     editMode: '編輯模式'
@@ -791,7 +787,7 @@
                     fixed: 'Fixed (Q&A)',
                     referenceAnswer: 'Reference Answer',
                     keywords: 'Keywords (comma)',
-                    pinyin: 'Pinyin (tone:0 neutral 1-4, v=ü)',
+                    pinyin: 'Pinyin (numeric tones)',
                     image: 'Image',
                     uploadImage: 'Upload Image',
                     subQuestions: 'Sub-questions',
@@ -831,7 +827,6 @@
                     saveSuccess: '✅ Question saved!',
                     deleteSuccess: '✅ Question deleted!',
                     emptyEditorHint: 'Select a question from left to view, or click "New Question"',
-                    pinyinNote: '(tone:0 neutral 1-4, v=ü)',
                     generatePinyin: 'Generate Pinyin',
                     viewMode: 'View Mode',
                     editMode: 'Edit Mode'
@@ -907,9 +902,7 @@
             // 将数字声调拼音转为带声调符号的字符串（用于显示）
             function pinyinNumToHtml(pinyinNum) {
                 if (!pinyinNum) return '';
-                // 按逗号分割每个词
                 const words = pinyinNum.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                // 声调映射表
                 const toneMap = {
                     'a1': 'ā',
                     'a2': 'á',
@@ -948,14 +941,9 @@
                     'v0': 'ü'
                 };
                 const result = words.map(word => {
-                    // 按空格分割音节
                     const syllables = word.split(/\s+/).filter(s => s.length > 0);
                     const converted = syllables.map(syl => {
-                        // 处理可能包含数字的拼音，如 yi4, zhi1
-                        // 注意：可能包含 ü 或 v，我们统一处理
-                        // 先替换 v 为 ü
                         let s = syl.replace(/v/g, 'ü');
-                        // 匹配字母和数字，数字在末尾
                         const match = s.match(/^([a-zü]+)(\d)$/);
                         if (match) {
                             const base = match[1];
@@ -978,7 +966,7 @@
             let editingQuestionId = null;
             let isEditingMode = false;
             let isNewQuestion = false;
-            let originalQuestionData = null; // 编辑前的完整数据副本
+            let originalQuestionData = null;
 
             let studentSelectedQuestionId = null;
             let studentAnswerText = '';
@@ -1078,7 +1066,6 @@
 
                 bindPinyinGenerateButtons();
                 bindGradeSemesterSync();
-                // 绑定拖拽事件（在渲染后绑定）
                 bindDragDropEvents();
             }
 
@@ -1113,7 +1100,6 @@
                 return html;
             }
 
-            // 深拷贝函数
             function deepClone(obj) {
                 return JSON.parse(JSON.stringify(obj));
             }
@@ -1294,7 +1280,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>${t('pinyin')} <span class="pinyin-hint">${t('pinyinNote')}</span></label>
+                            <label>${t('pinyin')}</label>
                             <input id="editPinyin" value="${pinyinStr}" placeholder="逗號分隔，與關鍵詞對應" />
                         </div>
                         <div class="form-group">
@@ -1329,7 +1315,7 @@
                                         </div>
                                     </div>
                                     <div class="form-group" style="flex:2;">
-                                        <label>${t('pinyin')} <span class="pinyin-hint">${t('pinyinNote')}</span></label>
+                                        <label>${t('pinyin')}</label>
                                         <input class="sq-pinyin" value="${pinyinStrSub}" placeholder="逗號分隔，與關鍵詞對應" />
                                     </div>
                                     <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
@@ -1353,9 +1339,7 @@
             // ================================================================
             // 10. 拼音生成按鈕綁定
             // ================================================================
-            function bindPinyinGenerateButtons() {
-                // 通过 onclick 已绑定
-            }
+            function bindPinyinGenerateButtons() {}
 
             window.generatePinyinForOpen = function() {
                 const kwInput = document.getElementById('editKeywords');
@@ -1508,11 +1492,9 @@
                         if (dragSrcIndex !== null && dragSrcIndex !== targetIndex) {
                             const q = questions.find(q => q.id === editingQuestionId);
                             if (q && q.subQuestions) {
-                                // 交换顺序
                                 const subQs = q.subQuestions;
                                 const [removed] = subQs.splice(dragSrcIndex, 1);
                                 subQs.splice(targetIndex, 0, removed);
-                                // 更新索引后重新渲染
                                 render();
                             }
                         }
@@ -1545,7 +1527,6 @@
                         editingQuestionId = newId;
                         isEditingMode = true;
                         isNewQuestion = true;
-                        // 保存原始数据副本
                         const q = questions.find(q => q.id === newId);
                         if (q) originalQuestionData = deepClone(q);
                         const fg = document.getElementById('filterGrade');
@@ -1582,7 +1563,6 @@
                 editingQuestionId = id;
                 const q = questions.find(q => q.id === id);
                 if (q) {
-                    // 保存原始数据副本
                     originalQuestionData = deepClone(q);
                     const fg = document.getElementById('filterGrade');
                     const fs = document.getElementById('filterSemester');
@@ -1650,11 +1630,9 @@
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = function(ev) {
-                    // 直接修改当前 q 对象（编辑中的）
                     const q = questions.find(q => q.id === editingQuestionId);
                     if (q) {
                         q.image = ev.target.result;
-                        // 更新预览
                         const container = document.getElementById('imagePreviewContainer');
                         container.innerHTML =
                             `<img src="${ev.target.result}" /><button class="btn-remove-image" onclick="window.removeImage()">移除圖片</button>`;
@@ -1766,7 +1744,7 @@
                         alert(t('saveSuccess'));
                         isNewQuestion = false;
                         Object.assign(q, updateData);
-                        originalQuestionData = null; // 清除原始数据
+                        originalQuestionData = null;
                         isEditingMode = false;
                         render();
                     })
@@ -1787,7 +1765,6 @@
                             .catch(err => console.error('刪除新題目失敗:', err));
                     }
                 } else if (originalQuestionData && editingQuestionId) {
-                    // 恢复原始数据
                     const q = questions.find(q => q.id === editingQuestionId);
                     if (q) {
                         Object.assign(q, originalQuestionData);
