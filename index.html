@@ -354,52 +354,6 @@
             color: #eab308;
             font-weight: 600;
         }
-        .answer-area .keywords {
-            background: #f0f7ff;
-            padding: 10px 14px;
-            border-radius: 10px;
-            border-left: 4px solid #3b82f6;
-            font-size: 14px;
-        }
-        .answer-area .keywords .kw-group,
-        .sq-keywords-display .kw-group,
-        .kw-with-pinyin {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min-content, 1fr));
-            gap: 8px 16px;
-            justify-items: center;
-            margin-top: 4px;
-        }
-        .answer-area .keywords .kw-item,
-        .sq-keywords-display .kw-item,
-        .kw-with-pinyin .kw-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            white-space: nowrap;
-        }
-        .answer-area .keywords .kw-item .pinyin,
-        .sq-keywords-display .kw-item .pinyin,
-        .kw-with-pinyin .kw-item .pinyin {
-            font-size: 12px;
-            color: #3b82f6;
-            letter-spacing: 0.5px;
-            white-space: nowrap;
-        }
-        .answer-area .keywords .kw-item .word,
-        .sq-keywords-display .kw-item .word,
-        .kw-with-pinyin .kw-item .word {
-            font-size: 16px;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .sq-keywords-display .kw-item .pinyin {
-            font-size: 11px;
-            letter-spacing: 0.3px;
-        }
-        .sq-keywords-display .kw-item .word {
-            font-size: 14px;
-        }
         .answer-area .transcript-box {
             background: #fff;
             border: 1px solid #dce1e8;
@@ -550,12 +504,6 @@
             .editor-panel {
                 padding-left: 0;
             }
-            .answer-area .keywords .kw-group,
-            .sq-keywords-display .kw-group,
-            .kw-with-pinyin {
-                grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-                gap: 6px 10px;
-            }
         }
         .readonly-field {
             background: #f0f2f5;
@@ -602,39 +550,6 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        .sq-keywords-display {
-            width: 100%;
-            margin-top: 6px;
-            padding: 6px 10px;
-            background: #f0f7ff;
-            border-radius: 8px;
-            border-left: 3px solid #3b82f6;
-            font-size: 13px;
-        }
-        .view-only .form-group {
-            margin-bottom: 8px;
-        }
-        .view-only .readonly-value {
-            padding: 8px 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid #e9edf2;
-            font-size: 15px;
-        }
-        .view-only .sub-question-view {
-            background: #f8fafc;
-            padding: 10px 14px;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border: 1px solid #e9edf2;
-        }
-        .view-only .sub-question-view .sq-q {
-            font-weight: 600;
-        }
-        .view-only .sub-question-view .sq-a {
-            color: #4b5a6a;
-            margin-top: 4px;
-        }
         .drag-handle {
             cursor: grab;
             color: #94a3b8;
@@ -644,6 +559,53 @@
         }
         .drag-handle:active {
             cursor: grabbing;
+        }
+
+        /* ----- 关键词表格样式 ----- */
+        .kw-table {
+            display: table;
+            width: 100%;
+            table-layout: auto;
+            border-collapse: collapse;
+            margin-top: 4px;
+        }
+        .kw-row {
+            display: table-row;
+        }
+        .kw-cell {
+            display: table-cell;
+            text-align: center;
+            vertical-align: bottom;
+            white-space: nowrap;
+            padding: 2px 4px;
+            border: none;
+        }
+        .kw-cell.pinyin {
+            font-size: 12px;
+            color: #3b82f6;
+            letter-spacing: 0.5px;
+            padding-bottom: 0;
+        }
+        .kw-cell.word {
+            font-size: 16px;
+            font-weight: 500;
+            padding-top: 0;
+        }
+        .sq-keywords-display .kw-cell.pinyin {
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+        .sq-keywords-display .kw-cell.word {
+            font-size: 14px;
+        }
+
+        /* 半固定式子问题中的表格 */
+        .sq-keywords-display .kw-table {
+            width: auto;
+            margin-top: 2px;
+        }
+        .sq-keywords-display .kw-cell {
+            padding: 1px 4px;
         }
     </style>
 </head>
@@ -916,6 +878,35 @@
                 return result.join(' ');
             }
 
+            // 生成关键词表格HTML
+            function renderKeywordTable(keywords, pinyinArr) {
+                if (!keywords || keywords.length === 0) return '';
+                const pinyinList = pinyinArr || [];
+                // 保证数量一致
+                const maxLen = Math.max(keywords.length, pinyinList.length);
+                const kw = keywords.slice();
+                const py = pinyinList.slice();
+                while (kw.length < maxLen) kw.push('');
+                while (py.length < maxLen) py.push('');
+
+                let html = '<div class="kw-table">';
+                // 拼音行
+                html += '<div class="kw-row">';
+                py.forEach(p => {
+                    const display = p ? pinyinNumToHtml(p) : '';
+                    html += `<div class="kw-cell pinyin">${display}</div>`;
+                });
+                html += '</div>';
+                // 汉字行
+                html += '<div class="kw-row">';
+                kw.forEach(w => {
+                    html += `<div class="kw-cell word">${forceToTraditional(w)}</div>`;
+                });
+                html += '</div>';
+                html += '</div>';
+                return html;
+            }
+
             // ================================================================
             // 6. 全域狀態
             // ================================================================
@@ -1122,18 +1113,7 @@
                         viewHtml += `
                             <div class="form-group">
                                 <label>${t('keywords')}</label>
-                                <div class="kw-with-pinyin">
-                                    ${keywords.map((kw, idx) => {
-                                        const py = pinyinArr[idx] || '';
-                                        const pyDisplay = py ? pinyinNumToHtml(py) : '';
-                                        return `
-                                            <div class="kw-item">
-                                                <span class="pinyin">${pyDisplay}</span>
-                                                <span class="word">${forceToTraditional(kw)}</span>
-                                            </div>
-                                        `;
-                                    }).join('')}
-                                </div>
+                                ${renderKeywordTable(keywords, pinyinArr)}
                             </div>
                         `;
                         if (q.refAnswer) {
@@ -1152,24 +1132,13 @@
                             const pn = sq.pinyin || [];
                             let kwHtml = '';
                             if (kw.length) {
-                                kwHtml = `<div class="kw-with-pinyin" style="margin-top:4px;">`;
-                                kw.forEach((k, ki) => {
-                                    const py = pn[ki] || '';
-                                    const pyDisplay = py ? pinyinNumToHtml(py) : '';
-                                    kwHtml += `
-                                        <div class="kw-item">
-                                            <span class="pinyin">${pyDisplay}</span>
-                                            <span class="word">${forceToTraditional(k)}</span>
-                                        </div>
-                                    `;
-                                });
-                                kwHtml += `</div>`;
+                                kwHtml = renderKeywordTable(kw, pn);
                             }
                             viewHtml += `
                                 <div class="sub-question-view">
                                     <div class="sq-q"><strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}</div>
                                     ${sq.answer ? `<div class="sq-a">💬 ${forceToTraditional(sq.answer)}</div>` : ''}
-                                    ${kwHtml}
+                                    ${kwHtml ? `<div style="margin-top:4px;">${kwHtml}</div>` : ''}
                                 </div>
                             `;
                         });
@@ -1831,18 +1800,8 @@
                     html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
                     if (keywords.length) {
                         html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
-                        html += `<div class="kw-group">`;
-                        keywords.forEach((kw, idx) => {
-                            const py = pinyinArr[idx] || '';
-                            const pyDisplay = py ? pinyinNumToHtml(py) : '';
-                            html += `
-                                <div class="kw-item">
-                                    <span class="pinyin">${pyDisplay}</span>
-                                    <span class="word">${forceToTraditional(kw)}</span>
-                                </div>
-                            `;
-                        });
-                        html += `</div></div>`;
+                        html += renderKeywordTable(keywords, pinyinArr);
+                        html += `</div>`;
                     }
                     html += `
                         <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
@@ -1883,18 +1842,7 @@
                         const pn = sq.pinyin || [];
                         let kwHtml = '';
                         if (kw.length) {
-                            kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong><div class="kw-group">`;
-                            kw.forEach((k, ki) => {
-                                const py = pn[ki] || '';
-                                const pyDisplay = py ? pinyinNumToHtml(py) : '';
-                                kwHtml += `
-                                    <div class="kw-item">
-                                        <span class="pinyin">${pyDisplay}</span>
-                                        <span class="word">${forceToTraditional(k)}</span>
-                                    </div>
-                                `;
-                            });
-                            kwHtml += `</div></div>`;
+                            kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>${renderKeywordTable(kw, pn)}</div>`;
                         }
 
                         html += `
