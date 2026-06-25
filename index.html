@@ -15,8 +15,8 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro 拼音生成 -->
-    <script src="https://unpkg.com/pinyin-pro">
+    <!-- pinyin-pro (用户可自行替换为有效CDN，此处保留原链接) -->
+    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro@3.19.3/dist/pinyin-pro.min.js">
     </script>
 
     <style>
@@ -357,11 +357,12 @@
             flex-wrap: wrap;
             gap: 12px 20px;
             margin-top: 4px;
+            justify-content: flex-start;
         }
         .answer-area .keywords .kw-item {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
         }
         .answer-area .keywords .kw-item .pinyin {
             font-size: 12px;
@@ -582,11 +583,12 @@
             flex-wrap: wrap;
             gap: 8px 16px;
             margin-top: 2px;
+            justify-content: flex-start;
         }
         .sq-keywords-display .kw-item {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
         }
         .sq-keywords-display .kw-item .pinyin {
             font-size: 11px;
@@ -633,11 +635,12 @@
             flex-wrap: wrap;
             gap: 6px 14px;
             margin-top: 4px;
+            justify-content: flex-start;
         }
         .kw-with-pinyin .kw-item {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
         }
         .kw-with-pinyin .kw-item .pinyin {
             font-size: 12px;
@@ -882,24 +885,12 @@
                 }
             }
 
-            // 將數字聲調拼音轉為帶聲調符號的 HTML 顯示（支持空格分隔多音節）
+            // 将数字声调拼音转为带声调符号的字符串（用于显示）
             function pinyinNumToHtml(pinyinNum) {
                 if (!pinyinNum) return '';
-                // 先按逗號分割，得到每個詞的拼音（可能包含空格）
+                // 按逗号分割每个词
                 const words = pinyinNum.split(',').map(s => s.trim()).filter(s => s.length > 0);
-                const result = words.map(word => {
-                    // 按空格分割音節
-                    const syllables = word.split(/\s+/).filter(s => s.length > 0);
-                    const converted = syllables.map(syl => convertSyllable(syl)).join(' ');
-                    return converted;
-                });
-                return result.join(' ');
-            }
-
-            // 轉換單個音節（如 yi4 -> yì）
-            function convertSyllable(syl) {
-                // 使用 pinyin-pro 的 pinyin 函數轉換帶數字聲調的拼音為帶符號
-                // 但我們沒有原始中文，所以手動映射
+                // 声调映射表
                 const toneMap = {
                     'a1': 'ā',
                     'a2': 'á',
@@ -937,20 +928,23 @@
                     'v4': 'ǜ',
                     'v0': 'ü'
                 };
-                // 匹配字母+數字，數字在末尾
-                const match = syl.match(/^([a-züv]+)(\d)$/);
-                if (!match) return syl;
-                const base = match[1];
-                const tone = match[2];
-                const key = base + tone;
-                // 如果 base 是 v，替换为 ü
-                const mapped = toneMap[key];
-                if (mapped) return mapped;
-                // 否则尝试将 v 替换为 ü 再试
-                const base2 = base.replace(/v/g, 'ü');
-                const key2 = base2 + tone;
-                if (toneMap[key2]) return toneMap[key2];
-                return syl;
+                const result = words.map(word => {
+                    // 按空格分割音节
+                    const syllables = word.split(/\s+/).filter(s => s.length > 0);
+                    const converted = syllables.map(syl => {
+                        // 匹配字母（可能含v/ü）和数字
+                        const match = syl.match(/^([a-züv]+)(\d)$/);
+                        if (match) {
+                            const base = match[1];
+                            const tone = match[2];
+                            const key = base + tone;
+                            return toneMap[key] || syl;
+                        }
+                        return syl;
+                    }).join(' ');
+                    return converted;
+                });
+                return result.join(' ');
             }
 
             // ================================================================
@@ -1001,7 +995,6 @@
                     document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentView = this.dataset.view;
-                    // 切换视图时重置编辑状态
                     if (currentView === 'teacher') {
                         isEditingMode = false;
                         isNewQuestion = false;
@@ -1057,9 +1050,7 @@
                 `;
                 document.getElementById('mainContent').innerHTML = html;
 
-                // 绑定拼音生成按钮事件
                 bindPinyinGenerateButtons();
-                // 绑定年級學期同步
                 bindGradeSemesterSync();
             }
 
@@ -1106,7 +1097,6 @@
 
                 const q = questions.find(q => q.id === editingQuestionId);
                 if (!q) {
-                    // 題目可能已被刪除
                     editingQuestionId = null;
                     return `
                         <div class="empty-editor">
@@ -1120,9 +1110,8 @@
                 const displayGrade = q.grade || teacherFilterGrade || '一年級';
                 const displaySemester = q.semester || teacherFilterSemester || '上學期';
 
-                // 如果是查看模式（非編輯）
+                // 查看模式
                 if (!isEditingMode) {
-                    // 只讀展示
                     let viewHtml = `
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
                             <h3>${forceToTraditional(q.title)}</h3>
@@ -1151,7 +1140,6 @@
                         `;
                     }
                     if (isOpen) {
-                        // 關鍵字 + 拼音（顯示拼音符號）
                         const keywords = q.keywords || [];
                         const pinyinArr = q.pinyin || [];
                         viewHtml += `
@@ -1180,7 +1168,6 @@
                             `;
                         }
                     } else {
-                        // 子問題
                         const subs = q.subQuestions || [];
                         viewHtml += `<div class="form-group"><label>${t('subQuestions')}</label>`;
                         subs.forEach((sq, idx) => {
@@ -1251,7 +1238,7 @@
                     </div>
                 `;
 
-                // 圖片上傳（所有類型都有）
+                // 圖片上傳
                 editHtml += `
                     <div class="form-group">
                         <label>${t('image')}</label>
@@ -1283,7 +1270,6 @@
                         </div>
                     `;
                 } else {
-                    // 半固定式：子問題
                     editHtml += `
                         <div style="margin-top:12px;"><strong>${t('subQuestions')}</strong> <button class="btn btn-outline btn-sm" onclick="window.addSubQuestion()">+ ${t('addSubQuestion')}</button></div>
                     `;
@@ -1331,9 +1317,7 @@
             // 10. 拼音生成按鈕綁定
             // ================================================================
             function bindPinyinGenerateButtons() {
-                // 绑定开放式的生成按钮已经通过 onclick 直接调用 window.generatePinyinForOpen
-                // 子题目的生成按钮通过 onclick 调用 window.generatePinyinForSub(this)
-                // 无需额外绑定
+                // 通过 onclick 已绑定
             }
 
             window.generatePinyinForOpen = function() {
@@ -1365,7 +1349,7 @@
             };
 
             // ================================================================
-            // 11. 年級學期同步（同之前，但注意保留）
+            // 11. 年級學期同步
             // ================================================================
             function bindGradeSemesterSync() {
                 const editGrade = document.getElementById('editGrade');
@@ -1479,7 +1463,6 @@
                         editingQuestionId = newId;
                         isEditingMode = true;
                         isNewQuestion = true;
-                        // 同步篩選
                         const fg = document.getElementById('filterGrade');
                         const fs = document.getElementById('filterSemester');
                         if (fg) fg.value = filterGrade;
@@ -1492,11 +1475,9 @@
             };
 
             window.selectQuestion = function(id) {
-                // 默認檢視模式
                 isEditingMode = false;
                 isNewQuestion = false;
                 editingQuestionId = id;
-                // 同步篩選
                 const q = questions.find(q => q.id === id);
                 if (q) {
                     const fg = document.getElementById('filterGrade');
@@ -1545,12 +1526,10 @@
                 const sem = document.getElementById('filterSemester')?.value || '';
                 teacherFilterGrade = grade;
                 teacherFilterSemester = sem;
-                // 同步右側
                 const eg = document.getElementById('editGrade');
                 const es = document.getElementById('editSemester');
                 if (eg) eg.value = grade;
                 if (es) es.value = sem;
-                // 如果正在編輯題目，更新題目的年級學期（僅編輯模式）
                 const q = questions.find(q => q.id === editingQuestionId);
                 if (q && isEditingMode) {
                     q.grade = grade || q.grade;
@@ -1626,7 +1605,6 @@
                 const grade = document.getElementById('editGrade')?.value || q.grade || '一年級';
                 const semester = document.getElementById('editSemester')?.value || q.semester || '上學期';
 
-                // 同步篩選
                 const fg = document.getElementById('filterGrade');
                 const fs = document.getElementById('filterSemester');
                 if (fg) fg.value = grade;
@@ -1649,7 +1627,6 @@
                     const pinyinStr = document.getElementById('editPinyin').value || '';
                     const keywords = keywordsStr.split(',').map(s => s.trim()).filter(s => s);
                     const pinyin = pinyinStr.split(',').map(s => s.trim()).filter(s => s);
-                    // 保证长度一致，不足补空
                     const maxLen = Math.max(keywords.length, pinyin.length);
                     while (keywords.length < maxLen) keywords.push('');
                     while (pinyin.length < maxLen) pinyin.push('');
@@ -1689,9 +1666,7 @@
                     .then(() => {
                         alert(t('saveSuccess'));
                         isNewQuestion = false;
-                        // 更新本地數據
                         Object.assign(q, updateData);
-                        // 切換回查看模式（保存後查看）
                         isEditingMode = false;
                         render();
                     })
@@ -1699,7 +1674,6 @@
             };
 
             window.cancelEdit = function() {
-                // 如果是新创建的题目且未保存，则删除
                 if (isNewQuestion && editingQuestionId) {
                     if (confirm('取消將刪除未保存的新題目，確定？')) {
                         db.collection('questions').doc(editingQuestionId).delete()
@@ -1720,7 +1694,7 @@
             };
 
             // ================================================================
-            // 13. 學生視圖（與之前基本一致，但关键词拼音显示已使用 pinyinNumToHtml）
+            // 13. 學生視圖
             // ================================================================
             function renderStudent() {
                 if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -1784,7 +1758,7 @@
             };
 
             // ================================================================
-            // 14. 學生答題視圖（與之前一致，但关键词显示拼音已使用 pinyinNumToHtml）
+            // 14. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -1918,7 +1892,7 @@
             }
 
             // ================================================================
-            // 15. 音頻工具（AudioWorklet）—— 保持不变
+            // 15. 音頻工具（AudioWorklet）
             // ================================================================
             const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
                 class PCMProcessor extends AudioWorkletProcessor {
@@ -1940,7 +1914,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 16. 通用語音識別函數（保持不变）
+            // 16. 通用語音識別函數
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -2016,7 +1990,7 @@
             }
 
             // ================================================================
-            // 17. 開放式錄音綁定（保持不变）
+            // 17. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
                 // 与之前相同，省略详细代码（保持不变）
@@ -2204,7 +2178,7 @@
             }
 
             // ================================================================
-            // 18. 半固定式錄音綁定（保持不变）
+            // 18. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
                 // 与之前相同，省略详细代码（保持不变）
