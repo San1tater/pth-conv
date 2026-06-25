@@ -557,44 +557,53 @@
             font-size: 48px;
             margin-bottom: 12px;
         }
-        /* 关键词表格样式 */
-        .kw-table {
-            display: table;
-            width: 100%;
-            border-collapse: collapse;
+        /* 关键词 flex 网格布局，保证一一对应 */
+        .kw-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            justify-content: flex-start;
             margin-top: 4px;
         }
-        .kw-table-row {
-            display: table-row;
-        }
-        .kw-table-cell {
-            display: table-cell;
-            text-align: center;
-            vertical-align: middle;
-            padding: 2px 4px;
+        .kw-grid .kw-item {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 0 0 auto;
+            /* 宽度由内容撑开 */
             white-space: nowrap;
         }
-        .kw-table-cell .pinyin {
+        .kw-grid .kw-item .pinyin {
             font-size: 12px;
             color: #3b82f6;
             letter-spacing: 0.5px;
         }
-        .kw-table-cell .word {
+        .kw-grid .kw-item .word {
             font-size: 16px;
             font-weight: 500;
         }
-        .sq-keywords-display .kw-table-cell .pinyin {
+        .sq-keywords-display .kw-grid .kw-item .pinyin {
             font-size: 11px;
             letter-spacing: 0.3px;
         }
-        .sq-keywords-display .kw-table-cell .word {
+        .sq-keywords-display .kw-grid .kw-item .word {
             font-size: 14px;
         }
-        .view-only .kw-table-cell .pinyin {
+        .view-only .kw-grid .kw-item .pinyin {
             font-size: 12px;
         }
-        .view-only .kw-table-cell .word {
+        .view-only .kw-grid .kw-item .word {
             font-size: 15px;
+        }
+        /* 子问题中的关键词显示 */
+        .sq-keywords-display {
+            width: 100%;
+            margin-top: 6px;
+            padding: 6px 10px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            border-left: 3px solid #3b82f6;
+            font-size: 13px;
         }
         .drag-handle {
             cursor: grab;
@@ -878,26 +887,23 @@
             }
 
             // ================================================================
-            // 6. 生成关键词表格 HTML（确保一一对应）
+            // 6. 生成关键词 flex 网格（拼音和文字一一对应，自动换行）
             // ================================================================
-            function renderKeywordTable(keywords, pinyinArr, cellClass) {
+            function renderKeywordGrid(keywords, pinyinArr) {
                 if (!keywords || keywords.length === 0) return '';
+                // 确保拼音数组长度与关键词一致
                 const pinyinDisplay = pinyinArr.map(py => py ? pinyinNumToHtml(py) : '');
-                const cellClassStr = cellClass || '';
-                let html = '<div class="kw-table">';
-                // 拼音行
-                html += '<div class="kw-table-row">';
-                pinyinDisplay.forEach(py => {
-                    html += `<div class="kw-table-cell ${cellClassStr}"><span class="pinyin">${py}</span></div>`;
-                });
-                html += '</div>';
-                // 文字行
-                html += '<div class="kw-table-row">';
-                keywords.forEach(kw => {
-                    html +=
-                        `<div class="kw-table-cell ${cellClassStr}"><span class="word">${forceToTraditional(kw)}</span></div>`;
-                });
-                html += '</div>';
+                // 补齐长度
+                while (pinyinDisplay.length < keywords.length) pinyinDisplay.push('');
+                let html = '<div class="kw-grid">';
+                for (let i = 0; i < keywords.length; i++) {
+                    const kw = forceToTraditional(keywords[i]);
+                    const py = pinyinDisplay[i] || '';
+                    html += `<div class="kw-item">
+                                <span class="pinyin">${py}</span>
+                                <span class="word">${kw}</span>
+                            </div>`;
+                }
                 html += '</div>';
                 return html;
             }
@@ -1108,7 +1114,7 @@
                         viewHtml += `
                             <div class="form-group">
                                 <label>${t('keywords')}</label>
-                                ${renderKeywordTable(keywords, pinyinArr, '')}
+                                ${renderKeywordGrid(keywords, pinyinArr)}
                             </div>
                         `;
                         if (q.refAnswer) {
@@ -1127,7 +1133,7 @@
                             const pn = sq.pinyin || [];
                             let kwHtml = '';
                             if (kw.length) {
-                                kwHtml = renderKeywordTable(kw, pn, '');
+                                kwHtml = renderKeywordGrid(kw, pn);
                             }
                             viewHtml += `
                                 <div class="sub-question-view">
@@ -1795,7 +1801,7 @@
                     html += `<div style="font-size:14px; color:#4b5a6a;">${t('answerHere')}</div>`;
                     if (keywords.length) {
                         html += `<div class="keywords"><strong>${t('keywordsHint')}：</strong>`;
-                        html += renderKeywordTable(keywords, pinyinArr, '');
+                        html += renderKeywordGrid(keywords, pinyinArr);
                         html += `</div>`;
                     }
                     html += `
@@ -1838,7 +1844,7 @@
                         let kwHtml = '';
                         if (kw.length) {
                             kwHtml = `<div class="sq-keywords-display"><strong>${t('keywordsHint')}：</strong>`;
-                            kwHtml += renderKeywordTable(kw, pn, '');
+                            kwHtml += renderKeywordGrid(kw, pn);
                             kwHtml += `</div>`;
                         }
 
