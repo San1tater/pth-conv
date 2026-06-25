@@ -361,29 +361,44 @@
             border-left: 4px solid #3b82f6;
             font-size: 14px;
         }
-        .answer-area .keywords .kw-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px 20px;
+        .answer-area .keywords .kw-group,
+        .sq-keywords-display .kw-group,
+        .kw-with-pinyin {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min-content, 1fr));
+            gap: 8px 16px;
+            justify-items: center;
             margin-top: 4px;
-            justify-content: flex-start;
         }
-        .answer-area .keywords .kw-item {
-            display: inline-flex;
+        .answer-area .keywords .kw-item,
+        .sq-keywords-display .kw-item,
+        .kw-with-pinyin .kw-item {
+            display: flex;
             flex-direction: column;
             align-items: center;
-            min-width: 40px;
+            white-space: nowrap;
         }
-        .answer-area .keywords .kw-item .pinyin {
+        .answer-area .keywords .kw-item .pinyin,
+        .sq-keywords-display .kw-item .pinyin,
+        .kw-with-pinyin .kw-item .pinyin {
             font-size: 12px;
             color: #3b82f6;
             letter-spacing: 0.5px;
             white-space: nowrap;
         }
-        .answer-area .keywords .kw-item .word {
+        .answer-area .keywords .kw-item .word,
+        .sq-keywords-display .kw-item .word,
+        .kw-with-pinyin .kw-item .word {
             font-size: 16px;
             font-weight: 500;
             white-space: nowrap;
+        }
+        .sq-keywords-display .kw-item .pinyin {
+            font-size: 11px;
+            letter-spacing: 0.3px;
+        }
+        .sq-keywords-display .kw-item .word {
+            font-size: 14px;
         }
         .answer-area .transcript-box {
             background: #fff;
@@ -535,6 +550,12 @@
             .editor-panel {
                 padding-left: 0;
             }
+            .answer-area .keywords .kw-group,
+            .sq-keywords-display .kw-group,
+            .kw-with-pinyin {
+                grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+                gap: 6px 10px;
+            }
         }
         .readonly-field {
             background: #f0f2f5;
@@ -590,30 +611,6 @@
             border-left: 3px solid #3b82f6;
             font-size: 13px;
         }
-        .sq-keywords-display .kw-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px 16px;
-            margin-top: 2px;
-            justify-content: flex-start;
-        }
-        .sq-keywords-display .kw-item {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 30px;
-        }
-        .sq-keywords-display .kw-item .pinyin {
-            font-size: 11px;
-            color: #3b82f6;
-            letter-spacing: 0.3px;
-            white-space: nowrap;
-        }
-        .sq-keywords-display .kw-item .word {
-            font-size: 14px;
-            font-weight: 500;
-            white-space: nowrap;
-        }
         .view-only .form-group {
             margin-bottom: 8px;
         }
@@ -637,29 +634,6 @@
         .view-only .sub-question-view .sq-a {
             color: #4b5a6a;
             margin-top: 4px;
-        }
-        .kw-with-pinyin {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px 14px;
-            margin-top: 4px;
-            justify-content: flex-start;
-        }
-        .kw-with-pinyin .kw-item {
-            display: inline-flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 30px;
-        }
-        .kw-with-pinyin .kw-item .pinyin {
-            font-size: 12px;
-            color: #3b82f6;
-            white-space: nowrap;
-        }
-        .kw-with-pinyin .kw-item .word {
-            font-size: 15px;
-            font-weight: 500;
-            white-space: nowrap;
         }
         .drag-handle {
             cursor: grab;
