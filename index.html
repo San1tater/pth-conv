@@ -605,13 +605,14 @@
         .drag-handle:active {
             cursor: grabbing;
         }
-        /* 半固定式题目左中右布局 */
+        /* 半固定式题目左中右布局 - 默认水平均匀分布 */
         .sq-item-row {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
             gap: 8px 12px;
             width: 100%;
+            justify-content: space-between;
         }
         .sq-item-row .sq-label {
             flex: 0 0 auto;
@@ -619,6 +620,15 @@
         .sq-item-row .sq-keywords-middle {
             flex: 1 1 auto;
             min-width: 80px;
+            text-align: left;
+        }
+        .sq-item-row .sq-keywords-middle .kw-label {
+            font-weight: 500;
+            margin-right: 6px;
+            color: #1e2a3a;
+        }
+        .sq-item-row .sq-keywords-middle .kw-table {
+            display: inline-table;
         }
         .sq-item-row .sq-actions {
             flex: 0 0 auto;
@@ -626,20 +636,30 @@
             align-items: center;
             gap: 6px;
         }
-        .sq-item-row .sq-keywords-middle .kw-table {
-            margin: 0;
-        }
-        /* 保证关键词表格不超出 */
-        .sq-keywords-middle .kw-wrapper {
-            display: inline-block;
-            max-width: 100%;
-        }
         .sq-transcript {
             width: 100%;
             margin-top: 4px;
             font-size: 14px;
             color: #4b5a6a;
             min-height: 20px;
+        }
+        /* 响应式：当宽度小于高度（竖屏）或屏幕宽度小于600px时，改为垂直排列 */
+        @media (orientation: portrait),
+        (max-width: 600px) {
+            .sq-item-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+            }
+            .sq-item-row .sq-label {
+                text-align: left;
+            }
+            .sq-item-row .sq-keywords-middle {
+                text-align: left;
+            }
+            .sq-item-row .sq-actions {
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
@@ -1880,8 +1900,13 @@
                         const pn = sq.pinyin || [];
                         let kwHtml = '';
                         if (kw.length) {
-                            // 使用 renderKeywordTable，但包裹在 flex 中间容器中
-                            kwHtml = `<div class="sq-keywords-middle"><div class="kw-wrapper">${renderKeywordTable(kw, pn, '')}</div></div>`;
+                            const kwTableHtml = renderKeywordTable(kw, pn, '');
+                            kwHtml = `
+                                <div class="sq-keywords-middle">
+                                    <span class="kw-label">${t('keywordsHint')}：</span>
+                                    <span class="kw-wrapper">${kwTableHtml}</span>
+                                </div>
+                            `;
                         } else {
                             kwHtml = `<div class="sq-keywords-middle" style="flex:1 1 auto;"></div>`;
                         }
@@ -2538,7 +2563,7 @@
             initConverter();
             startListeningQuestions();
             render();
-            console.log('✅ 完整版加载成功：半固定式关键词已改为左中右布局');
+            console.log('✅ 完整版加载成功：半固定式关键词已改为左中右布局，含“提示关键字”标签，并支持响应式垂直排列');
         })();
     </script>
 </body>
