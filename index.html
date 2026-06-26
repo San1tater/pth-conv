@@ -1941,7 +1941,7 @@
                             <div class="score-row">
                                 <div class="score-item"><span>🏆 ${t('score')}</span> <span class="num" id="totalScore">--</span></div>
                                 <div class="score-item"><span>🎯 ${t('accuracy')}</span> <span class="num" id="accScore">--</span></div>
-                                <div class="score-item"><span>📊 ${t('fluency')}</span> <span class="num" id="fluencyScore">--</span></div>
+                                <div class="score-item"><span>📊 完整性</span> <span class="num" id="compScore">--</span></div>
                                 <div class="score-item"><span>🔊 ${t('integrity')}</span> <span class="num" id="integrityScore">--</span></div>
                             </div>
                             <div class="suggestion" id="suggestionText"><strong>💡 ${t('suggestion')}：</strong></div>
@@ -2461,7 +2461,7 @@
                             const grade = {
                                 total_score: 0,
                                 suggestion: t('englishDetected'),
-                                sub_scores: subs.map(() => ({ accuracy: 0, fluency: 0, integrity: 0,
+                                sub_scores: subs.map(() => ({ accuracy: 0, completeness: 0, integrity: 0,
                                     comment: '未使用普通話作答' }))
                             };
                             displayFixedScore(grade);
@@ -2512,26 +2512,29 @@
                     const factor = 10;
                     document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
                     let avgAcc = 0,
-                        avgFlu = 0,
+                        avgComp = 0,
                         avgInt = 0;
                     const subScores = grade.sub_scores || [];
                     if (subScores.length > 0) {
                         let sumAcc = 0,
-                            sumFlu = 0,
+                            sumComp = 0,
                             sumInt = 0;
-                        subScores.forEach(s => { sumAcc += s.accuracy || 0;
-                            sumFlu += s.fluency || 0;
-                            sumInt += s.integrity || 0; });
+                        subScores.forEach(s => {
+                            sumAcc += s.accuracy || 0;
+                            sumComp += s.completeness || 0;
+                            sumInt += s.integrity || 0;
+                        });
                         avgAcc = sumAcc / subScores.length;
-                        avgFlu = sumFlu / subScores.length;
+                        avgComp = sumComp / subScores.length;
                         avgInt = sumInt / subScores.length;
                     } else {
+                        // 降级处理（理论上不会发生）
                         avgAcc = grade.accuracy || 0;
-                        avgFlu = grade.fluency || 0;
+                        avgComp = grade.completeness || 0;
                         avgInt = grade.integrity || 0;
                     }
                     document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
-                    document.getElementById('fluencyScore').textContent = Math.round(avgFlu * factor);
+                    document.getElementById('compScore').textContent = Math.round(avgComp * factor);
                     document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
                     document.getElementById('suggestionText').innerHTML =
                         `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
@@ -2542,11 +2545,11 @@
                     });
                     let fbHtml = '';
                     (q.subQuestions || []).forEach((sq, idx) => {
-                        const s = subScores[idx] || { accuracy: 0, fluency: 0, integrity: 0, comment: '' };
+                        const s = subScores[idx] || { accuracy: 0, completeness: 0, integrity: 0, comment: '' };
                         fbHtml += `
                             <div class="fb-item">
                                 <strong>${idx+1}.</strong> ${forceToTraditional(sq.question)}<br>
-                                內容:${Math.round(s.accuracy*factor)} 豐富:${Math.round(s.fluency*factor)} 語音:${Math.round(s.integrity*factor)}
+                                內容:${Math.round(s.accuracy*factor)} 完整性:${Math.round(s.completeness*factor)} 語音:${Math.round(s.integrity*factor)}
                                 <br>💬 ${forceToTraditional(s.comment || '')}
                             </div>
                         `;
