@@ -23,26 +23,32 @@ function buildPrompt(questionInfo, answerText, lang) {
     const commonIntro = {
         zh: `請對以下學生回答進行評分，以客觀語氣分析，不顯露評分者身份。
 
-重要說明：你收到的「學生回答」是**語音識別系統將學生的語音轉寫成的文字**，不是學生寫下來的文字。因此，評價「語音準確度」時，請根據這段轉寫文字是否流暢、意思是否清楚、是否與問題相關來推斷學生的發音是否清晰。如果文字流暢且切題，說明發音清楚，給高分；如果文字混亂、難以理解或與問題無關，說明可能有發音問題導致識別偏差，應給低分。
+重要說明：
+1. 你收到的「學生回答」是**語音識別系統將學生的語音轉寫成的文字**，不是學生寫下來的文字。因此，評價「語音準確度」時，請根據這段轉寫文字是否流暢、意思是否清楚、是否與問題相關來推斷學生的發音是否清晰。如果文字流暢且切題，說明發音清楚，給高分；如果文字混亂、難以理解或與問題無關，說明可能有發音問題導致識別偏差，應給低分。
 
-請不要以「寫字」的角度來評論，**絕對不要使用「寫」、「寫字」、「寫對」、「寫錯」等詞語**，也不要指出具體的「錯別字」，因為那是轉寫系統的結果，不代表學生寫錯字。
+2. 特別注意「同音字／近音字」的識別誤差：當轉寫文字與參考答案相比，僅出現**字音完全相同或極度相似（如聲調不同但聲母韻母相同）的字詞替換**（例如「可譽小學」被轉寫為「可遇小學」），這種情況通常是由語音識別系統的模型偏差造成，**並非學生的發音錯誤**。此時，你應將該詞視為「正確」，不應扣減「語音準確度」分數，也不應在評語中說學生發錯音，而應指出「這可能是語音辨識的結果，您的發音是正確的」。
 
-評分時請以**參考答案**為主要依據，關鍵詞僅作為參考。注意：關鍵詞中可能包含「干擾項」（即與正確答案無關或錯誤的詞彙），請勿機械比對關鍵詞，應以內容是否切合參考答案為主。
+3. 請不要以「寫字」的角度來評論，**絕對不要使用「寫」、「寫字」、「寫對」、「寫錯」等詞語**，也不要指出具體的「錯別字」，因為那是轉寫系統的結果，不代表學生寫錯字。
 
-所有評語和建議必須使用小學生能聽懂的簡單詞語，語氣要鼓勵和幫助，重點是告訴學生怎樣可以說得更好。
+4. 評分時請以**參考答案**為主要依據，關鍵詞僅作為參考。注意：關鍵詞中可能包含「干擾項」（即與正確答案無關或錯誤的詞彙），請勿機械比對關鍵詞，應以內容是否切合參考答案為主。
 
-所有文字必須是繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。`,
+5. 所有評語和建議必須使用小學生能聽懂的簡單詞語，語氣要鼓勵和幫助，重點是告訴學生怎樣可以說得更好。
+
+6. 所有文字必須是繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。`,
         en: `Please rate the following student response objectively, without revealing your identity as a rater.
 
-Important: The "student response" you receive is **speech-to-text transcription of the student's spoken answer**, not written text. Therefore, when evaluating "pronunciation accuracy", please infer from whether the transcribed text is fluent, clear, and relevant to the question. If the text is fluent and on-topic, the pronunciation was likely clear (give high score). If the text is garbled, hard to understand, or off-topic, it suggests possible pronunciation issues leading to recognition errors (give low score).
+Important:
+1. The "student response" you receive is **speech-to-text transcription of the student's spoken answer**, not written text. Therefore, when evaluating "pronunciation accuracy", please infer from whether the transcribed text is fluent, clear, and relevant to the question. If the text is fluent and on-topic, the pronunciation was likely clear (give high score). If the text is garbled, hard to understand, or off-topic, it suggests possible pronunciation issues leading to recognition errors (give low score).
 
-Do NOT comment from a "writing" perspective. **Absolutely avoid words like "write", "spell", "spelling mistake", "typo"**, because the input is a transcription, not student handwriting.
+2. Pay special attention to **homophone/near-homophone recognition errors**: If the transcribed text differs from the reference answer only by words that sound **identical or extremely similar** (e.g., same initial and final but different tone), such as "可譽小學" transcribed as "可遇小學", this is usually a system bias of the speech recognizer, **not the student's mispronunciation**. In such cases, you should treat the word as "correct", do not deduct "pronunciation accuracy" score, and do not say the student mispronounced. Instead, point out that "this may be a speech recognition issue; your pronunciation is correct".
 
-Base your scoring primarily on the **reference answer**. Keywords are for reference only – note that they may contain "distractors" (irrelevant or incorrect terms). Do not mechanically match keywords; focus on whether the content aligns with the reference answer.
+3. Do NOT comment from a "writing" perspective. **Absolutely avoid words like "write", "spell", "spelling mistake", "typo"**, because the input is a transcription, not student handwriting.
 
-All comments and suggestions should be in simple language that primary school students can understand, using an encouraging and helpful tone. Tell the student how they can improve.
+4. Base your scoring primarily on the **reference answer**. Keywords are for reference only – note that they may contain "distractors" (irrelevant or incorrect terms). Do not mechanically match keywords; focus on whether the content aligns with the reference answer.
 
-All text must be in standard English (no slang or informal expressions).`
+5. All comments and suggestions should be in simple language that primary school students can understand, using an encouraging and helpful tone. Tell the student how they can improve.
+
+6. All text must be in standard English (no slang or informal expressions).`
     };
 
     let prompt = '';
@@ -58,7 +64,7 @@ All text must be in standard English (no slang or informal expressions).`
 請從以下三個維度分別給分（每項0-10分，精確到小數點後一位）：
 1. 內容相關性（accuracy）：故事是否緊扣主題和參考答案，敘述是否完整。
 2. 豐富度（fluency）：用詞是否多樣，有沒有細節描述，情節是否豐富。
-3. 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。
+3. 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。**若出現同音字／近音字替換（如上述說明），請視為正確，不扣分。**
 
 最後給出總分（0-10，精確到小數點後一位）和具體建議。
 
@@ -73,7 +79,7 @@ Student response (transcribed text): ${answerText}
 Please score from the following three dimensions (each 0-10, one decimal place):
 1. Content relevance (accuracy): Does the story stay on topic and align with the reference answer? Is it complete?
 2. Richness (fluency): Are words varied? Are there details and a rich plot?
-3. Pronunciation accuracy (integrity): Based on fluency and relevance of the transcribed text, infer clarity of speech.
+3. Pronunciation accuracy (integrity): Based on fluency and relevance of the transcribed text, infer clarity of speech. **If homophone/near-homophone substitutions occur (as described above), treat them as correct and do not deduct points.**
 
 Give a total score (0-10, one decimal) and specific suggestions.
 
@@ -103,7 +109,7 @@ ${answerText}
 請對每個子問題分別給出以下三項分數（每項0-10分，精確到小數點後一位）和具體評語：
 - 內容相關性（accuracy）：是否針對問題回答，有沒有用到關鍵字（但請以參考答案為主要判斷依據）。
 - 完整性（completeness）：回答是否完整。必須把問題裡的關鍵詞（名詞或動詞）放進句子裡，不能只丟出一個詞。例如，若問「媽媽穿著什麼？」，只答「裙子」就不完整，要說「媽媽穿著裙子」；如果能加上「漂亮的」會更好。
-- 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。
+- 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。**若出現同音字／近音字替換（如上述說明），請視為正確，不扣分。**
 
 然後計算總分（0-10，可為各子問題的平均分，精確到小數點後一位）並給出整體建議。
 
@@ -118,7 +124,7 @@ ${answerText}
 For each sub-question, give three scores (0-10, one decimal) and a comment:
 - Content relevance (accuracy): Does it answer the question? Does it use keywords? (But use the reference answer as the primary judge.)
 - Completeness: Is the answer complete? It must include the key noun/verb in a full sentence, not just a single word. For example, if asked "What is Mom wearing?" answering "dress" is incomplete; say "Mom is wearing a dress." Adding "beautiful" is better.
-- Pronunciation accuracy (integrity): Infer clarity from fluency and relevance of the transcribed text.
+- Pronunciation accuracy (integrity): Infer clarity from fluency and relevance of the transcribed text. **If homophone/near-homophone substitutions occur (as described above), treat them as correct and do not deduct points.**
 
 Then give an overall total score (0-10, one decimal) and overall suggestion.
 
