@@ -7,7 +7,7 @@ const API_SECRET = process.env.XUNFEI_API_SECRET;
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
- * 根據語言生成評分提示詞（精簡版）
+ * 根據語言生成評分提示詞（精簡版，強化粵語禁止）
  */
 function buildPrompt(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
@@ -15,18 +15,18 @@ function buildPrompt(questionInfo, answerText, lang) {
     const keywords = (questionInfo.keywords || []).join('、');
     const subQs = questionInfo.subQuestions || [];
 
-    // 共用核心說明（已拆分為三項獨立要求）
+    // 共用核心說明（強化粵語禁止）
     const coreInstruction = {
         zh: `你收到的是語音轉寫文字，非書面文字。評分時：
 - 語音準確度：根據轉寫流暢度與相關性推斷發音清晰度。同音字（如「可譽」轉為「可遇」）視為正確，不扣分。
 - 嚴禁使用「寫」、「錯字」等詞語。
-- 評語須用繁體中文書面語。
+- 評語必須使用標準繁體中文書面語，嚴禁任何粵語口語詞彙（例如：嘅、咁、佢、仲、乜、啲、攞、睇、食、話、冇、係、嚟、嘢、掂、點解、點樣）。請使用「的、這、他、還、什麼、些、拿、看、吃、說、沒有、是、來、東西、好、為什麼、怎樣」等對應書面語。
 - 語氣須鼓勵、小學生能懂。
 - 內容以參考答案為準，關鍵詞僅供參考（可能含干擾項）。`,
         en: `You receive speech-to-text, not written text. Scoring rules:
 - Pronunciation accuracy: infer clarity from fluency/relevance. Homophones (e.g., "可譽"->"可遇") are correct, no deduction.
 - Do NOT use "write", "spelling" etc.
-- Comments must be in formal English.
+- Comments must be in formal English (no slang, no informal expressions).
 - Use encouraging tone, understandable by primary students.
 - Base on reference answer; keywords are for reference (may contain distractors).`
     };
@@ -153,7 +153,7 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let finished = false;
 
         const prompt = buildPrompt(questionInfo, truncated, lang);
-        const systemContent = lang === 'zh' ? '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出。' : 'You are a Mandarin speaking assessment assistant. Output strictly in JSON.';
+        const systemContent = lang === 'zh' ? '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。' : 'You are a Mandarin speaking assessment assistant. Output strictly in JSON, using formal English, no slang.';
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
@@ -190,11 +190,11 @@ function scoreAnswer(questionInfo, answerText, lang) {
             if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
-        // 超時時間延長至 30 秒
+        // 超時時間延長至 30 秒（解決偶發 500）
         setTimeout(() => {
             if (!finished) {
                 ws.close();
-                reject(new Error('Spark 請求逾時 (30s)'));
+                reject(new Error('Spark 請求逾時'));
             }
         }, 30000);
     });
