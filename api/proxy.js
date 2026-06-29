@@ -7,7 +7,7 @@ const API_SECRET = process.env.XUNFEI_API_SECRET;
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
- * 生成精簡但完整的評分提示詞（根據語言）
+ * 生成結構化評分提示詞（含明確錨點）
  */
 function buildPrompt(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
@@ -15,33 +15,89 @@ function buildPrompt(questionInfo, answerText, lang) {
     const keywords = (questionInfo.keywords || []).join('、');
     const subQs = questionInfo.subQuestions || [];
 
-    // ------ 核心評分規則（精簡版） ------
-    const rules = {
+    // ----- 核心評分規則（明確分數錨點） -----
+    const scoringRules = {
         zh: `
-【重要】輸入為語音轉寫文字，非書面文字。評價「語音準確度」時，根據文字流暢度與相關性推斷發音清晰度。若出現同音/近音字替換（如「可譽」→「可遇」），視為系統辨識問題，不扣分，並在評語中說明。
+【評分總則】
+- 所有維度滿分均為 10.0 分，精確到小數點後一位。
+- 輸入為語音轉寫文字，非書面文字。同音/近音字替換（如「可譽」→「可遇」）視為辨識誤差，不扣「語音準確度」分。
+- 以「參考答案」為主要評分依據，關鍵詞僅供參考（可能含干擾項）。
 
-【完整性】只給完整句子（主謂賓齊全，複述問題主幹）給滿分；僅關鍵詞最多60分；不完整句子（缺主語或動詞）給60-90分。
+【完整性】（僅半固定式）
+- 10.0：完整複述問題主幹，主謂賓齊全，語法正確。
+- 7.0-9.0：句子基本完整，但缺少主語或動詞（如「三個人」缺動詞「有」）。
+- 0.0-6.0：僅給出孤立詞語或片語（如「三」、「書包」），無句子結構。
+- 若回答與問題無關，給 0 分。
 
-【豐富度】（僅開放式）綜合評估：①結構（時人地事、起承轉合）②情節擴充（基於參考答案與關鍵字）③詞彙多樣性④恰當修飾語（形容詞/副詞）。
+【豐富度】（僅開放式）
+綜合以下四項，取平均：
+- 結構（0-10）：有清晰開頭（時間/人物/地點）、發展、結尾（起承轉合）。
+- 擴充（0-10）：在參考答案和關鍵詞基礎上加入合理細節，而非僅重複。
+- 詞彙（0-10）：用詞多樣，避免重複。
+- 修飾（0-10）：使用恰當形容詞（如「漂亮的」）或副詞（如「慢慢地」）。
 
-【評分依據】以參考答案為主要標準，關鍵詞僅供參考（可能含干擾項）。評語須簡單、鼓勵、小學生能懂，避免「寫」「錯字」等詞，使用繁體書面語（勿用粵語口語）。
+【內容相關性】（所有題型）
+- 10.0：完全切合參考答案，無遺漏。
+- 7.0-9.0：基本相關，但有部分偏離或遺漏。
+- 0.0-6.0：明顯偏離或僅少量相關。
+- 若完全無關，給 0 分。
 
-【輸出格式】嚴格 JSON，分數精確到小數點後一位。
+【語音準確度】（所有題型）
+- 10.0：轉寫文字流暢、意思清楚、與問題高度相關（推斷發音清晰）。
+- 7.0-9.0：大致流暢，但有少量無關或含糊處。
+- 0.0-6.0：文字混亂、難以理解或離題（推斷發音問題）。
+- 同音字替換不扣分。
+
+【評語要求】
+- 簡單、鼓勵、小學生能懂。
+- 避免「寫」「錯字」等詞。
+- 使用繁體書面語（勿用粵語口語）。
+
+【輸出格式】
+嚴格輸出 JSON，不包含任何其他文字。
 `,
         en: `
-[Important] Input is speech-to-text, not handwriting. For "pronunciation accuracy", infer clarity from fluency/relevance. Homophone/near-homophone errors (e.g., "可遇" vs "可譽") are recognition issues, do not deduct, mention in comment.
+[Scoring Rules]
+- All dimensions max 10.0, one decimal.
+- Input is speech-to-text. Homophone errors (e.g., "可遇" vs "可譽") are recognition issues, do not deduct from Pronunciation.
+- Use Reference Answer as primary basis; Keywords are reference only (may contain distractors).
 
-[Completeness] Full marks only for complete sentences (subject+verb+object, restating question core). Keywords alone ≤60. Incomplete sentences (missing subject/verb) score 60-90.
+[Completeness] (fixed only)
+- 10.0: Full sentence restating question core, subject+verb+object.
+- 7.0-9.0: Mostly complete but missing subject or verb (e.g., "Three people" missing "are").
+- 0.0-6.0: Only isolated words or phrases, no sentence structure.
+- 0 if irrelevant.
 
-[Richness] (open-ended only) Assess: ①structure (when/who/where/what, flow) ②plot expansion (beyond ref/keywords) ③vocabulary diversity ④appropriate modifiers (adjectives/adverbs).
+[Richness] (open only)
+Average of four:
+- Structure (0-10): Clear beginning (time/person/place), development, end.
+- Expansion (0-10): Adds reasonable details beyond ref/keywords.
+- Vocabulary (0-10): Varied, no repetition.
+- Modifiers (0-10): Uses adjectives (e.g., "beautiful") or adverbs (e.g., "slowly").
 
-[Scoring basis] Reference answer is primary; keywords are reference only (may contain distractors). Comments: simple, encouraging, child-friendly; avoid "write","spelling"; use standard English.
+[Content Relevance] (all)
+- 10.0: Fully matches reference, no omission.
+- 7.0-9.0: Mostly relevant, minor deviation.
+- 0.0-6.0: Clearly off-topic or little relevance.
+- 0 if totally irrelevant.
 
-[Output] Strict JSON, scores to one decimal.
+[Pronunciation] (all)
+- 10.0: Transcribed text fluent, clear, highly relevant (clear pronunciation inferred).
+- 7.0-9.0: Mostly fluent, some vague parts.
+- 0.0-6.0: Garbled, hard to understand, or off-topic (poor pronunciation inferred).
+- Homophone errors do not reduce score.
+
+[Comments]
+- Simple, encouraging, child-friendly.
+- Avoid "write","spelling".
+- Use standard English.
+
+[Output]
+Strict JSON only, no extra text.
 `
     };
 
-    // ------ 題型專用部分 ------
+    // ----- 題型專用模板 -----
     let prompt = '';
     if (isOpen) {
         const openTemplate = {
@@ -50,25 +106,17 @@ function buildPrompt(questionInfo, answerText, lang) {
 關鍵字（可能含干擾項）：${keywords}
 學生回答（轉寫）：${answerText}
 
-評分維度（每項0-10）：
-1. 內容相關性：是否緊扣參考答案。
-2. 豐富度：依上述規則綜合給分。
-3. 語音準確度：依上述規則。
-
-輸出 JSON：{"accuracy":分數, "fluency":分數, "integrity":分數, "total_score":平均, "suggestion":"建議"}`,
-            en: `Type: Open-ended (Storytelling)
+請依上述規則評分，輸出 JSON：
+{"accuracy":數值, "fluency":數值, "integrity":數值, "total_score":數值, "suggestion":"文字"}`,
+            en: `Type: Open-ended Storytelling
 Reference: ${refAnswer}
 Keywords (may contain distractors): ${keywords}
 Student response (transcribed): ${answerText}
 
-Score dimensions (0-10):
-1. Accuracy: relevance to reference.
-2. Richness: as per rules above.
-3. Pronunciation: as per rules.
-
-Output JSON: {"accuracy":score, "fluency":score, "integrity":score, "total_score":average, "suggestion":"advice"}`
+Score per rules above, output JSON:
+{"accuracy":number, "fluency":number, "integrity":number, "total_score":number, "suggestion":"text"}`
         };
-        prompt = rules[lang] + '\n' + openTemplate[lang];
+        prompt = scoringRules[lang] + '\n' + openTemplate[lang];
     } else {
         let subPrompt = '';
         subQs.forEach((sq, i) => {
@@ -86,27 +134,17 @@ ${subPrompt}
 學生回答（轉寫，逐題）：
 ${answerText}
 
-對每子題給分（0-10）：
-- 內容相關性：是否切題（參考答案為主）。
-- 完整性：依上述規則。
-- 語音準確度：依上述規則。
-
-輸出 JSON：
-{"sub_scores":[{"accuracy":分數, "completeness":分數, "integrity":分數, "comment":"評語"}, ...], "total_score":平均, "suggestion":"整體建議"}`,
+對每子題依上述規則給分，輸出 JSON：
+{"sub_scores":[{"accuracy":數值, "completeness":數值, "integrity":數值, "comment":"文字"}, ...], "total_score":數值, "suggestion":"文字"}`,
             en: `Type: Fixed Q&A
 ${subPrompt}
 Student responses (transcribed, per question):
 ${answerText}
 
-For each sub-question (0-10):
-- Accuracy: relevance (ref answer primary).
-- Completeness: as per rules.
-- Pronunciation: as per rules.
-
-Output JSON:
-{"sub_scores":[{"accuracy":score, "completeness":score, "integrity":score, "comment":"comment"}, ...], "total_score":average, "suggestion":"overall"}`
+For each sub-question, score per rules above, output JSON:
+{"sub_scores":[{"accuracy":number, "completeness":number, "integrity":number, "comment":"text"}, ...], "total_score":number, "suggestion":"text"}`
         };
-        prompt = rules[lang] + '\n' + fixedTemplate[lang];
+        prompt = scoringRules[lang] + '\n' + fixedTemplate[lang];
     }
 
     return prompt;
@@ -117,10 +155,10 @@ Output JSON:
  */
 function scoreAnswer(questionInfo, answerText, lang) {
     return new Promise((resolve, reject) => {
-        // 截斷答案防止過長
+        // 截斷答案防止過長（保留完整句子結構）
         let truncated = answerText;
-        if (answerText.length > 200) {
-            truncated = answerText.substring(0, 200) + '...(截斷)';
+        if (answerText.length > 300) {
+            truncated = answerText.substring(0, 300) + '...(截斷)';
         }
 
         const urlObj = new URL(SPARK_URL);
@@ -141,12 +179,15 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let finished = false;
 
         const prompt = buildPrompt(questionInfo, truncated, lang);
-        const systemContent = lang === 'zh' ? '你是普通話口語評測助手，嚴格按規則輸出JSON。' : 'You are a Mandarin speaking assessment assistant. Output JSON strictly.';
+        // 系統訊息：強調 JSON 輸出
+        const systemContent = lang === 'zh' 
+            ? '你是評測助手。輸出必須為純 JSON，不要包含任何解釋或額外文字。' 
+            : 'You are an assessment assistant. Output must be pure JSON, no explanations or extra text.';
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
                 header: { app_id: APPID, uid: 'student' },
-                parameter: { chat: { domain: '4.0Ultra', temperature: 0.3, max_tokens: 800, top_k: 5 } },
+                parameter: { chat: { domain: '4.0Ultra', temperature: 0.2, max_tokens: 800, top_k: 5 } },
                 payload: { message: { text: [ { role: 'system', content: systemContent }, { role: 'user', content: prompt } ] } }
             }));
         });
@@ -178,12 +219,13 @@ function scoreAnswer(questionInfo, answerText, lang) {
             if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
+        // 增加超時時間到 25 秒（因模型可能較慢）
         setTimeout(() => {
             if (!finished) {
                 ws.close();
-                reject(new Error('Spark 請求逾時'));
+                reject(new Error('Spark 請求逾時 (25s)'));
             }
-        }, 20000);
+        }, 25000);
     });
 }
 
@@ -210,7 +252,7 @@ module.exports = async (req, res) => {
 
         const useLang = (lang === 'en') ? 'en' : 'zh';
 
-        // 檢測是否有中文字元（簡單判斷）
+        // 檢查是否有中文字元（簡易）
         const hasChinese = /[\u4e00-\u9fa5]/.test(textAnswer);
         if (!hasChinese) {
             const subCount = (question.subQuestions || []).length;
@@ -229,16 +271,20 @@ module.exports = async (req, res) => {
         const scoreRaw = await scoreAnswer(question, textAnswer, useLang);
         let scoreJSON;
         try {
+            // 清理可能的 markdown 或額外文字
             let jsonStr = scoreRaw.trim();
-            jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            // 提取第一個 { ... } 區塊
             const match = jsonStr.match(/\{[\s\S]*\}/);
             if (match) jsonStr = match[0];
+            // 嘗試解析
             scoreJSON = JSON.parse(jsonStr);
         } catch (e) {
-            scoreJSON = { error: '評分解析失敗', raw: scoreRaw };
+            // 解析失敗，回傳錯誤（前端會顯示）
+            scoreJSON = { error: '評分解析失敗，請重試', raw: scoreRaw };
         }
         res.status(200).json({ score: scoreJSON });
     } catch (err) {
+        console.error('評分請求錯誤:', err);
         res.status(500).json({ error: err.message });
     }
 };
