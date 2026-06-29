@@ -190,12 +190,13 @@ function scoreAnswer(questionInfo, answerText, lang) {
             if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
+        // 超時時間延長至 30 秒
         setTimeout(() => {
             if (!finished) {
                 ws.close();
-                reject(new Error('Spark 請求逾時'));
+                reject(new Error('Spark 請求逾時 (30s)'));
             }
-        }, 20000);
+        }, 30000);
     });
 }
 
