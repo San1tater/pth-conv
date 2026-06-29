@@ -36,7 +36,15 @@ function buildPrompt(questionInfo, answerText, lang) {
 
 6. 所有文字必須是繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。
 
-7. 關於「完整性」的評分標準（特別重要）：完整性評估的是學生回答是否以**完整句子**的形式呈現。一個完整句子必須包含明確的主語、謂語（動詞）和必要的賓語或補語，並能獨立回答所問。如果回答只是一個孤立的詞語（如「裙子」、「學生」、「袋子」），或者僅是片語（如「背書包」），即使意思正確，完整性也**不能給滿分**。滿分要求回答是一個語法完整、通順的陳述句，且最好包含問題中的關鍵名詞或動詞（例如，問題問「圖畫中的地方在哪裡？」，完整的回答應類似「圖畫中的地方在可譽小學」）。若回答僅為「可譽小學」，則不完整，應酌情扣分。請根據此標準嚴格評分。`,
+7. 關於「完整性」的評分標準（極其重要，必須嚴格執行）：
+   完整性評估的是學生回答是否以**完整句子**的形式呈現。一個完整句子必須包含明確的主語、謂語（動詞）和必要的賓語或補語，且能獨立回答所問問題。評分時，請依據以下規則：
+   - 滿分（100分）：回答是一個語法完整、通順的陳述句，且完整複述了問題中的關鍵主幹（例如，問題問「圖畫中有多少個人？」，完整回答應為「圖畫中有X個人。」或「圖畫裡有X個人。」，不能只說「X個」或「X個人」）。必須包含主語、動詞和數量／名詞。
+   - 部分分數（60-90分）：回答雖然是句子，但缺乏部分主幹（例如缺少主語或動詞），或者意思基本清楚但句子結構不完整。例如回答「三個人」缺少動詞「有」，應給予70分左右。
+   - 最低分（0-60分）：回答僅為孤立詞語或片語（如「三」、「三個」、「書包」），沒有任何句子結構。此類回答最多給60分，通常應在20-50分之間，取決於詞語與問題的相關性。
+   - 若回答與問題完全無關或為無意義音節，給0分。
+   請嚴格按照上述標準為每個子問題的「完整性」打分，並在評語中準確描述學生的表現（例如「你只說了一個詞，沒有說成完整的句子」），不得在評語中對不完整的回答使用「句子完整」或類似表述。
+
+8. 對於「內容相關性」和「語音準確度」，請按照各自標準獨立評分，不受完整性評分影響。`,
         en: `Please rate the following student response objectively, without revealing your identity as a rater.
 
 Important:
@@ -52,7 +60,15 @@ Important:
 
 6. All text must be in standard English (no slang or informal expressions).
 
-7. Regarding the "completeness" scoring criteria (very important): Completeness evaluates whether the student's response is presented as a **complete sentence**. A complete sentence must contain a clear subject, predicate (verb), and necessary object or complement, and must independently answer the question. If the response is only an isolated word (e.g., "dress", "student", "bag") or a phrase (e.g., "carrying a bag"), even if the meaning is correct, completeness **cannot receive full marks**. Full marks require a grammatically complete and fluent declarative sentence, and preferably include key nouns or verbs from the question (e.g., if the question is "Where is the place in the picture?", a complete answer should be similar to "The place in the picture is at Ho Yu Primary School." If the answer is only "Ho Yu Primary School", it is incomplete and points should be deducted accordingly. Please grade strictly according to this standard.`
+7. Regarding the "completeness" scoring criteria (extremely important, must be strictly enforced):
+   Completeness evaluates whether the student's response is presented as a **complete sentence**. A complete sentence must contain a clear subject, predicate (verb), and necessary object or complement, and must independently answer the question. Please use the following rules:
+   - Full marks (100): The response is a grammatically complete and fluent declarative sentence that fully restates the key structure of the question (e.g., if the question is "How many people are in the picture?", a complete answer should be "There are X people in the picture." or "In the picture there are X people." Simply saying "X" or "X people" is not complete). Must include subject, verb, and quantity/noun.
+   - Partial score (60-90): The response is a sentence but lacks some part of the structure (e.g., missing subject or verb), or the meaning is basically clear but the sentence is incomplete. For example, "Three people" is missing the verb "are/have", so around 70 points.
+   - Lowest score (0-60): The response is only an isolated word or phrase (e.g., "three", "three pieces", "schoolbag") with no sentence structure. Such responses get at most 60 points, usually between 20-50 depending on relevance.
+   - If the response is completely irrelevant or meaningless, give 0 points.
+   Apply these standards strictly to each sub-question's "completeness" score, and in the comment accurately describe the student's performance (e.g., "You only said a word, not a complete sentence"), and do NOT use phrases like "complete sentence" for incomplete answers.
+
+8. For "content relevance" and "pronunciation accuracy", score independently according to their own standards, unaffected by the completeness score.`
     };
 
     let prompt = '';
@@ -112,7 +128,7 @@ ${answerText}
 
 請對每個子問題分別給出以下三項分數（每項0-10分，精確到小數點後一位）和具體評語：
 - 內容相關性（accuracy）：是否針對問題回答，有沒有用到關鍵字（但請以參考答案為主要判斷依據）。
-- 完整性（completeness）：**按照上述通用說明第7點嚴格評分**。必須檢查回答是否為完整句子，是否包含問題的主要名詞和動詞，並能獨立回答所問。只給一個詞或片語的回答，即使意思正確，也不能給滿分。請根據此標準逐題評估。
+- 完整性（completeness）：**嚴格按照通用說明第7點評分**。必須檢查回答是否為完整句子，是否包含問題的主要名詞和動詞，並能獨立回答所問。只給一個詞或片語的回答，即使意思正確，也不能給滿分。請根據此標準逐題評估，並在評語中明確指出是「完整句子」還是「只說了詞語」。
 - 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。**若出現同音字／近音字替換（如上述說明），請視為正確，不扣分。**
 
 然後計算總分（0-10，可為各子問題的平均分，精確到小數點後一位）並給出整體建議。
@@ -127,7 +143,7 @@ ${answerText}
 
 For each sub-question, give three scores (0-10, one decimal) and a comment:
 - Content relevance (accuracy): Does it answer the question? Does it use keywords? (But use the reference answer as the primary judge.)
-- Completeness: **Strictly follow the general instruction point 7 above.** Check whether the response is a complete sentence, including the main nouns and verbs from the question, and can independently answer the question. Responses that are only a word or phrase, even if correct in meaning, cannot receive full marks. Evaluate each question accordingly.
+- Completeness: **Strictly follow general instruction point 7.** Check whether the response is a complete sentence, including the main nouns and verbs from the question, and can independently answer the question. Responses that are only a word or phrase, even if correct in meaning, cannot receive full marks. Evaluate each question accordingly and clearly state in the comment whether it is a "complete sentence" or "only a word/phrase".
 - Pronunciation accuracy (integrity): Infer clarity from fluency and relevance of the transcribed text. **If homophone/near-homophone substitutions occur (as described above), treat them as correct and do not deduct points.**
 
 Then give an overall total score (0-10, one decimal) and overall suggestion.
