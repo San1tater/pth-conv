@@ -24,7 +24,7 @@
     </script>
 
     <style>
-        /* 全域樣式 – 與原先完全一致，此處保留完整 */
+        /* 全域樣式 – 完整保留，與原先完全一致 */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -114,6 +114,7 @@
             padding: 20px 24px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
             min-height: 450px;
+            position: relative;
         }
         .form-group {
             margin-bottom: 14px;
@@ -722,9 +723,6 @@
             color: #ef4444;
             font-size: 14px;
         }
-        .main-content {
-            position: relative;
-        }
     </style>
 </head>
 <body>
@@ -978,6 +976,8 @@
                 }
             }
 
+            // 将数字声调拼音转为带声调符号的字符串（用于显示）
+            // 修正：正确标注 iu 和 ui 的声调位置
             function pinyinNumToHtml(numPinyin) {
                 if (!numPinyin) return '';
                 const words = numPinyin.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -988,6 +988,45 @@
                         if (!match) return syl;
                         let base = match[1];
                         const tone = parseInt(match[2], 10);
+                        // 主元音選擇規則：a > o > e > (iu -> u, ui -> i) > u > i > ü
+                        let mainVowel = '';
+                        let idx = -1;
+                        if (base.includes('a')) {
+                            mainVowel = 'a';
+                            idx = base.lastIndexOf('a');
+                        } else if (base.includes('o')) {
+                            mainVowel = 'o';
+                            idx = base.lastIndexOf('o');
+                        } else if (base.includes('e')) {
+                            mainVowel = 'e';
+                            idx = base.lastIndexOf('e');
+                        } else {
+                            // 檢查 i 和 u 的同時出現順序
+                            const iPos = base.indexOf('i');
+                            const uPos = base.indexOf('u');
+                            if (iPos !== -1 && uPos !== -1) {
+                                // 同時有 i 和 u
+                                if (iPos < uPos) {
+                                    // i 在前 => iu，標在 u 上
+                                    mainVowel = 'u';
+                                    idx = uPos;
+                                } else {
+                                    // u 在前 => ui，標在 i 上
+                                    mainVowel = 'i';
+                                    idx = iPos;
+                                }
+                            } else if (base.includes('u')) {
+                                mainVowel = 'u';
+                                idx = base.lastIndexOf('u');
+                            } else if (base.includes('i')) {
+                                mainVowel = 'i';
+                                idx = base.lastIndexOf('i');
+                            } else if (base.includes('ü')) {
+                                mainVowel = 'ü';
+                                idx = base.lastIndexOf('ü');
+                            }
+                        }
+                        if (mainVowel === '' || idx === -1) return syl;
                         const vowelMap = {
                             'a': ['ā', 'á', 'ǎ', 'à', 'a'],
                             'o': ['ō', 'ó', 'ǒ', 'ò', 'o'],
@@ -996,17 +1035,6 @@
                             'u': ['ū', 'ú', 'ǔ', 'ù', 'u'],
                             'ü': ['ǖ', 'ǘ', 'ǚ', 'ǜ', 'ü']
                         };
-                        let mainVowel = '';
-                        let idx = -1;
-                        if (base.includes('a')) { mainVowel = 'a';
-                            idx = base.lastIndexOf('a'); } else if (base.includes('o')) { mainVowel = 'o';
-                            idx = base.lastIndexOf('o'); } else if (base.includes('e')) { mainVowel = 'e';
-                            idx = base.lastIndexOf('e'); } else if (base.includes('u')) { mainVowel = 'u';
-                            idx = base.lastIndexOf('u'); } else if (base.includes('i')) { mainVowel = 'i';
-                            idx = base.lastIndexOf('i'); } else if (base.includes('ü')) { mainVowel = 'ü';
-                            idx = base.lastIndexOf('ü'); }
-                        if (mainVowel === '') return syl;
-                        if (tone === 0) return base;
                         const symbol = vowelMap[mainVowel][tone - 1];
                         return base.substring(0, idx) + symbol + base.substring(idx + 1);
                     });
@@ -1059,10 +1087,7 @@
             let teacherFilterGrade = '';
             let teacherFilterSemester = '';
 
-            // 教師密碼驗證狀態
             let teacherUnlocked = false;
-
-            // 錄音最大時長（秒）
             const MAX_RECORDING_TIME = 90;
 
             // ================================================================
@@ -1087,13 +1112,12 @@
             }
 
             // ================================================================
-            // 10. 視圖切換（加入教師密碼驗證）
+            // 10. 視圖切換（教師密碼驗證）
             // ================================================================
             document.querySelectorAll('[data-view]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const view = this.dataset.view;
                     if (view === 'teacher' && !teacherUnlocked) {
-                        // 要求輸入密碼
                         promptTeacherPassword();
                         return;
                     }
@@ -1113,7 +1137,6 @@
                 render();
             }
 
-            // 教師密碼驗證對話框
             function promptTeacherPassword() {
                 const overlay = document.createElement('div');
                 overlay.className = 'teacher-lock-overlay';
@@ -1139,7 +1162,6 @@
                 const verify = () => {
                     const pwd = input.value.trim();
                     if (!pwd) return;
-                    // 從 Firebase 讀取密碼
                     db.collection('config').doc('teacher').get()
                         .then(doc => {
                             if (doc.exists) {
@@ -1154,7 +1176,6 @@
                                     input.focus();
                                 }
                             } else {
-                                // 若無設定檔，預設密碼為 'admin123' (僅用於開發)
                                 if (pwd === 'admin123') {
                                     teacherUnlocked = true;
                                     overlay.remove();
@@ -1168,7 +1189,6 @@
                         })
                         .catch(err => {
                             console.error('讀取密碼失敗:', err);
-                            // 降級處理：使用預設密碼
                             if (pwd === 'admin123') {
                                 teacherUnlocked = true;
                                 overlay.remove();
@@ -1185,7 +1205,6 @@
                 input.onkeydown = (e) => { if (e.key === 'Enter') verify(); };
                 cancelBtn.onclick = () => {
                     overlay.remove();
-                    // 若目前為學生端則維持，否則切換至學生端
                     if (currentView !== 'student') {
                         switchView('student');
                     }
@@ -1204,7 +1223,6 @@
             function render() {
                 if (currentView === 'teacher') {
                     if (!teacherUnlocked) {
-                        // 如果未解鎖但試圖顯示教師視圖，切換到學生端
                         switchView('student');
                         return;
                     }
@@ -1215,7 +1233,7 @@
             }
 
             // ================================================================
-            // 11. 教師視圖（完整實現，與原先相同）
+            // 11. 教師視圖
             // ================================================================
             const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
             const semesters = ['上學期', '下學期'];
@@ -1845,12 +1863,16 @@
                 render();
             };
 
+            // 修正：刪除子問題前先保存當前所有子問題內容
             window.removeSubQuestion = function(btn) {
                 const div = btn.closest('.sub-question');
                 const idx = parseInt(div.dataset.index, 10);
                 if (isNaN(idx)) return;
                 const q = questions.find(q => q.id === editingQuestionId);
                 if (q && q.subQuestions && q.subQuestions.length > idx) {
+                    // 先保存當前所有子問題的輸入內容
+                    saveCurrentSubQuestions(q);
+                    // 再執行刪除
                     q.subQuestions.splice(idx, 1);
                     render();
                 }
@@ -1933,7 +1955,11 @@
                         isEditingMode = false;
                         render();
                     })
-                    .catch(err => console.error('更新失敗:', err));
+                    .catch(err => {
+                        console.error('更新失敗:', err);
+                        alert('儲存失敗：' + (err.message || '請檢查網路或圖片大小，並重試。'));
+                        // 儲存失敗時，內容仍保留在記憶體中，使用者可重試
+                    });
             };
 
             window.cancelEdit = function() {
@@ -2034,7 +2060,7 @@
             };
 
             // ================================================================
-            // 17. 學生答題視圖（完整）
+            // 17. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -2264,7 +2290,7 @@
             }
 
             // ================================================================
-            // 20. 開放式錄音綁定（加入最大時長）
+            // 20. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
                 const startBtn = document.getElementById('startRecordBtn');
@@ -2462,7 +2488,6 @@
                 function displayScore(grade) {
                     const resultDiv = document.getElementById('scoreResult');
                     resultDiv.classList.remove('hidden');
-                    // 檢查是否有錯誤
                     if (grade && grade.error) {
                         document.getElementById('totalScore').textContent = '--';
                         document.getElementById('accScore').textContent = '--';
@@ -2491,7 +2516,7 @@
             }
 
             // ================================================================
-            // 21. 半固定式錄音綁定（加入最大時長）
+            // 21. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
                 const subs = q.subQuestions || [];
@@ -2780,7 +2805,6 @@
                 function displayFixedScore(grade) {
                     const resultDiv = document.getElementById('scoreResult');
                     resultDiv.classList.remove('hidden');
-                    // 檢查錯誤
                     if (grade && grade.error) {
                         document.getElementById('totalScore').textContent = '--';
                         document.getElementById('accScore').textContent = '--';
@@ -2871,14 +2895,11 @@
             }
 
             // ================================================================
-            // 23. 初始化（預設為學生端）
+            // 23. 初始化
             // ================================================================
             initConverter();
             startListeningQuestions();
-
-            // 預設顯示學生端（已設定 currentView = 'student'）
             render();
-
             console.log('✅ 完整版載入成功：教師輸入不轉繁，語音轉寫結果轉繁，支援中英文評分，關鍵字區域左對齊，含截圖下載，預設學生端，教師需密碼。');
         })();
     </script>
