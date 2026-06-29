@@ -34,7 +34,9 @@ function buildPrompt(questionInfo, answerText, lang) {
 
 5. 所有評語和建議必須使用小學生能聽懂的簡單詞語，語氣要鼓勵和幫助，重點是告訴學生怎樣可以說得更好。
 
-6. 所有文字必須是繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。`,
+6. 所有文字必須是繁體中文標準書面語，不得使用任何粵語口語（如「嘅」、「咁」、「佢」等）。
+
+7. 關於「完整性」的評分標準（特別重要）：完整性評估的是學生回答是否以**完整句子**的形式呈現。一個完整句子必須包含明確的主語、謂語（動詞）和必要的賓語或補語，並能獨立回答所問。如果回答只是一個孤立的詞語（如「裙子」、「學生」、「袋子」），或者僅是片語（如「背書包」），即使意思正確，完整性也**不能給滿分**。滿分要求回答是一個語法完整、通順的陳述句，且最好包含問題中的關鍵名詞或動詞（例如，問題問「圖畫中的地方在哪裡？」，完整的回答應類似「圖畫中的地方在可譽小學」）。若回答僅為「可譽小學」，則不完整，應酌情扣分。請根據此標準嚴格評分。`,
         en: `Please rate the following student response objectively, without revealing your identity as a rater.
 
 Important:
@@ -48,7 +50,9 @@ Important:
 
 5. All comments and suggestions should be in simple language that primary school students can understand, using an encouraging and helpful tone. Tell the student how they can improve.
 
-6. All text must be in standard English (no slang or informal expressions).`
+6. All text must be in standard English (no slang or informal expressions).
+
+7. Regarding the "completeness" scoring criteria (very important): Completeness evaluates whether the student's response is presented as a **complete sentence**. A complete sentence must contain a clear subject, predicate (verb), and necessary object or complement, and must independently answer the question. If the response is only an isolated word (e.g., "dress", "student", "bag") or a phrase (e.g., "carrying a bag"), even if the meaning is correct, completeness **cannot receive full marks**. Full marks require a grammatically complete and fluent declarative sentence, and preferably include key nouns or verbs from the question (e.g., if the question is "Where is the place in the picture?", a complete answer should be similar to "The place in the picture is at Ho Yu Primary School." If the answer is only "Ho Yu Primary School", it is incomplete and points should be deducted accordingly. Please grade strictly according to this standard.`
     };
 
     let prompt = '';
@@ -108,7 +112,7 @@ ${answerText}
 
 請對每個子問題分別給出以下三項分數（每項0-10分，精確到小數點後一位）和具體評語：
 - 內容相關性（accuracy）：是否針對問題回答，有沒有用到關鍵字（但請以參考答案為主要判斷依據）。
-- 完整性（completeness）：回答是否完整。必須把問題裡的關鍵詞（名詞或動詞）放進句子裡，不能只丟出一個詞。例如，若問「媽媽穿著什麼？」，只答「裙子」就不完整，要說「媽媽穿著裙子」；如果能加上「漂亮的」會更好。
+- 完整性（completeness）：**按照上述通用說明第7點嚴格評分**。必須檢查回答是否為完整句子，是否包含問題的主要名詞和動詞，並能獨立回答所問。只給一個詞或片語的回答，即使意思正確，也不能給滿分。請根據此標準逐題評估。
 - 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。**若出現同音字／近音字替換（如上述說明），請視為正確，不扣分。**
 
 然後計算總分（0-10，可為各子問題的平均分，精確到小數點後一位）並給出整體建議。
@@ -123,7 +127,7 @@ ${answerText}
 
 For each sub-question, give three scores (0-10, one decimal) and a comment:
 - Content relevance (accuracy): Does it answer the question? Does it use keywords? (But use the reference answer as the primary judge.)
-- Completeness: Is the answer complete? It must include the key noun/verb in a full sentence, not just a single word. For example, if asked "What is Mom wearing?" answering "dress" is incomplete; say "Mom is wearing a dress." Adding "beautiful" is better.
+- Completeness: **Strictly follow the general instruction point 7 above.** Check whether the response is a complete sentence, including the main nouns and verbs from the question, and can independently answer the question. Responses that are only a word or phrase, even if correct in meaning, cannot receive full marks. Evaluate each question accordingly.
 - Pronunciation accuracy (integrity): Infer clarity from fluency and relevance of the transcribed text. **If homophone/near-homophone substitutions occur (as described above), treat them as correct and do not deduct points.**
 
 Then give an overall total score (0-10, one decimal) and overall suggestion.
