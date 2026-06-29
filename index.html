@@ -295,10 +295,6 @@
             font-weight: 600;
             font-size: 15px;
         }
-        .question-card .qmeta {
-            font-size: 12px;
-            color: #6b7a8a;
-        }
         .question-card img {
             max-width: 100%;
             max-height: 100px;
@@ -618,7 +614,7 @@
             flex: 0 0 auto;
         }
         .sq-item-row .sq-keywords-middle {
-            flex: 1 1 auto;
+            flex: 1 1 0; /* 改为 flex: 1 1 0 使宽度一致 */
             min-width: 80px;
             text-align: left;
         }
@@ -771,7 +767,7 @@
                     back: '返回',
                     chooseQuestion: '選擇題目作答',
                     answerHere: '請看圖說話/回答問題',
-                    keywordsHint: '提示關鍵字',
+                    keywordsHint: '關鍵字',  // 简化为“關鍵字”
                     transcriptResult: '語音識別結果',
                     pleaseSelect: '請選擇',
                     submitAll: '提交全部答案',
@@ -873,7 +869,7 @@
                 }
             }
 
-            // 此函数仅用于界面固定文字（如系统提示），不再用于教师输入的内容
+            // 仅用于系统界面文字和语音转写结果，不用于教师输入的内容
             function forceToTraditional(text) {
                 if (!text) return text;
                 if (cnToHkConverter) {
@@ -967,7 +963,7 @@
 
             // ================================================================
             // 7. 生成关键词表格 HTML（严格两行，每列一个词，无逗号）
-            //    注意：关键词直接显示原始文本，不再转换为繁体
+            //    关键词直接显示原始文本，不转换
             // ================================================================
             function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
@@ -1138,9 +1134,7 @@
                 return JSON.parse(JSON.stringify(obj));
             }
 
-            // ================================================================
             // 辅助：保存当前子问题内容（从 DOM 读取）
-            // ================================================================
             function saveCurrentSubQuestions(q) {
                 const sqDivs = document.querySelectorAll('.sub-question');
                 if (sqDivs.length === 0) return;
@@ -1169,9 +1163,7 @@
                 }
             }
 
-            // ================================================================
             // 辅助：保存当前编辑器中所有通用字段（从 DOM 读取）
-            // ================================================================
             function saveCurrentEditorFields(q) {
                 q.title = document.getElementById('editTitle')?.value || q.title || '';
                 q.grade = document.getElementById('editGrade')?.value || q.grade || '';
@@ -1891,11 +1883,10 @@
                 if (filtered.length === 0) return `<div style="padding:30px; text-align:center; color:#8a9aa8;">${t('noQuestions')}</div>`;
                 let html = `<div class="question-grid">`;
                 filtered.forEach(q => {
-                    // 标题直接显示原始文本
+                    // 不显示题型标签
                     html += `
                         <div class="question-card" onclick="window.selectStudentQuestion('${q.id}')">
                             <div class="qtitle">${q.title}</div>
-                            <div class="qmeta">${q.type === 'open' ? t('open') : t('fixed')}</div>
                             ${q.image ? `<img src="${q.image}" />` : ''}
                         </div>
                     `;
@@ -1954,7 +1945,7 @@
                         html += `</div>`;
                     }
                     html += `
-                        <div class="transcript-box" id="studentTranscript">${studentAnswerText ? studentAnswerText : '🎤 '+t('transcriptResult')}</div>
+                        <div class="transcript-box" id="studentTranscript">${studentAnswerText ? forceToTraditional(studentAnswerText) : '🎤 '+t('transcriptResult')}</div>
                         <div class="record-controls">
                             <span class="status-dot" id="recordDot"></span>
                             <span class="timer" id="recordTimer">00:00</span>
@@ -2000,7 +1991,7 @@
                                 </div>
                             `;
                         } else {
-                            kwHtml = `<div class="sq-keywords-middle" style="flex:1 1 auto;"></div>`;
+                            kwHtml = `<div class="sq-keywords-middle" style="flex:1 1 0;"></div>`;
                         }
 
                         html += `
@@ -2014,7 +2005,7 @@
                                         <button class="btn btn-danger btn-sm sq-stop-btn" data-idx="${idx}" style="display:none;">⏹️</button>
                                     </div>
                                 </div>
-                                <div class="sq-transcript">${subAnswers[idx] ? subAnswers[idx] : ''}</div>
+                                <div class="sq-transcript">${subAnswers[idx] ? forceToTraditional(subAnswers[idx]) : ''}</div>
                             </div>
                         `;
                     });
@@ -2278,7 +2269,7 @@
                         .then(transcriptText => {
                             progressBar.style.width = '70%';
                             studentAnswerText = transcriptText;
-                            transcript.textContent = transcriptText;
+                            transcript.textContent = forceToTraditional(transcriptText);
                             const questionInfo = {
                                 type: q.type,
                                 refAnswer: q.refAnswer || '',
@@ -2323,9 +2314,8 @@
                     document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
                     document.getElementById('fluencyScore').textContent = Math.round((grade.fluency || 0) * factor);
                     document.getElementById('integrityScore').textContent = Math.round((grade.integrity || 0) * factor);
-                    // 建议直接显示原始文本，不转换
                     document.getElementById('suggestionText').innerHTML =
-                        `<strong>💡 ${t('suggestion')}：</strong>${grade.suggestion || ''}`;
+                        `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
                     document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
                     document.querySelectorAll('#scoreResult .num').forEach(el => {
                         const val = parseFloat(el.textContent);
@@ -2516,7 +2506,7 @@
                             }
                             const transcriptEl = transcripts[idx];
                             if (transcriptEl) {
-                                transcriptEl.textContent = transcriptText;
+                                transcriptEl.textContent = forceToTraditional(transcriptText);
                             }
                             const recordBtn = recordBtns[idx];
                             const stopBtn = stopBtns[idx];
@@ -2627,9 +2617,8 @@
                     document.getElementById('accScore').textContent = Math.round(avgAcc * factor);
                     document.getElementById('compScore').textContent = Math.round(avgComp * factor);
                     document.getElementById('integrityScore').textContent = Math.round(avgInt * factor);
-                    // 建议直接显示原始文本
                     document.getElementById('suggestionText').innerHTML =
-                        `<strong>💡 ${t('suggestion')}：</strong>${grade.suggestion || ''}`;
+                        `<strong>💡 ${t('suggestion')}：</strong>${forceToTraditional(grade.suggestion || '')}`;
                     document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
                     document.querySelectorAll('#scoreResult .num').forEach(el => {
                         const val = parseFloat(el.textContent);
@@ -2638,12 +2627,11 @@
                     let fbHtml = '';
                     (q.subQuestions || []).forEach((sq, idx) => {
                         const s = subScores[idx] || { accuracy: 0, completeness: 0, integrity: 0, comment: '' };
-                        // 直接显示原始文本，不转换
                         fbHtml += `
                             <div class="fb-item">
                                 <strong>${idx+1}.</strong> ${sq.question}<br>
                                 內容:${Math.round(s.accuracy*factor)} 完整性:${Math.round(s.completeness*factor)} 語音:${Math.round(s.integrity*factor)}
-                                <br>💬 ${s.comment || ''}
+                                <br>💬 ${forceToTraditional(s.comment || '')}
                             </div>
                         `;
                     });
@@ -2659,7 +2647,7 @@
             initConverter();
             startListeningQuestions();
             render();
-            console.log('✅ 完整版加载成功：教师输入内容不再转换，切换题型/新增子问题不再清空已输入内容');
+            console.log('✅ 完整版加载成功：教师输入内容不转换，语音转写和评分建议转换为繁体，学生页面不显示题型，关键字左对齐');
         })();
     </script>
 </body>
