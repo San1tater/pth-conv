@@ -15,15 +15,16 @@
     <script src="https://cdn.jsdelivr.net/npm/opencc-js@1.3.1/dist/umd/full.min.js">
     </script>
 
-    <!-- pinyin-pro 纯 CDN -->
+    <!-- pinyin-pro 純 CDN -->
     <script src="https://unpkg.com/pinyin-pro">
     </script>
 
-    <!-- html2canvas 用于截图 -->
+    <!-- html2canvas 用於截圖 -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js">
     </script>
 
     <style>
+        /* 全域樣式 */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -869,7 +870,7 @@
             function t(key) { return LANG[currentLang][key] || key; }
 
             // ================================================================
-            // 4. 簡繁轉換（用于语音转录内容及系统提示）
+            // 4. 簡繁轉換（用於語音轉寫內容及系統提示）
             // ================================================================
             let cnToHkConverter = null;
             let hkToCnConverter = null;
@@ -903,7 +904,7 @@
             }
 
             // ================================================================
-            // 5. 分割函数：同时支持英文逗号和中文逗号
+            // 5. 分割函數：同時支援英文逗號和中文逗號
             // ================================================================
             function splitKeywords(text) {
                 if (!text || typeof text !== 'string') return [];
@@ -977,7 +978,7 @@
             }
 
             // ================================================================
-            // 7. 生成关键词表格 HTML（严格两行，每列一个词，无逗号）
+            // 7. 生成關鍵詞表格 HTML（嚴格兩行，每列一個詞，無逗號）
             // ================================================================
             function renderKeywordTable(keywords, pinyinArr, cellClass) {
                 if (!keywords || keywords.length === 0) return '';
@@ -1795,7 +1796,7 @@
 
             window.cancelEdit = function() {
                 if (isNewQuestion && editingQuestionId) {
-                    if (confirm('取消將刪除未保存的新題目，確定？')) {
+                    if (confirm('取消將刪除未儲存的新題目，確定？')) {
                         db.collection('questions').doc(editingQuestionId).delete()
                             .then(() => {
                                 editingQuestionId = null;
@@ -2636,7 +2637,7 @@
                 const element = document.getElementById('answerArea') || document.getElementById('mainContent');
                 if (!element) return;
                 if (typeof html2canvas === 'undefined') {
-                    alert('html2canvas 未加载，请检查网络。');
+                    alert('html2canvas 未載入，請檢查網路。');
                     return;
                 }
                 html2canvas(element, {
@@ -2650,8 +2651,8 @@
                     link.href = canvas.toDataURL('image/png');
                     link.click();
                 }).catch(err => {
-                    console.error('截图失败:', err);
-                    alert('截图生成失败，请重试。');
+                    console.error('截圖失敗:', err);
+                    alert('截圖生成失敗，請重試。');
                 });
             }
 
@@ -2661,7 +2662,7 @@
             initConverter();
             startListeningQuestions();
             render();
-            console.log('✅ 完整版加载成功：教师输入不转繁，语音转写结果转繁，支援中英文評分，關鍵字區域左對齊，含截圖下載。');
+            console.log('✅ 完整版載入成功：教師輸入不轉繁，語音轉寫結果轉繁，支援中英文評分，關鍵字區域左對齊，含截圖下載。');
         })();
     </script>
 </body>
