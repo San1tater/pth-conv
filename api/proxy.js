@@ -44,7 +44,13 @@ function buildPrompt(questionInfo, answerText, lang) {
    - 若回答與問題完全無關或為無意義音節，給0分。
    請嚴格按照上述標準為每個子問題的「完整性」打分，並在評語中準確描述學生的表現（例如「你只說了一個詞，沒有說成完整的句子」），不得在評語中對不完整的回答使用「句子完整」或類似表述。
 
-8. 對於「內容相關性」和「語音準確度」，請按照各自標準獨立評分，不受完整性評分影響。`,
+8. 關於「豐富度」（僅適用於開放式題型）的評分標準：
+   豐富度評估的是故事或描述的內容是否充實、有細節、有結構。請從以下四個方面綜合評分（每項0-10分，總分取平均）：
+   a) **結構完整性**：故事是否有清晰的開頭（時間、人物、地點）、發展（事件經過）和結尾（結果或感受），即「時人地事、起承轉合」是否完整。
+   b) **情節擴充**：學生是否在參考答案和關鍵詞的基礎上，加入了合理的細節和擴展，使故事更豐富，而不是僅重複關鍵詞。
+   c) **詞彙多樣性**：用詞是否多樣化，是否有重複使用相同的詞語，是否有嘗試使用不同的表達方式。
+   d) **修飾語運用**：是否能在名詞前加上恰當的形容詞（如「漂亮的蝴蝶」、「開心的笑容」），在動詞前加上適當的副詞（如「慢慢地走」），使描述更生動。
+   請根據這四個方面給出一個綜合的豐富度分數（0-10，小數點後一位），並在建議中具體指出學生在哪方面做得好、哪方面可以加強。`,
         en: `Please rate the following student response objectively, without revealing your identity as a rater.
 
 Important:
@@ -68,7 +74,13 @@ Important:
    - If the response is completely irrelevant or meaningless, give 0 points.
    Apply these standards strictly to each sub-question's "completeness" score, and in the comment accurately describe the student's performance (e.g., "You only said a word, not a complete sentence"), and do NOT use phrases like "complete sentence" for incomplete answers.
 
-8. For "content relevance" and "pronunciation accuracy", score independently according to their own standards, unaffected by the completeness score.`
+8. Regarding the "richness" (only for open-ended questions) scoring criteria:
+   Richness evaluates whether the story or description is substantial, detailed, and well-structured. Please score comprehensively based on the following four aspects (each 0-10, overall score is the average):
+   a) **Structural completeness**: Does the story have a clear beginning (time, characters, place), development (events), and ending (outcome or feeling)? That is, are the elements of "when, who, where, what, and the flow of events" present?
+   b) **Plot expansion**: Did the student add reasonable details and extensions based on the reference answer and keywords, making the story richer, rather than just repeating the keywords?
+   c) **Vocabulary diversity**: Is the vocabulary varied? Are there repetitions of the same words? Did the student try to use different expressions?
+   d) **Use of modifiers**: Did the student add appropriate adjectives before nouns (e.g., "beautiful butterfly", "happy smile") and suitable adverbs before verbs (e.g., "walk slowly") to make the description more vivid?
+   Give an overall richness score (0-10, one decimal) based on these four aspects, and in the suggestion, specifically point out what the student did well and what they can improve.`
     };
 
     let prompt = '';
@@ -83,7 +95,7 @@ Important:
 
 請從以下三個維度分別給分（每項0-10分，精確到小數點後一位）：
 1. 內容相關性（accuracy）：故事是否緊扣主題和參考答案，敘述是否完整。
-2. 豐富度（fluency）：用詞是否多樣，有沒有細節描述，情節是否豐富。
+2. 豐富度（fluency）：**按照通用說明第8點評分**，綜合考慮結構完整性、情節擴充、詞彙多樣性和修飾語運用。
 3. 語音準確度（integrity）：根據轉寫文字的流暢度和與問題的相關性來推斷發音清晰度。**若出現同音字／近音字替換（如上述說明），請視為正確，不扣分。**
 
 最後給出總分（0-10，精確到小數點後一位）和具體建議。
@@ -98,7 +110,7 @@ Student response (transcribed text): ${answerText}
 
 Please score from the following three dimensions (each 0-10, one decimal place):
 1. Content relevance (accuracy): Does the story stay on topic and align with the reference answer? Is it complete?
-2. Richness (fluency): Are words varied? Are there details and a rich plot?
+2. Richness (fluency): **Score according to general instruction point 8**, comprehensively considering structural completeness, plot expansion, vocabulary diversity, and use of modifiers.
 3. Pronunciation accuracy (integrity): Based on fluency and relevance of the transcribed text, infer clarity of speech. **If homophone/near-homophone substitutions occur (as described above), treat them as correct and do not deduct points.**
 
 Give a total score (0-10, one decimal) and specific suggestions.
