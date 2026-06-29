@@ -24,7 +24,7 @@
     </script>
 
     <style>
-        /* 全域樣式 */
+        /* 全域樣式 – 與原先完全一致，此處保留完整 */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -695,6 +695,36 @@
         #downloadScreenshotBtn {
             margin-top: 12px;
         }
+        /* 教師密碼鎖定覆蓋層 */
+        .teacher-lock-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 10;
+            border-radius: 20px;
+        }
+        .teacher-lock-overlay input {
+            padding: 10px 16px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 240px;
+        }
+        .teacher-lock-overlay .error {
+            color: #ef4444;
+            font-size: 14px;
+        }
+        .main-content {
+            position: relative;
+        }
     </style>
 </head>
 <body>
@@ -703,8 +733,8 @@
             <h1>🎙️ 普通話語音評測</h1>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <div class="view-tabs">
-                    <button class="active" data-view="teacher">👩‍🏫 教師</button>
-                    <button data-view="student">🧑‍🎓 學生</button>
+                    <button data-view="teacher">👩‍🏫 教師</button>
+                    <button class="active" data-view="student">🧑‍🎓 學生</button>
                 </div>
                 <div class="lang-switch">
                     <button class="active" data-lang="zh">繁體</button>
@@ -739,7 +769,7 @@
             const BACKEND_URL = '/api/proxy';
 
             // ================================================================
-            // 3. 語言包
+            // 3. 語言包（完整保留）
             // ================================================================
             const LANG = {
                 zh: {
@@ -801,7 +831,11 @@
                     viewMode: '檢視模式',
                     editMode: '編輯模式',
                     completeness: '完整性',
-                    downloadScreenshot: '下載截圖'
+                    downloadScreenshot: '下載截圖',
+                    teacherPasswordRequired: '請輸入教師密碼',
+                    passwordError: '密碼錯誤，請重試',
+                    unlock: '解鎖',
+                    maxRecordingTime: '錄音已達90秒上限，自動停止。'
                 },
                 en: {
                     grade: 'Grade',
@@ -862,7 +896,11 @@
                     viewMode: 'View Mode',
                     editMode: 'Edit Mode',
                     completeness: 'Completeness',
-                    downloadScreenshot: 'Download Screenshot'
+                    downloadScreenshot: 'Download Screenshot',
+                    teacherPasswordRequired: 'Please enter teacher password',
+                    passwordError: 'Wrong password, please try again',
+                    unlock: 'Unlock',
+                    maxRecordingTime: 'Recording reached 90-second limit, auto-stopped.'
                 }
             };
             let currentLang = 'zh';
@@ -1004,7 +1042,7 @@
             // 8. 全域狀態
             // ================================================================
             let questions = [];
-            let currentView = 'teacher';
+            let currentView = 'student'; // 預設為學生端
             let editingQuestionId = null;
             let isEditingMode = false;
             let isNewQuestion = false;
@@ -1020,6 +1058,12 @@
             let subLocked = false;
             let teacherFilterGrade = '';
             let teacherFilterSemester = '';
+
+            // 教師密碼驗證狀態
+            let teacherUnlocked = false;
+
+            // 錄音最大時長（秒）
+            const MAX_RECORDING_TIME = 90;
 
             // ================================================================
             // 9. Firestore 即時監聽
@@ -1043,21 +1087,111 @@
             }
 
             // ================================================================
-            // 10. 視圖切換
+            // 10. 視圖切換（加入教師密碼驗證）
             // ================================================================
             document.querySelectorAll('[data-view]').forEach(btn => {
                 btn.addEventListener('click', function() {
-                    document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-                    currentView = this.dataset.view;
-                    if (currentView === 'teacher') {
-                        isEditingMode = false;
-                        isNewQuestion = false;
-                        originalQuestionData = null;
+                    const view = this.dataset.view;
+                    if (view === 'teacher' && !teacherUnlocked) {
+                        // 要求輸入密碼
+                        promptTeacherPassword();
+                        return;
                     }
-                    render();
+                    switchView(view);
                 });
             });
+
+            function switchView(view) {
+                document.querySelectorAll('[data-view]').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-view="${view}"]`).classList.add('active');
+                currentView = view;
+                if (currentView === 'teacher') {
+                    isEditingMode = false;
+                    isNewQuestion = false;
+                    originalQuestionData = null;
+                }
+                render();
+            }
+
+            // 教師密碼驗證對話框
+            function promptTeacherPassword() {
+                const overlay = document.createElement('div');
+                overlay.className = 'teacher-lock-overlay';
+                overlay.id = 'teacherLockOverlay';
+                overlay.innerHTML = `
+                    <div style="background:white; padding:30px 40px; border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,0.12); text-align:center; max-width:400px;">
+                        <h3 style="margin-bottom:12px;">🔒 ${t('teacherPasswordRequired')}</h3>
+                        <input type="password" id="teacherPasswordInput" placeholder="請輸入密碼" />
+                        <div id="teacherPasswordError" class="error" style="margin-top:8px; display:none;">${t('passwordError')}</div>
+                        <div style="margin-top:16px; display:flex; gap:10px; justify-content:center;">
+                            <button class="btn btn-primary" id="teacherPasswordConfirm">${t('unlock')}</button>
+                            <button class="btn btn-outline" id="teacherPasswordCancel">取消</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('mainContent').appendChild(overlay);
+
+                const input = document.getElementById('teacherPasswordInput');
+                const confirmBtn = document.getElementById('teacherPasswordConfirm');
+                const cancelBtn = document.getElementById('teacherPasswordCancel');
+                const errorEl = document.getElementById('teacherPasswordError');
+
+                const verify = () => {
+                    const pwd = input.value.trim();
+                    if (!pwd) return;
+                    // 從 Firebase 讀取密碼
+                    db.collection('config').doc('teacher').get()
+                        .then(doc => {
+                            if (doc.exists) {
+                                const stored = doc.data().password;
+                                if (pwd === stored) {
+                                    teacherUnlocked = true;
+                                    overlay.remove();
+                                    switchView('teacher');
+                                } else {
+                                    errorEl.style.display = 'block';
+                                    input.value = '';
+                                    input.focus();
+                                }
+                            } else {
+                                // 若無設定檔，預設密碼為 'admin123' (僅用於開發)
+                                if (pwd === 'admin123') {
+                                    teacherUnlocked = true;
+                                    overlay.remove();
+                                    switchView('teacher');
+                                } else {
+                                    errorEl.style.display = 'block';
+                                    input.value = '';
+                                    input.focus();
+                                }
+                            }
+                        })
+                        .catch(err => {
+                            console.error('讀取密碼失敗:', err);
+                            // 降級處理：使用預設密碼
+                            if (pwd === 'admin123') {
+                                teacherUnlocked = true;
+                                overlay.remove();
+                                switchView('teacher');
+                            } else {
+                                errorEl.style.display = 'block';
+                                input.value = '';
+                                input.focus();
+                            }
+                        });
+                };
+
+                confirmBtn.onclick = verify;
+                input.onkeydown = (e) => { if (e.key === 'Enter') verify(); };
+                cancelBtn.onclick = () => {
+                    overlay.remove();
+                    // 若目前為學生端則維持，否則切換至學生端
+                    if (currentView !== 'student') {
+                        switchView('student');
+                    }
+                };
+            }
+
             document.querySelectorAll('[data-lang]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
@@ -1068,12 +1202,20 @@
             });
 
             function render() {
-                if (currentView === 'teacher') renderTeacher();
-                else renderStudent();
+                if (currentView === 'teacher') {
+                    if (!teacherUnlocked) {
+                        // 如果未解鎖但試圖顯示教師視圖，切換到學生端
+                        switchView('student');
+                        return;
+                    }
+                    renderTeacher();
+                } else {
+                    renderStudent();
+                }
             }
 
             // ================================================================
-            // 11. 教師視圖（完整實現）
+            // 11. 教師視圖（完整實現，與原先相同）
             // ================================================================
             const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
             const semesters = ['上學期', '下學期'];
@@ -2122,7 +2264,7 @@
             }
 
             // ================================================================
-            // 20. 開放式錄音綁定（含語言參數）
+            // 20. 開放式錄音綁定（加入最大時長）
             // ================================================================
             function bindOpenRecording(q) {
                 const startBtn = document.getElementById('startRecordBtn');
@@ -2144,12 +2286,38 @@
                 let audioBuffer = [];
                 const SAMPLE_RATE = 16000;
                 let isProcessing = false;
+                let maxTimeReached = false;
 
                 startBtn.onclick = function() { if (!isRecording) startRecording(); };
                 stopBtn.onclick = function() { if (isRecording) stopRecording(); };
 
+                function stopRecordingManually() {
+                    if (isRecording) {
+                        isRecording = false;
+                        dot.className = 'status-dot';
+                        startBtn.disabled = false;
+                        stopBtn.disabled = true;
+                        if (recordTimer) { clearInterval(recordTimer);
+                            recordTimer = null; }
+                        statusText.textContent = '⏹️ ' + t('stopRecording');
+                        if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
+                            mediaStream = null; }
+                        if (audioContext) { audioContext.close();
+                            audioContext = null; }
+                        if (workletNode) { workletNode.disconnect();
+                            workletNode = null; }
+                        if (!maxTimeReached) {
+                            progressContainer.classList.remove('hidden');
+                            progressBar.style.width = '10%';
+                            progressText.textContent = t('progress');
+                            processAudio();
+                        }
+                    }
+                }
+
                 async function startRecording() {
                     audioBuffer = [];
+                    maxTimeReached = false;
                     document.getElementById('scoreResult').classList.add('hidden');
                     progressContainer.classList.add('hidden');
                     progressBar.style.width = '0%';
@@ -2164,6 +2332,17 @@
                         if (recordTimer) clearInterval(recordTimer);
                         recordTimer = setInterval(() => {
                             seconds++;
+                            if (seconds >= MAX_RECORDING_TIME) {
+                                maxTimeReached = true;
+                                statusText.textContent = '⏰ ' + t('maxRecordingTime');
+                                stopRecordingManually();
+                                // 自動觸發處理
+                                progressContainer.classList.remove('hidden');
+                                progressBar.style.width = '10%';
+                                progressText.textContent = t('progress');
+                                processAudio();
+                                return;
+                            }
                             timer.textContent = String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(
                                 seconds % 60).padStart(2, '0');
                         }, 1000);
@@ -2176,23 +2355,9 @@
                 }
 
                 function stopRecording() {
-                    isRecording = false;
-                    dot.className = 'status-dot';
-                    startBtn.disabled = false;
-                    stopBtn.disabled = true;
-                    if (recordTimer) { clearInterval(recordTimer);
-                        recordTimer = null; }
-                    statusText.textContent = '⏹️ ' + t('stopRecording');
-                    progressContainer.classList.remove('hidden');
-                    progressBar.style.width = '10%';
-                    progressText.textContent = t('progress');
-                    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
-                        mediaStream = null; }
-                    if (audioContext) { audioContext.close();
-                        audioContext = null; }
-                    if (workletNode) { workletNode.disconnect();
-                        workletNode = null; }
-                    processAudio();
+                    if (isRecording) {
+                        stopRecordingManually();
+                    }
                 }
 
                 async function initAudioWorklet() {
@@ -2297,6 +2462,17 @@
                 function displayScore(grade) {
                     const resultDiv = document.getElementById('scoreResult');
                     resultDiv.classList.remove('hidden');
+                    // 檢查是否有錯誤
+                    if (grade && grade.error) {
+                        document.getElementById('totalScore').textContent = '--';
+                        document.getElementById('accScore').textContent = '--';
+                        document.getElementById('fluencyScore').textContent = '--';
+                        document.getElementById('integrityScore').textContent = '--';
+                        document.getElementById('suggestionText').innerHTML =
+                            `<strong>⚠️ 評分錯誤：</strong>${grade.error || '未知錯誤'}`;
+                        document.getElementById('scoreSource').textContent = '';
+                        return;
+                    }
                     const factor = 10;
                     document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
                     document.getElementById('accScore').textContent = Math.round((grade.accuracy || 0) * factor);
@@ -2307,13 +2483,15 @@
                     document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
                     document.querySelectorAll('#scoreResult .num').forEach(el => {
                         const val = parseFloat(el.textContent);
-                        el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                        if (!isNaN(val)) {
+                            el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                        }
                     });
                 }
             }
 
             // ================================================================
-            // 21. 半固定式錄音綁定（含語言參數）
+            // 21. 半固定式錄音綁定（加入最大時長）
             // ================================================================
             function bindFixedRecording(q) {
                 const subs = q.subQuestions || [];
@@ -2336,6 +2514,34 @@
                 let audioBuffer = [];
                 const SAMPLE_RATE = 16000;
                 let isProcessing = false;
+                let maxTimeReached = false;
+
+                function stopRecordingManually(idx) {
+                    if (isRecording) {
+                        isRecording = false;
+                        const recordBtn = recordBtns[idx];
+                        const stopBtn = stopBtns[idx];
+                        if (recordBtn) recordBtn.style.display = 'inline-block';
+                        if (stopBtn) stopBtn.style.display = 'none';
+                        if (recordTimer) { clearInterval(recordTimer);
+                            recordTimer = null; }
+                        if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
+                            mediaStream = null; }
+                        if (audioContext) { audioContext.close();
+                            audioContext = null; }
+                        if (workletNode) { workletNode.disconnect();
+                            workletNode = null; }
+                        const statusSpan = document.querySelectorAll('.sq-status')[idx];
+                        if (statusSpan) {
+                            statusSpan.textContent = t('waiting');
+                            statusSpan.className = 'sq-status waiting';
+                        }
+                        if (!maxTimeReached) {
+                            processAudioForSub(idx);
+                        }
+                        updateButtons();
+                    }
+                }
 
                 function updateButtons() {
                     recordBtns.forEach((btn, idx) => {
@@ -2374,6 +2580,7 @@
                     btn.onclick = function() {
                         if (this.disabled) return;
                         currentRecordingIdx = idx;
+                        maxTimeReached = false;
                         this.style.display = 'none';
                         const stopBtn = stopBtns[idx];
                         stopBtn.style.display = 'inline-block';
@@ -2389,7 +2596,7 @@
                 stopBtns.forEach((btn, idx) => {
                     btn.onclick = function() {
                         if (!isRecording) return;
-                        stopRecordingForSub(idx);
+                        stopRecordingManually(idx);
                     };
                 });
 
@@ -2405,35 +2612,28 @@
                             statusSpan.className = 'sq-status';
                         }
                         recordBtns.forEach(b => b.disabled = true);
+                        seconds = 0;
+                        if (recordTimer) clearInterval(recordTimer);
+                        recordTimer = setInterval(() => {
+                            seconds++;
+                            if (seconds >= MAX_RECORDING_TIME) {
+                                maxTimeReached = true;
+                                statusSpan.textContent = '⏰ ' + t('maxRecordingTime');
+                                stopRecordingManually(idx);
+                                // 自動處理音頻
+                                progressContainer.classList.remove('hidden');
+                                progressBar.style.width = '10%';
+                                progressText.textContent = t('progress');
+                                processAudioForSub(idx);
+                                return;
+                            }
+                        }, 1000);
                         updateButtons();
                     } catch (err) {
                         console.error('麥克風錯誤:', err);
                         const statusSpan = document.querySelectorAll('.sq-status')[idx];
                         if (statusSpan) statusSpan.textContent = '❌ 錯誤';
                     }
-                }
-
-                function stopRecordingForSub(idx) {
-                    isRecording = false;
-                    const recordBtn = recordBtns[idx];
-                    const stopBtn = stopBtns[idx];
-                    recordBtn.style.display = 'inline-block';
-                    stopBtn.style.display = 'none';
-                    if (recordTimer) { clearInterval(recordTimer);
-                        recordTimer = null; }
-                    if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop());
-                        mediaStream = null; }
-                    if (audioContext) { audioContext.close();
-                        audioContext = null; }
-                    if (workletNode) { workletNode.disconnect();
-                        workletNode = null; }
-                    const statusSpan = document.querySelectorAll('.sq-status')[idx];
-                    if (statusSpan) {
-                        statusSpan.textContent = t('waiting');
-                        statusSpan.className = 'sq-status waiting';
-                    }
-                    processAudioForSub(idx);
-                    updateButtons();
                 }
 
                 async function initAudioWorklet() {
@@ -2580,6 +2780,18 @@
                 function displayFixedScore(grade) {
                     const resultDiv = document.getElementById('scoreResult');
                     resultDiv.classList.remove('hidden');
+                    // 檢查錯誤
+                    if (grade && grade.error) {
+                        document.getElementById('totalScore').textContent = '--';
+                        document.getElementById('accScore').textContent = '--';
+                        document.getElementById('compScore').textContent = '--';
+                        document.getElementById('integrityScore').textContent = '--';
+                        document.getElementById('suggestionText').innerHTML =
+                            `<strong>⚠️ 評分錯誤：</strong>${grade.error || '未知錯誤'}`;
+                        document.getElementById('scoreSource').textContent = '';
+                        document.getElementById('subFeedback').innerHTML = '';
+                        return;
+                    }
                     const factor = 10;
                     document.getElementById('totalScore').textContent = Math.round((grade.total_score || 0) * factor);
                     let avgAcc = 0,
@@ -2611,7 +2823,9 @@
                     document.getElementById('scoreSource').textContent = t('source') + '：訊飛星火 4.0Ultra (經後端代理)';
                     document.querySelectorAll('#scoreResult .num').forEach(el => {
                         const val = parseFloat(el.textContent);
-                        el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                        if (!isNaN(val)) {
+                            el.className = 'num' + (val >= 80 ? ' good' : val >= 60 ? ' mid' : ' poor');
+                        }
                     });
                     let fbHtml = '';
                     (q.subQuestions || []).forEach((sq, idx) => {
@@ -2657,12 +2871,15 @@
             }
 
             // ================================================================
-            // 23. 初始化
+            // 23. 初始化（預設為學生端）
             // ================================================================
             initConverter();
             startListeningQuestions();
+
+            // 預設顯示學生端（已設定 currentView = 'student'）
             render();
-            console.log('✅ 完整版載入成功：教師輸入不轉繁，語音轉寫結果轉繁，支援中英文評分，關鍵字區域左對齊，含截圖下載。');
+
+            console.log('✅ 完整版載入成功：教師輸入不轉繁，語音轉寫結果轉繁，支援中英文評分，關鍵字區域左對齊，含截圖下載，預設學生端，教師需密碼。');
         })();
     </script>
 </body>
