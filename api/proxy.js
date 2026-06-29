@@ -7,11 +7,11 @@ const API_SECRET = process.env.XUNFEI_API_SECRET;
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
- * 根據語言生成評分 Prompt
+ * 根據語言生成評分提示詞（Prompt）
  * @param {Object} questionInfo - 題目資訊
  * @param {string} answerText - 學生回答（語音轉寫文字）
  * @param {string} lang - 'zh' 或 'en'
- * @returns {string} 完整的系統提示 + 用戶提問
+ * @returns {string} 完整的系統提示 + 使用者提問
  */
 function buildPrompt(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
@@ -171,7 +171,7 @@ function scoreAnswer(questionInfo, answerText, lang) {
             try {
                 const msg = JSON.parse(data);
                 if (msg.header && msg.header.code !== 0) {
-                    reject(new Error(`Spark error: ${msg.header.code}`));
+                    reject(new Error(`Spark 錯誤碼: ${msg.header.code}`));
                     return;
                 }
                 if (msg.payload && msg.payload.choices && msg.payload.choices.text) {
@@ -191,13 +191,13 @@ function scoreAnswer(questionInfo, answerText, lang) {
 
         ws.on('error', (err) => reject(err));
         ws.on('close', () => {
-            if (!finished) reject(new Error('Spark connection closed without result'));
+            if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
         setTimeout(() => {
             if (!finished) {
                 ws.close();
-                reject(new Error('Spark timeout'));
+                reject(new Error('Spark 請求逾時'));
             }
         }, 20000);
     });
@@ -213,14 +213,14 @@ module.exports = async (req, res) => {
         return;
     }
     if (req.method !== 'POST') {
-        res.status(405).json({ error: 'Method not allowed' });
+        res.status(405).json({ error: '不允許的 HTTP 方法' });
         return;
     }
 
     try {
         const { question, textAnswer, lang } = req.body;
         if (!question || !textAnswer) {
-            res.status(400).json({ error: 'Missing question or textAnswer' });
+            res.status(400).json({ error: '缺少 question 或 textAnswer' });
             return;
         }
 
