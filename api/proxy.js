@@ -175,6 +175,12 @@ All scores must be numbers with one decimal place.`
  */
 function scoreAnswer(questionInfo, answerText, lang) {
     return new Promise((resolve, reject) => {
+        // 截斷 textAnswer 至 200 字元
+        let truncatedAnswer = answerText;
+        if (answerText.length > 200) {
+            truncatedAnswer = answerText.substring(0, 200) + '...(截斷)';
+        }
+
         const urlObj = new URL(SPARK_URL);
         const host = urlObj.host;
         const path = urlObj.pathname;
@@ -192,7 +198,7 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let resultText = '';
         let finished = false;
 
-        const prompt = buildPrompt(questionInfo, answerText, lang);
+        const prompt = buildPrompt(questionInfo, truncatedAnswer, lang);
 
         // 系統訊息（依語言）
         const systemContent = lang === 'zh' ? '你是一個專業的普通話口語評測助手，請嚴格按照要求輸出 JSON。' : 'You are a professional Mandarin speaking assessment assistant. Output strictly in JSON as required.';
@@ -290,6 +296,7 @@ module.exports = async (req, res) => {
             if (match) jsonStr = match[0];
             scoreJSON = JSON.parse(jsonStr);
         } catch (e) {
+            // 解析失敗時回傳錯誤物件
             scoreJSON = { error: '評分解析失敗', raw: scoreRaw };
         }
         res.status(200).json({ score: scoreJSON });
