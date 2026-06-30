@@ -7,79 +7,38 @@ const API_SECRET = process.env.XUNFEI_API_SECRET;
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
- * 根據語言生成評分提示詞
- * - 若 lang === 'zh'，使用中文提示詞 + 中文輸出
- * - 若 lang === 'en'，使用中文提示詞（評分規則精確），但要求所有文字輸出為英文
+ * 僅組裝動態 user 訊息（不含任何評分規則，規則已在調適中心預設）
  */
-function buildPrompt(questionInfo, answerText, lang) {
+function buildDynamicUserMessage(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
-    const refAnswer = questionInfo.refAnswer || '';
-    const keywords = (questionInfo.keywords || []).join('、');
-    const subQs = questionInfo.subQuestions || [];
-
-    // ---- 中文提示詞（完整、嚴謹） ----
-    const coreInstructionZh = `你收到的是語音轉寫文字，非書面文字。評分時：
-- 語音準確度：根據轉寫流暢度與相關性推斷發音清晰度。同音字（如「可譽」轉為「可遇」）視為正確，不扣分。
-- 嚴禁使用「寫」、「錯字」等詞語。
-- 評語必須使用標準繁體中文書面語，嚴禁任何粵語口語詞彙（例如：嘅、咁、佢、仲、乜、啲、攞、睇、食、話、冇、係、嚟、嘢、掂、點解、點樣）。請使用「的、這、他、還、什麼、些、拿、看、吃、說、沒有、是、來、東西、好、為什麼、怎樣」等對應書面語。
-- 語氣須鼓勵、小學生能懂。
-- 內容以參考答案為準，關鍵詞僅供參考（可能含干擾項）。`;
-
-    const completenessRuleZh = `完整性：必須是完整句子（主謂賓齊全，複述問題主幹）。僅詞語或片語最高60分，部分句子60-90分，完整句子100分。`;
-
-    const richnessRuleZh = `豐富度（僅開放式）：綜合結構（時人地事、起承轉合）、情節擴充、詞彙多樣性、修飾語運用，四項平均。`;
-
-    // ---- 根據題型組裝提示詞 ----
-    let prompt = '';
+    let userContent = '';
 
     if (isOpen) {
-        prompt = `題目：開放式看圖說故事
-參考答案：${refAnswer}
-關鍵字（可能含干擾項）：${keywords}
+        userContent = `題型：開放式看圖說故事
+參考答案：${questionInfo.refAnswer || ''}
+關鍵字（可能含干擾項）：${(questionInfo.keywords || []).join('、')}
 學生轉寫：${answerText}
 
-${coreInstructionZh}
-${richnessRuleZh}
-
-評分維度（0-10，一位小數）：
-1. 內容相關性（accuracy）：緊扣主題與參考答案。
-2. 豐富度（fluency）：按上述標準。
-3. 語音準確度（integrity）：按上述標準。
-
-輸出 JSON：{"accuracy":分數, "fluency":分數, "integrity":分數, "total_score":平均分, "suggestion":"建議"}`;
+請依預設規則輸出 JSON。`;
     } else {
-        let subPrompt = '';
-        subQs.forEach((sq, i) => {
-            const sqRef = sq.answer || '';
-            const sqKw = (sq.keywords || []).join('、');
-            subPrompt += `子問題${i+1}：${sq.question}\n參考答案：${sqRef}\n關鍵字：${sqKw}\n`;
+        let subText = '';
+        (questionInfo.subQuestions || []).forEach((sq, i) => {
+            subText += `子問題${i+1}：${sq.question}\n參考答案：${sq.answer || ''}\n關鍵字：${(sq.keywords || []).join('、')}\n`;
         });
+        userContent = `題型：半固定式看圖答問題\n${subText}\n學生轉寫（逐題）：${answerText}
 
-        prompt = `題目：半固定式看圖答問題
-${subPrompt}
-學生轉寫（逐題）：${answerText}
-
-${coreInstructionZh}
-${completenessRuleZh}
-
-評分（每子題0-10，一位小數）：
-- 內容相關性（accuracy）：是否切題、用關鍵字（但以參考答案為準）。
-- 完整性（completeness）：按上述標準。
-- 語音準確度（integrity）：按上述標準。
-
-輸出 JSON：{"sub_scores":[{"accuracy":分數, "completeness":分數, "integrity":分數, "comment":"評語"}, ...], "total_score":平均分, "suggestion":"整體建議"}`;
+請依預設規則輸出 JSON。`;
     }
 
-    // ---- 若語言為英文，附加輸出語言指令 ----
-    if (lang === 'en') {
-        prompt += `\n\n重要：請嚴格遵循上述所有中文評分規則，但所有評語、建議、comment 欄位必須以英文輸出。輸出 JSON 的鍵名保持不變（如 accuracy, fluency, integrity, total_score, suggestion, sub_scores, comment）。`;
-    }
+    // 明確標示當前語言，讓模型根據預設指令決定輸出語言
+    const langHint = lang === 'en' ? 'Current language: English' : '當前語言：繁體中文';
+    userContent += `\n\n${langHint}`;
 
-    return prompt;
+    return userContent;
 }
 
 /**
- * 呼叫星火大模型進行評分
+ * 呼叫星火大模型進行評分（僅發送 user 訊息）
  */
 function scoreAnswer(questionInfo, answerText, lang) {
     return new Promise((resolve, reject) => {
@@ -106,17 +65,20 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let resultText = '';
         let finished = false;
 
-        const prompt = buildPrompt(questionInfo, truncated, lang);
-        // 系統訊息：根據語言設定，但評分規則已在提示詞中明確
-        const systemContent = lang === 'zh' 
-            ? '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。' 
-            : 'You are a professional Mandarin speaking assessment assistant. Follow the Chinese scoring rules above, but output all textual comments and suggestions in English. Output strictly in JSON.';
+        const userMessage = buildDynamicUserMessage(questionInfo, truncated, lang);
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
                 header: { app_id: APPID, uid: 'student' },
                 parameter: { chat: { domain: '4.0Ultra', temperature: 0.3, max_tokens: 1024, top_k: 5 } },
-                payload: { message: { text: [ { role: 'system', content: systemContent }, { role: 'user', content: prompt } ] } }
+                payload: {
+                    message: {
+                        text: [
+                            // 不再發送 system，完全依賴調適中心預設指令
+                            { role: 'user', content: userMessage }
+                        ]
+                    }
+                }
             }));
         });
 
@@ -147,7 +109,7 @@ function scoreAnswer(questionInfo, answerText, lang) {
             if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
-        // 超時時間延長至 30 秒
+        // 超時 30 秒
         setTimeout(() => {
             if (!finished) {
                 ws.close();
@@ -184,8 +146,15 @@ module.exports = async (req, res) => {
         const hasChinese = /[\u4e00-\u9fa5]/.test(textAnswer);
         if (!hasChinese) {
             const subCount = (question.subQuestions || []).length;
-            const subScores = subCount > 0 ? question.subQuestions.map(() => ({ accuracy: 0.0, completeness: 0.0, integrity: 0.0, comment: useLang === 'zh' ? '未使用普通話作答' : 'Not answered in Mandarin' })) : [];
-            const suggestion = useLang === 'zh' ? '檢測到英文或非中文回應，請以普通話作答。' : 'English or non-Chinese detected, please answer in Mandarin.';
+            const subScores = subCount > 0 ? question.subQuestions.map(() => ({
+                accuracy: 0.0,
+                completeness: 0.0,
+                integrity: 0.0,
+                comment: useLang === 'zh' ? '未使用普通話作答' : 'Not answered in Mandarin'
+            })) : [];
+            const suggestion = useLang === 'zh'
+                ? '檢測到英文或非中文回應，請以普通話作答。'
+                : 'English or non-Chinese detected, please answer in Mandarin.';
             res.status(200).json({
                 score: {
                     total_score: 0.0,
