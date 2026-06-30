@@ -767,7 +767,7 @@
             const BACKEND_URL = '/api/proxy';
 
             // ================================================================
-            // 3. 語言包（完整保留，增加翻譯項）
+            // 3. 語言包（修改英文翻譯：Putonghua）
             // ================================================================
             const LANG = {
                 zh: {
@@ -1125,20 +1125,23 @@
             const MAX_RECORDING_TIME = 90;
 
             // ================================================================
-            // 9. Firestore 即時監聽
+            // 9. Firestore 即時監聽，並按標題排序（拼音順序）
             // ================================================================
             let unsubscribeQuestions = null;
 
             function startListeningQuestions() {
                 if (unsubscribeQuestions) unsubscribeQuestions();
                 unsubscribeQuestions = db.collection('questions')
-                    .orderBy('updatedAt', 'desc')
+                    .orderBy('updatedAt', 'desc') // 依然監聽更新，但排序在客戶端
                     .onSnapshot((snapshot) => {
-                        questions = [];
+                        const rawQuestions = [];
                         snapshot.forEach(doc => {
                             const data = doc.data();
-                            questions.push({ id: doc.id, ...data });
+                            rawQuestions.push({ id: doc.id, ...data });
                         });
+                        // 客戶端按標題排序（中文按拼音首字母）
+                        rawQuestions.sort((a, b) => a.title.localeCompare(b.title, 'zh-Hans-CN'));
+                        questions = rawQuestions;
                         render();
                     }, (error) => {
                         console.error('Firestore 監聽錯誤:', error);
@@ -2285,7 +2288,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 20. 語音識別
+            // 20. 語音識別（保持 accent 為 mandarin）
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -2970,7 +2973,6 @@
             startListeningQuestions();
             updateTopBar(); // 初始化頂欄翻譯
             render();
-            // 移除控制台日誌
         })();
     </script>
 </body>
