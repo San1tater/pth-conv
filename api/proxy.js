@@ -7,7 +7,9 @@ const API_SECRET = process.env.XUNFEI_API_SECRET;
 const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
- * 根據語言生成評分提示詞（精簡版，強化粵語禁止）
+ * 根據語言生成評分提示詞
+ * - 當 lang = 'zh' 時，使用中文提示詞，輸出中文評語。
+ * - 當 lang = 'en' 時，重用中文提示詞（確保評分嚴謹），但要求評語欄位以英文輸出。
  */
 function buildPrompt(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
@@ -15,110 +17,65 @@ function buildPrompt(questionInfo, answerText, lang) {
     const keywords = (questionInfo.keywords || []).join('、');
     const subQs = questionInfo.subQuestions || [];
 
-    // 共用核心說明（強化粵語禁止）
-    const coreInstruction = {
-        zh: `你收到的是語音轉寫文字，非書面文字。評分時：
+    // 核心中文提示詞（完整、嚴謹）
+    const coreInstructionZh = `你收到的是語音轉寫文字，非書面文字。評分時：
 - 語音準確度：根據轉寫流暢度與相關性推斷發音清晰度。同音字（如「可譽」轉為「可遇」）視為正確，不扣分。
 - 嚴禁使用「寫」、「錯字」等詞語。
 - 評語必須使用標準繁體中文書面語，嚴禁任何粵語口語詞彙（例如：嘅、咁、佢、仲、乜、啲、攞、睇、食、話、冇、係、嚟、嘢、掂、點解、點樣）。請使用「的、這、他、還、什麼、些、拿、看、吃、說、沒有、是、來、東西、好、為什麼、怎樣」等對應書面語。
 - 語氣須鼓勵、小學生能懂。
-- 內容以參考答案為準，關鍵詞僅供參考（可能含干擾項）。`,
-        en: `You receive speech-to-text, not written text. Scoring rules:
-- Pronunciation accuracy: infer clarity from fluency/relevance. Homophones (e.g., "可譽"->"可遇") are correct, no deduction.
-- Do NOT use "write", "spelling" etc.
-- Comments must be in formal English (no slang, no informal expressions).
-- Use encouraging tone, understandable by primary students.
-- Base on reference answer; keywords are for reference (may contain distractors).`
-    };
+- 內容以參考答案為準，關鍵詞僅供參考（可能含干擾項）。`;
 
-    // 完整性評分標準（精簡）
-    const completenessRule = {
-        zh: `完整性：必須是完整句子（主謂賓齊全，複述問題主幹）。僅詞語或片語最高60分，部分句子60-90分，完整句子100分。`,
-        en: `Completeness: full sentence with subject-verb-object, restating question core. Word/phrase max 60, partial 60-90, full 100.`
-    };
+    const completenessRuleZh = `完整性：必須是完整句子（主謂賓齊全，複述問題主幹）。僅詞語或片語最高60分，部分句子60-90分，完整句子100分。`;
 
-    // 豐富度評分標準（僅開放式）
-    const richnessRule = {
-        zh: `豐富度（僅開放式）：綜合結構（時人地事、起承轉合）、情節擴充、詞彙多樣性、修飾語運用，四項平均。`,
-        en: `Richness (only open): average of structure (time/people/place/event), plot expansion, vocabulary variety, modifier use.`
-    };
+    const richnessRuleZh = `豐富度（僅開放式）：綜合結構（時人地事、起承轉合）、情節擴充、詞彙多樣性、修飾語運用，四項平均。`;
+
+    // 判斷是否要求輸出英文評語
+    const outputEnglishComment = (lang === 'en');
+    const commentInstruction = outputEnglishComment ? '輸出 JSON 中的 suggestion 和 comment 欄位必須使用英文。' : '';
 
     let prompt = '';
 
     if (isOpen) {
-        const openTemplate = {
-            zh: `題目：開放式看圖說故事
+        const openTemplateZh = `題目：開放式看圖說故事
 參考答案：${refAnswer}
 關鍵字（可能含干擾項）：${keywords}
 學生轉寫：${answerText}
 
-${coreInstruction.zh}
-${richnessRule.zh}
+${coreInstructionZh}
+${richnessRuleZh}
+${commentInstruction}
 
 評分維度（0-10，一位小數）：
 1. 內容相關性（accuracy）：緊扣主題與參考答案。
 2. 豐富度（fluency）：按上述標準。
 3. 語音準確度（integrity）：按上述標準。
 
-輸出 JSON：{"accuracy":分數, "fluency":分數, "integrity":分數, "total_score":平均分, "suggestion":"建議"}`,
-            en: `Open-ended story telling
-Reference: ${refAnswer}
-Keywords (may have distractors): ${keywords}
-Transcription: ${answerText}
-
-${coreInstruction.en}
-${richnessRule.en}
-
-Scores (0-10, 1 decimal):
-1. Content relevance (accuracy): on topic and reference.
-2. Richness (fluency): as above.
-3. Pronunciation (integrity): as above.
-
-Output JSON: {"accuracy":score, "fluency":score, "integrity":score, "total_score":avg, "suggestion":"advice"}`
-        };
-        prompt = openTemplate[lang];
+輸出 JSON：{"accuracy":分數, "fluency":分數, "integrity":分數, "total_score":平均分, "suggestion":"建議"}`;
+        prompt = openTemplateZh;
     } else {
         // 半固定式
         let subPrompt = '';
         subQs.forEach((sq, i) => {
             const sqRef = sq.answer || '';
             const sqKw = (sq.keywords || []).join('、');
-            if (lang === 'zh') {
-                subPrompt += `子問題${i+1}：${sq.question}\n參考答案：${sqRef}\n關鍵字：${sqKw}\n`;
-            } else {
-                subPrompt += `SubQ${i+1}: ${sq.question}\nRef: ${sqRef}\nKeywords: ${sqKw}\n`;
-            }
+            subPrompt += `子問題${i+1}：${sq.question}\n參考答案：${sqRef}\n關鍵字：${sqKw}\n`;
         });
 
-        const fixedTemplate = {
-            zh: `題目：半固定式看圖答問題
+        const fixedTemplateZh = `題目：半固定式看圖答問題
 ${subPrompt}
 學生轉寫（逐題）：${answerText}
 
-${coreInstruction.zh}
-${completenessRule.zh}
+${coreInstructionZh}
+${completenessRuleZh}
+${commentInstruction}
 
 評分（每子題0-10，一位小數）：
 - 內容相關性（accuracy）：是否切題、用關鍵字（但以參考答案為準）。
 - 完整性（completeness）：按上述標準。
 - 語音準確度（integrity）：按上述標準。
 
-輸出 JSON：{"sub_scores":[{"accuracy":分數, "completeness":分數, "integrity":分數, "comment":"評語"}, ...], "total_score":平均分, "suggestion":"整體建議"}`,
-            en: `Fixed Q&A based on picture
-${subPrompt}
-Transcriptions: ${answerText}
-
-${coreInstruction.en}
-${completenessRule.en}
-
-Scores per subQ (0-10, 1 decimal):
-- Content relevance (accuracy): on topic, use keywords (but reference first).
-- Completeness: as above.
-- Pronunciation (integrity): as above.
-
-Output JSON: {"sub_scores":[{"accuracy":score, "completeness":score, "integrity":score, "comment":"comment"}, ...], "total_score":avg, "suggestion":"overall"}`
-        };
-        prompt = fixedTemplate[lang];
+輸出 JSON：{"sub_scores":[{"accuracy":分數, "completeness":分數, "integrity":分數, "comment":"評語"}, ...], "total_score":平均分, "suggestion":"整體建議"}`;
+        prompt = fixedTemplateZh;
     }
 
     return prompt;
@@ -153,7 +110,11 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let finished = false;
 
         const prompt = buildPrompt(questionInfo, truncated, lang);
-        const systemContent = lang === 'zh' ? '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。' : 'You are a Mandarin speaking assessment assistant. Output strictly in JSON, using formal English, no slang.';
+        // 系統訊息：根據語言調整，若為英文則要求評語用英文
+        let systemContent = '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。';
+        if (lang === 'en') {
+            systemContent += ' 請將輸出 JSON 中的 suggestion 和 comment 欄位使用英文填寫。';
+        }
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
@@ -190,7 +151,7 @@ function scoreAnswer(questionInfo, answerText, lang) {
             if (!finished) reject(new Error('Spark 連線關閉，未取得結果'));
         });
 
-        // 超時時間延長至 30 秒（解決偶發 500）
+        // 超時時間延長至 30 秒
         setTimeout(() => {
             if (!finished) {
                 ws.close();
