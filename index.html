@@ -728,11 +728,11 @@
 <body>
     <div id="app">
         <div class="top-bar">
-            <h1>🎙️ 普通話語音評測</h1>
+            <h1 id="appTitle">🎙️ 普通話語音評測</h1>
             <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <div class="view-tabs">
-                    <button data-view="teacher">👩‍🏫 教師</button>
-                    <button class="active" data-view="student">🧑‍🎓 學生</button>
+                    <button data-view="teacher" id="teacherTabBtn">👩‍🏫 教師</button>
+                    <button class="active" data-view="student" id="studentTabBtn">🧑‍🎓 學生</button>
                 </div>
                 <div class="lang-switch">
                     <button class="active" data-lang="zh">繁體</button>
@@ -767,10 +767,13 @@
             const BACKEND_URL = '/api/proxy';
 
             // ================================================================
-            // 3. 語言包（完整保留）
+            // 3. 語言包（完整保留，增加翻譯項）
             // ================================================================
             const LANG = {
                 zh: {
+                    appTitle: '普通話語音評測',
+                    teacherTab: '教師',
+                    studentTab: '學生',
                     grade: '年級',
                     semester: '學期',
                     questionList: '題目列表',
@@ -833,9 +836,14 @@
                     teacherPasswordRequired: '請輸入教師密碼',
                     passwordError: '密碼錯誤，請重試',
                     unlock: '解鎖',
-                    maxRecordingTime: '錄音已達90秒上限，自動停止。'
+                    maxRecordingTime: '錄音已達90秒上限，自動停止。',
+                    gradeList: ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'],
+                    semesterList: ['上學期', '下學期']
                 },
                 en: {
+                    appTitle: 'Mandarin Speech Assessment',
+                    teacherTab: 'Teacher',
+                    studentTab: 'Student',
                     grade: 'Grade',
                     semester: 'Semester',
                     questionList: 'Question List',
@@ -898,12 +906,33 @@
                     teacherPasswordRequired: 'Please enter teacher password',
                     passwordError: 'Wrong password, please try again',
                     unlock: 'Unlock',
-                    maxRecordingTime: 'Recording reached 90-second limit, auto-stopped.'
+                    maxRecordingTime: 'Recording reached 90-second limit, auto-stopped.',
+                    gradeList: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'],
+                    semesterList: ['First Semester', 'Second Semester']
                 }
             };
             let currentLang = 'zh';
 
             function t(key) { return LANG[currentLang][key] || key; }
+
+            // 獲取當前語言下的年級和學期列表（用於顯示）
+            function getCurrentGradeList() { return LANG[currentLang].gradeList; }
+            function getCurrentSemesterList() { return LANG[currentLang].semesterList; }
+            // 中文基準列表（用於 value）
+            const ZH_GRADE_LIST = LANG.zh.gradeList;
+            const ZH_SEMESTER_LIST = LANG.zh.semesterList;
+
+            // 輔助函數：將中文年級/學期轉換為當前語言顯示
+            function getGradeDisplay(grade) {
+                const idx = ZH_GRADE_LIST.indexOf(grade);
+                if (idx !== -1) return getCurrentGradeList()[idx];
+                return grade;
+            }
+            function getSemesterDisplay(semester) {
+                const idx = ZH_SEMESTER_LIST.indexOf(semester);
+                if (idx !== -1) return getCurrentSemesterList()[idx];
+                return semester;
+            }
 
             // ================================================================
             // 4. 簡繁轉換（用於語音轉寫內容及系統提示）
@@ -948,7 +977,7 @@
             }
 
             // ================================================================
-            // 6. 拼音工具（pinyin-pro）
+            // 6. 拼音工具（pinyin-pro），修改：將聲調5改為0（輕聲）
             // ================================================================
             function generatePinyinNum(text) {
                 if (!text || typeof text !== 'string') return '';
@@ -962,11 +991,15 @@
                     const result = parts.map(word => {
                         const simplified = toSimplified(word);
                         if (!simplified) return '';
-                        const py = p(simplified, {
+                        let py = p(simplified, {
                             toneType: 'num',
                             v: true,
                             mode: 'normal'
                         });
+                        // 將聲調5（輕聲）替換為0
+                        if (py) {
+                            py = py.replace(/\b5\b/g, '0');
+                        }
                         return py || '';
                     });
                     return result.join(', ');
@@ -976,8 +1009,7 @@
                 }
             }
 
-            // 将数字声调拼音转为带声调符号的字符串（用于显示）
-            // 修正：正确标注 iu 和 ui 的声调位置
+            // 将数字声调拼音转为带声调符号的字符串（用于显示），处理声调0（轻声）
             function pinyinNumToHtml(numPinyin) {
                 if (!numPinyin) return '';
                 const words = numPinyin.split(',').map(s => s.trim()).filter(s => s.length > 0);
@@ -988,6 +1020,8 @@
                         if (!match) return syl;
                         let base = match[1];
                         const tone = parseInt(match[2], 10);
+                        // 輕聲（0）直接返回 base
+                        if (tone === 0) return base;
                         // 主元音選擇規則：a > o > e > (iu -> u, ui -> i) > u > i > ü
                         let mainVowel = '';
                         let idx = -1;
@@ -1211,11 +1245,22 @@
                 };
             }
 
+            // ================================================================
+            // 11. 更新頂欄（語言切換時調用）
+            // ================================================================
+            function updateTopBar() {
+                document.getElementById('appTitle').textContent = `🎙️ ${t('appTitle')}`;
+                document.getElementById('teacherTabBtn').textContent = `👩‍🏫 ${t('teacherTab')}`;
+                document.getElementById('studentTabBtn').textContent = `🧑‍🎓 ${t('studentTab')}`;
+            }
+
+            // 語言切換事件
             document.querySelectorAll('[data-lang]').forEach(btn => {
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('[data-lang]').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
                     currentLang = this.dataset.lang;
+                    updateTopBar();
                     render();
                 });
             });
@@ -1233,10 +1278,11 @@
             }
 
             // ================================================================
-            // 11. 教師視圖
+            // 12. 教師視圖
             // ================================================================
-            const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
-            const semesters = ['上學期', '下學期'];
+            // 使用 LANG 中的列表，但 value 用中文
+            const zhGrades = LANG.zh.gradeList;
+            const zhSemesters = LANG.zh.semesterList;
 
             function renderTeacher() {
                 if (!teacherFilterGrade) teacherFilterGrade = '';
@@ -1252,11 +1298,11 @@
                             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
                                 <select id="filterGrade" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
                                     <option value="">${t('grade')}</option>
-                                    ${grades.map(g => `<option value="${g}" ${teacherFilterGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                                    ${zhGrades.map((val, idx) => `<option value="${val}" ${teacherFilterGrade === val ? 'selected' : ''}>${getCurrentGradeList()[idx]}</option>`).join('')}
                                 </select>
                                 <select id="filterSemester" onchange="window.applyFilter()" style="padding:4px 8px; border-radius:8px; border:1px solid #dce1e8;">
                                     <option value="">${t('semester')}</option>
-                                    ${semesters.map(s => `<option value="${s}" ${teacherFilterSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                    ${zhSemesters.map((val, idx) => `<option value="${val}" ${teacherFilterSemester === val ? 'selected' : ''}>${getCurrentSemesterList()[idx]}</option>`).join('')}
                                 </select>
                             </div>
                             <div id="questionListContainer">${renderQuestionList()}</div>
@@ -1286,11 +1332,14 @@
                 let html = '';
                 filtered.forEach(q => {
                     const sel = (editingQuestionId === q.id) ? 'selected' : '';
+                    // 顯示翻譯後的年級學期
+                    const gradeDisplay = getGradeDisplay(q.grade);
+                    const semDisplay = getSemesterDisplay(q.semester);
                     html += `
                         <div class="list-item ${sel}" onclick="window.selectQuestion('${q.id}')" data-id="${q.id}">
                             <div class="info">
                                 <div class="title">${q.title}</div>
-                                <div class="meta">${q.grade} · ${q.semester} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
+                                <div class="meta">${gradeDisplay} · ${semDisplay} · ${q.type === 'open' ? t('open') : t('fixed')}</div>
                             </div>
                             <div class="actions">
                                 <button class="btn btn-outline btn-sm" onclick="event.stopPropagation(); window.editQuestion('${q.id}')">✎</button>
@@ -1381,11 +1430,11 @@
                         <div class="view-only">
                             <div class="form-group">
                                 <label>${t('grade')}</label>
-                                <div class="readonly-value">${q.grade}</div>
+                                <div class="readonly-value">${getGradeDisplay(q.grade)}</div>
                             </div>
                             <div class="form-group">
                                 <label>${t('semester')}</label>
-                                <div class="readonly-value">${q.semester}</div>
+                                <div class="readonly-value">${getSemesterDisplay(q.semester)}</div>
                             </div>
                             <div class="form-group">
                                 <label>${t('type')}</label>
@@ -1459,13 +1508,13 @@
                     <div class="form-group">
                         <label>${t('grade')}</label>
                         <select id="editGrade" class="sync-grade">
-                            ${grades.map(g => `<option value="${g}" ${displayGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                            ${zhGrades.map((val, idx) => `<option value="${val}" ${displayGrade === val ? 'selected' : ''}>${getCurrentGradeList()[idx]}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
                         <label>${t('semester')}</label>
                         <select id="editSemester" class="sync-semester">
-                            ${semesters.map(s => `<option value="${s}" ${displaySemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            ${zhSemesters.map((val, idx) => `<option value="${val}" ${displaySemester === val ? 'selected' : ''}>${getCurrentSemesterList()[idx]}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group"><label>${t('title')}</label><input id="editTitle" value="${q.title || ''}" /></div>
@@ -1556,7 +1605,7 @@
             }
 
             // ================================================================
-            // 12. 拼音生成綁定
+            // 13. 拼音生成綁定
             // ================================================================
             function bindPinyinGenerateButtons() {}
 
@@ -1589,7 +1638,7 @@
             };
 
             // ================================================================
-            // 13. 年級學期同步
+            // 14. 年級學期同步
             // ================================================================
             function bindGradeSemesterSync() {
                 const editGrade = document.getElementById('editGrade');
@@ -1680,7 +1729,7 @@
             }
 
             // ================================================================
-            // 14. 拖拽排序
+            // 15. 拖拽排序
             // ================================================================
             function bindDragDropEvents() {
                 const subQuestions = document.querySelectorAll('.sub-question');
@@ -1723,7 +1772,7 @@
             }
 
             // ================================================================
-            // 15. 教師操作（Firestore）
+            // 16. 教師操作（Firestore）
             // ================================================================
             window.startNewQuestion = function() {
                 const filterGrade = document.getElementById('filterGrade')?.value || '一年級';
@@ -1760,10 +1809,36 @@
             };
 
             window.selectQuestion = function(id) {
-                isEditingMode = false;
-                isNewQuestion = false;
-                originalQuestionData = null;
+                // 放棄當前編輯（如有未保存修改）
+                if (isEditingMode) {
+                    if (isNewQuestion && editingQuestionId) {
+                        // 刪除新建未保存的題目
+                        db.collection('questions').doc(editingQuestionId).delete().catch(() => {});
+                        const index = questions.findIndex(q => q.id === editingQuestionId);
+                        if (index !== -1) questions.splice(index, 1);
+                        isNewQuestion = false;
+                        originalQuestionData = null;
+                        editingQuestionId = null;
+                        isEditingMode = false;
+                    } else if (originalQuestionData) {
+                        // 還原已有題目的修改
+                        const q = questions.find(q => q.id === editingQuestionId);
+                        if (q) Object.assign(q, originalQuestionData);
+                        originalQuestionData = null;
+                        isEditingMode = false;
+                        isNewQuestion = false;
+                    } else {
+                        // 其他情況強制退出編輯
+                        isEditingMode = false;
+                        isNewQuestion = false;
+                        originalQuestionData = null;
+                    }
+                }
+
+                // 切換到目標題目
                 editingQuestionId = id;
+                isEditingMode = false; // 確保是查看模式
+                isNewQuestion = false;
                 const q = questions.find(q => q.id === id);
                 if (q) {
                     const fg = document.getElementById('filterGrade');
@@ -1863,16 +1938,13 @@
                 render();
             };
 
-            // 修正：刪除子問題前先保存當前所有子問題內容
             window.removeSubQuestion = function(btn) {
                 const div = btn.closest('.sub-question');
                 const idx = parseInt(div.dataset.index, 10);
                 if (isNaN(idx)) return;
                 const q = questions.find(q => q.id === editingQuestionId);
                 if (q && q.subQuestions && q.subQuestions.length > idx) {
-                    // 先保存當前所有子問題的輸入內容
                     saveCurrentSubQuestions(q);
-                    // 再執行刪除
                     q.subQuestions.splice(idx, 1);
                     render();
                 }
@@ -1958,7 +2030,6 @@
                     .catch(err => {
                         console.error('更新失敗:', err);
                         alert('儲存失敗：' + (err.message || '請檢查網路或圖片大小，並重試。'));
-                        // 儲存失敗時，內容仍保留在記憶體中，使用者可重試
                     });
             };
 
@@ -1997,7 +2068,7 @@
             };
 
             // ================================================================
-            // 16. 學生視圖
+            // 17. 學生視圖
             // ================================================================
             function renderStudent() {
                 if (studentSelectedQuestionId) { renderStudentAnswer(); return; }
@@ -2006,13 +2077,13 @@
                         <div class="form-group"><label>${t('grade')}</label>
                             <select id="studentGrade" onchange="window.filterStudentQuestions()">
                                 <option value="">${t('pleaseSelect')}</option>
-                                ${grades.map(g => `<option value="${g}" ${selectedGrade === g ? 'selected' : ''}>${g}</option>`).join('')}
+                                ${zhGrades.map((val, idx) => `<option value="${val}" ${selectedGrade === val ? 'selected' : ''}>${getCurrentGradeList()[idx]}</option>`).join('')}
                             </select>
                         </div>
                         <div class="form-group"><label>${t('semester')}</label>
                             <select id="studentSemester" onchange="window.filterStudentQuestions()">
                                 <option value="">${t('pleaseSelect')}</option>
-                                ${semesters.map(s => `<option value="${s}" ${selectedSemester === s ? 'selected' : ''}>${s}</option>`).join('')}
+                                ${zhSemesters.map((val, idx) => `<option value="${val}" ${selectedSemester === val ? 'selected' : ''}>${getCurrentSemesterList()[idx]}</option>`).join('')}
                             </select>
                         </div>
                     </div>
@@ -2060,7 +2131,7 @@
             };
 
             // ================================================================
-            // 17. 學生答題視圖
+            // 18. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -2192,7 +2263,7 @@
             }
 
             // ================================================================
-            // 18. 音頻工具
+            // 19. 音頻工具
             // ================================================================
             const audioWorkletBlobUrl = URL.createObjectURL(new Blob([`
                 class PCMProcessor extends AudioWorkletProcessor {
@@ -2214,7 +2285,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 19. 語音識別
+            // 20. 語音識別
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -2290,7 +2361,7 @@
             }
 
             // ================================================================
-            // 20. 開放式錄音綁定
+            // 21. 開放式錄音綁定
             // ================================================================
             function bindOpenRecording(q) {
                 const startBtn = document.getElementById('startRecordBtn');
@@ -2362,7 +2433,6 @@
                                 maxTimeReached = true;
                                 statusText.textContent = '⏰ ' + t('maxRecordingTime');
                                 stopRecordingManually();
-                                // 自動觸發處理
                                 progressContainer.classList.remove('hidden');
                                 progressBar.style.width = '10%';
                                 progressText.textContent = t('progress');
@@ -2516,7 +2586,7 @@
             }
 
             // ================================================================
-            // 21. 半固定式錄音綁定
+            // 22. 半固定式錄音綁定
             // ================================================================
             function bindFixedRecording(q) {
                 const subs = q.subQuestions || [];
@@ -2645,7 +2715,6 @@
                                 maxTimeReached = true;
                                 statusSpan.textContent = '⏰ ' + t('maxRecordingTime');
                                 stopRecordingManually(idx);
-                                // 自動處理音頻
                                 progressContainer.classList.remove('hidden');
                                 progressBar.style.width = '10%';
                                 progressText.textContent = t('progress');
@@ -2869,7 +2938,7 @@
             }
 
             // ================================================================
-            // 22. 截圖下載
+            // 23. 截圖下載
             // ================================================================
             function downloadScreenshot() {
                 const element = document.getElementById('answerArea') || document.getElementById('mainContent');
@@ -2895,12 +2964,13 @@
             }
 
             // ================================================================
-            // 23. 初始化
+            // 24. 初始化
             // ================================================================
             initConverter();
             startListeningQuestions();
+            updateTopBar(); // 初始化頂欄翻譯
             render();
-            console.log('✅ 完整版載入成功：教師輸入不轉繁，語音轉寫結果轉繁，支援中英文評分，關鍵字區域左對齊，含截圖下載，預設學生端，教師需密碼。');
+            // 移除控制台日誌
         })();
     </script>
 </body>
