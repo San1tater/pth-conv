@@ -8,8 +8,8 @@ const SPARK_URL = 'wss://spark-api.xf-yun.com/v4.0/chat';
 
 /**
  * 根據語言生成評分提示詞
- * - 當 lang = 'zh' 時，使用中文提示詞，輸出中文評語。
- * - 當 lang = 'en' 時，重用中文提示詞（確保評分嚴謹），但要求評語欄位以英文輸出。
+ * - 若 lang === 'zh'，使用中文提示詞 + 中文輸出
+ * - 若 lang === 'en'，使用中文提示詞（評分規則精確），但要求所有文字輸出為英文
  */
 function buildPrompt(questionInfo, answerText, lang) {
     const isOpen = questionInfo.type === 'open';
@@ -17,7 +17,7 @@ function buildPrompt(questionInfo, answerText, lang) {
     const keywords = (questionInfo.keywords || []).join('、');
     const subQs = questionInfo.subQuestions || [];
 
-    // 核心中文提示詞（完整、嚴謹）
+    // ---- 中文提示詞（完整、嚴謹） ----
     const coreInstructionZh = `你收到的是語音轉寫文字，非書面文字。評分時：
 - 語音準確度：根據轉寫流暢度與相關性推斷發音清晰度。同音字（如「可譽」轉為「可遇」）視為正確，不扣分。
 - 嚴禁使用「寫」、「錯字」等詞語。
@@ -29,21 +29,17 @@ function buildPrompt(questionInfo, answerText, lang) {
 
     const richnessRuleZh = `豐富度（僅開放式）：綜合結構（時人地事、起承轉合）、情節擴充、詞彙多樣性、修飾語運用，四項平均。`;
 
-    // 判斷是否要求輸出英文評語
-    const outputEnglishComment = (lang === 'en');
-    const commentInstruction = outputEnglishComment ? '輸出 JSON 中的 suggestion 和 comment 欄位必須使用英文。' : '';
-
+    // ---- 根據題型組裝提示詞 ----
     let prompt = '';
 
     if (isOpen) {
-        const openTemplateZh = `題目：開放式看圖說故事
+        prompt = `題目：開放式看圖說故事
 參考答案：${refAnswer}
 關鍵字（可能含干擾項）：${keywords}
 學生轉寫：${answerText}
 
 ${coreInstructionZh}
 ${richnessRuleZh}
-${commentInstruction}
 
 評分維度（0-10，一位小數）：
 1. 內容相關性（accuracy）：緊扣主題與參考答案。
@@ -51,9 +47,7 @@ ${commentInstruction}
 3. 語音準確度（integrity）：按上述標準。
 
 輸出 JSON：{"accuracy":分數, "fluency":分數, "integrity":分數, "total_score":平均分, "suggestion":"建議"}`;
-        prompt = openTemplateZh;
     } else {
-        // 半固定式
         let subPrompt = '';
         subQs.forEach((sq, i) => {
             const sqRef = sq.answer || '';
@@ -61,13 +55,12 @@ ${commentInstruction}
             subPrompt += `子問題${i+1}：${sq.question}\n參考答案：${sqRef}\n關鍵字：${sqKw}\n`;
         });
 
-        const fixedTemplateZh = `題目：半固定式看圖答問題
+        prompt = `題目：半固定式看圖答問題
 ${subPrompt}
 學生轉寫（逐題）：${answerText}
 
 ${coreInstructionZh}
 ${completenessRuleZh}
-${commentInstruction}
 
 評分（每子題0-10，一位小數）：
 - 內容相關性（accuracy）：是否切題、用關鍵字（但以參考答案為準）。
@@ -75,7 +68,11 @@ ${commentInstruction}
 - 語音準確度（integrity）：按上述標準。
 
 輸出 JSON：{"sub_scores":[{"accuracy":分數, "completeness":分數, "integrity":分數, "comment":"評語"}, ...], "total_score":平均分, "suggestion":"整體建議"}`;
-        prompt = fixedTemplateZh;
+    }
+
+    // ---- 若語言為英文，附加輸出語言指令 ----
+    if (lang === 'en') {
+        prompt += `\n\n重要：請嚴格遵循上述所有中文評分規則，但所有評語、建議、comment 欄位必須以英文輸出。輸出 JSON 的鍵名保持不變（如 accuracy, fluency, integrity, total_score, suggestion, sub_scores, comment）。`;
     }
 
     return prompt;
@@ -110,11 +107,10 @@ function scoreAnswer(questionInfo, answerText, lang) {
         let finished = false;
 
         const prompt = buildPrompt(questionInfo, truncated, lang);
-        // 系統訊息：根據語言調整，若為英文則要求評語用英文
-        let systemContent = '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。';
-        if (lang === 'en') {
-            systemContent += ' 請將輸出 JSON 中的 suggestion 和 comment 欄位使用英文填寫。';
-        }
+        // 系統訊息：根據語言設定，但評分規則已在提示詞中明確
+        const systemContent = lang === 'zh' 
+            ? '你是一個專業的普通話口語評測助手，嚴格按JSON格式輸出，且必須使用標準書面語，嚴禁粵語口語。' 
+            : 'You are a professional Mandarin speaking assessment assistant. Follow the Chinese scoring rules above, but output all textual comments and suggestions in English. Output strictly in JSON.';
 
         ws.on('open', () => {
             ws.send(JSON.stringify({
