@@ -1233,7 +1233,7 @@
             }
 
             // ================================================================
-            // 11. 教師視圖（完整實現，與原先相同）
+            // 11. 教師視圖
             // ================================================================
             const grades = ['一年級', '二年級', '三年級', '四年級', '五年級', '六年級'];
             const semesters = ['上學期', '下學期'];
@@ -1863,13 +1863,16 @@
                 render();
             };
 
+            // 修正：刪除子問題前先保存當前所有子問題內容
             window.removeSubQuestion = function(btn) {
                 const div = btn.closest('.sub-question');
                 const idx = parseInt(div.dataset.index, 10);
                 if (isNaN(idx)) return;
                 const q = questions.find(q => q.id === editingQuestionId);
                 if (q && q.subQuestions && q.subQuestions.length > idx) {
+                    // 先保存當前所有子問題的輸入內容
                     saveCurrentSubQuestions(q);
+                    // 再執行刪除
                     q.subQuestions.splice(idx, 1);
                     render();
                 }
@@ -1955,6 +1958,7 @@
                     .catch(err => {
                         console.error('更新失敗:', err);
                         alert('儲存失敗：' + (err.message || '請檢查網路或圖片大小，並重試。'));
+                        // 儲存失敗時，內容仍保留在記憶體中，使用者可重試
                     });
             };
 
@@ -2056,7 +2060,7 @@
             };
 
             // ================================================================
-            // 17. 學生答題視圖（完整）
+            // 17. 學生答題視圖
             // ================================================================
             function renderStudentAnswer() {
                 const q = questions.find(q => q.id === studentSelectedQuestionId);
@@ -2210,7 +2214,7 @@
             `], { type: 'application/javascript' }));
 
             // ================================================================
-            // 19. 語音識別（已修改：增加 vad_eos 與 max_speak_time）
+            // 19. 語音識別
             // ================================================================
             function recognizeWithIat(audioBase64, wsUrl) {
                 return new Promise((resolve, reject) => {
@@ -2227,14 +2231,7 @@
                     ws.onopen = () => {
                         ws.send(JSON.stringify({
                             common: { app_id: 'b35875f2' },
-                            // 增加 vad_eos 和 max_speak_time 以包容長停頓與慢語速
-                            business: {
-                                language: 'zh_cn',
-                                domain: 'iat',
-                                accent: 'mandarin',
-                                vad_eos: 10000, // 靜音結束超時 10 秒
-                                max_speak_time: 90000 // 最大說話時間 90 秒（與錄音上限一致）
-                            },
+                            business: { language: 'zh_cn', domain: 'iat', accent: 'mandarin' },
                             data: { status: 0, format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' }
                         }));
                         const audioBuffer = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
